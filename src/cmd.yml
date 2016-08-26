@@ -1,0 +1,31 @@
+name: autoperf
+version: 0.1
+author: Gerd Zellweger <mail@gerdzellweger.com>
+about: Uses less domain knowledge, but more time.
+args:
+    - verbose:
+        short: v
+        multiple: true
+        help: Sets the level of verbosity
+subcommands:
+    - profile:
+        settings:
+            - TrailingVarArg
+        version: 0.1
+        about: Gather performance events by using less domain knowledge, but more time.
+        author: Gerd Zellweger <mail@gerdzellweger.com>
+        args:
+            - debug:
+                short: d
+                long: debug
+                help: Print debug information verbosely.
+            - COMMAND:
+                help: Command to execute.
+                required: true
+                multiple: true
+#            - config:
+#                short: c
+#                long: config
+#                value_name: FILE
+#                help: Sets a custom config file for different deployments.
+#                takes_value: true
