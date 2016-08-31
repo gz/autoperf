@@ -1,4 +1,6 @@
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate log;
 extern crate env_logger;
 #[macro_use]
@@ -18,8 +20,24 @@ use std::str::FromStr;
 use clap::{App};
 use pbr::ProgressBar;
 use x86::shared::perfcnt::{core_counters, uncore_counters};
-use x86::shared::perfcnt::intel::description::{IntelPerformanceCounterDescription, Tuple};
+use x86::shared::perfcnt::intel::description::{IntelPerformanceCounterDescription, Tuple, Counter};
 use x86::shared::{cpuid};
+
+lazy_static! {
+    static ref HT_AVAILABLE: bool = {
+        let cpuid = cpuid::CpuId::new();
+        cpuid.get_extended_topology_info().unwrap().any(|t| {
+            t.level_type() == cpuid::TopologyType::SMT
+        })
+    };
+
+    static ref PMU_COUNTERS: usize = {
+        let cpuid = cpuid::CpuId::new();
+        cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters()) as usize
+    };
+}
+
+
 
 fn perf_record(idx: u64, cmd: &Vec<&str>, counters: &Vec<String>, datafile: &Path) {
     assert!(cmd.len() >= 1);
@@ -55,6 +73,248 @@ fn get_events() -> Vec<&'static IntelPerformanceCounterDescription> {
     events
 }
 
+#[derive(Debug)]
+struct PerfEvent(&'static IntelPerformanceCounterDescription);
+
+struct PerfEventConfigIter<'a> {
+    event: &'a PerfEvent,
+    curr: usize,
+}
+
+impl<'a> Iterator for PerfEventConfigIter<'a> {
+
+    type Item = Vec<String>;
+
+    fn next(&mut self) -> Option<Vec<String>> {
+        self.curr += 1;
+
+        if self.curr == 1 {
+            return Some(self.event.perf_args(false));
+        }
+
+        if self.curr == 2 && self.event.is_offcore() {
+            return Some(self.event.perf_args(true));
+        }
+
+        None
+    }
+}
+
+impl PerfEvent {
+
+    /// Iterator over all possible event configurations.
+    pub fn perf_configs(&self) -> PerfEventConfigIter {
+        PerfEventConfigIter{ event: self, curr: 0 }
+    }
+
+    /// Is this event an offcore event?
+    pub fn is_offcore(&self) -> bool {
+        match self.0.event_code {
+            Tuple::One(_) => false,
+            Tuple::Two(_, _) => {
+                assert!(self.0.event_name.contains("OFFCORE"));
+                true
+            },
+        }
+    }
+
+    pub fn counter(&self) -> Counter {
+        if *HT_AVAILABLE {
+            self.0.counter
+        } else {
+            self.0.counter_ht_off
+        }
+    }
+
+    /// Returns a set of attributes used to build the perf event description.
+    ///
+    /// # Arguments
+    ///   * try_alternative: Can give a different event encoding (for offcore events).
+    ///
+    fn perf_args(&self, try_alternative: bool) -> Vec<String> {
+
+        // OFFCORE_RESPONSE_0 and OFFCORE_RESPONSE_1  provide identical functionality.  The reason
+        // that there are two of them is that these events are associated with a separate MSR that is
+        // used to program the types of requests/responses that you want to count (instead of being
+        // able to include this information in the Umask field of the PERFEVT_SELx MSR).   The
+        // performance counter event OFFCORE_RESPONSE_0 (Event 0xB7) is associated with MSR 0x1A6,
+        // while the performance counter event OFFCORE_RESPONSE_1 (Event 0xBB) is associated with MSR
+        // 0x1A7.
+        // So having two events (with different associated MSRs) allows you to count two different
+        // offcore response events at the same time.
+        // Source: https://software.intel.com/en-us/forums/software-tuning-performance-optimization-platform-monitoring/topic/559227
+
+        let mut args = Vec::new();
+
+        match self.0.event_code {
+            Tuple::One(ev) => args.push(format!("event=0x{:x}", ev)),
+            Tuple::Two(e1, e2) => {
+                if !try_alternative {
+                    args.push(format!("event=0x{:x}", e1))
+                }
+                else {
+                    args.push(format!("event=0x{:x}", e2))
+                }
+            }
+        };
+
+        match self.0.umask {
+            Tuple::One(mask) => args.push(format!("umask=0x{:x}", mask)),
+            Tuple::Two(m1, m2) => {
+                if !try_alternative {
+                    args.push(format!("umask=0x{:x}", m1))
+                }
+                else {
+                    args.push(format!("umask=0x{:x}", m2))
+                }
+            }
+        };
+
+        if self.0.counter_mask != 0 {
+            args.push(format!("cmask=0x{:x}", self.0.counter_mask));
+        }
+
+        if self.0.offcore {
+            args.push(format!("offcore_rsp=0x{:x}", self.0.msr_value));
+        }
+
+        if self.0.invert {
+            args.push(String::from("inv=1"));
+        }
+
+        if self.0.edge_detect {
+            args.push(String::from("edge=1"));
+        }
+
+        args
+    }
+}
+
+struct PerfEventGroup {
+    events: Vec<PerfEvent>,
+    size: usize,
+}
+
+impl PerfEventGroup {
+
+    /// Make a new performance event group.
+    ///
+    /// Group size should not exceed amount of available counters.
+    pub fn new(group_size: usize) -> PerfEventGroup {
+        PerfEventGroup { size: group_size, events: Vec::with_capacity(group_size) }
+    }
+
+    /// Returns how many offcore counters are in the group.
+    fn offcore_counters(&self) -> usize {
+        self.events.iter().filter(|e| {
+            e.is_offcore()
+        }).count()
+    }
+
+    /// Try to add an event to an event group.
+    ///
+    /// Returns true if the event can be added to the group, false if we would be Unable
+    /// to measure the event in the same group (given the PMU limitations).
+    ///
+    /// Things we consider right now:
+    /// * Can't have more than two offcore events because we only have two MSRs to measure them.
+    /// * Some events can only use some counters.
+    pub fn add_event(&mut self, event: PerfEvent) -> bool {
+        if self.events.len() >= self.size {
+            false
+        }
+        else {
+            // 1. Can't measure more than two offcore counters:
+            if event.is_offcore() && self.offcore_counters() == 2 {
+                return false;
+            }
+
+            // 2. Now, consider the counter <-> event mapping constraints:
+            // 2.1 First we find our constraints
+            let new_event_counter = event.counter();
+
+            // 2.2 Now try to see if there is any event already in the group
+            // that would conflicts when running together with the new `event`:
+            let conflicts = self.events.iter().any(|cur| {
+                match cur.counter() {
+                    Counter::Programmable(cmask) => {
+                        match event.counter() {
+                            Counter::Programmable(emask) => (cmask | emask).count_ones() < 2,
+                            _ => false, // No conflict
+                        }
+                    },
+                    Counter::Fixed(cmask) => {
+                        match event.counter() {
+                            Counter::Fixed(emask) => (cmask | emask).count_ones() < 2,
+                            _ => false, // No conflict
+                        }
+                    },
+                }
+            });
+            if conflicts {
+                panic!("Wow, this actually triggers?");
+                return false;
+            }
+
+            self.events.push(event);
+            true
+        }
+    }
+
+    /// Find the right config to use for every event in the group.
+    ///
+    /// * We need to make sure we use the correct config if we have two offcore events in the same group.
+    pub fn get_perf_config(&self) -> Vec<Vec<String>> {
+        let mut configs: Vec<Vec<String>> = Vec::with_capacity(self.size);
+        let mut second_offcore = false; // Have we already added one offcore event?
+
+        for event in self.events.iter() {
+            configs.push(match second_offcore && event.is_offcore() {
+                false => event.perf_configs().next().unwrap(), // Ok, always has at least one config
+                true => event.perf_configs().nth(1).unwrap() // Ok, as offcore implies two configs
+            });
+            if event.is_offcore() {
+                second_offcore = true;
+            }
+        }
+
+        configs
+    }
+}
+
+/// Given a list of events, create a list of event groups that can be measured together.
+fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>) -> Vec<PerfEventGroup> {
+
+    if *PMU_COUNTERS == 0 {
+        error!("No PMU counters? Can't measure anything.");
+        return Vec::default();
+    }
+    let expected_groups = events.len() / *PMU_COUNTERS;
+
+    let mut groups: Vec<PerfEventGroup> = Vec::with_capacity(expected_groups);
+    for event in events {
+        let mut added: bool = false;
+        // Try to add the event to an existing group:
+        for group in groups.iter_mut() {
+            let perf_event: PerfEvent = PerfEvent(event);
+            added = group.add_event(perf_event);
+            if added {
+                break;
+            }
+        }
+
+        // Unable to add event to any existing group, make a new group instead:
+        if !added {
+            let mut pg = PerfEventGroup::new(*PMU_COUNTERS);
+            let perf_event: PerfEvent = PerfEvent(event);
+            let ret = pg.add_event(perf_event);
+            assert!(ret == true); // Should always be able to add an event to an empty group
+            groups.push(pg);
+        }
+    }
+
+    groups
+}
 
 fn run_profile(output_path: &Path, cmd: Vec<&str>) {
     assert!(cmd.len() >= 1);
@@ -66,17 +326,7 @@ fn run_profile(output_path: &Path, cmd: Vec<&str>) {
     let r = wtr.encode(("command", "counters", "breakpoints", "datafile"));
     assert!(r.is_ok());
 
-    let events = get_events();
-    let cpuid = cpuid::CpuId::new();
-    let available_counters: u8 = cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters());
-    debug!("CPUs have {:?} PMCs", available_counters);
-    if available_counters == 0 {
-        error!("No PMU counters detected? Can't measure anything.");
-        std::process::exit(4);
-    }
-
-    let event_groups = events.chunks(available_counters as usize);
-    debug!("approx event groups: {:?}", event_groups.len());
+    let event_groups = schedule_events(get_events());
 
     let mut pb = ProgressBar::new(event_groups.len() as u64);
     for group in event_groups {
@@ -85,56 +335,18 @@ fn run_profile(output_path: &Path, cmd: Vec<&str>) {
         record_path.push(output_path);
         record_path.push(format!("{}_perf.data", idx));
 
-        //debug!("test group is: {:?}", group);
-        let mut counters = Vec::with_capacity(available_counters as usize);
-        for counter in group {
-            debug!("umask: {:?}", counter.umask);
-            debug!("event_code: {:?}", counter.event_code);
-            debug!("invert: {:?}", counter.invert);
-            debug!("cmask: {:?}", counter.counter_mask);
-
-            //panic!("Can't deal with this...");
-            let umask = match counter.umask {
-                Tuple::One(mask) => mask,
-                Tuple::Two(m1, m2) => { println!("{:?}", counter); panic!("NYI"); m1 }
-            };
-
-            let event = match counter.event_code {
-                Tuple::One(ev) => ev,
-                Tuple::Two(e1, e2) => {println!("{:?}", counter); panic!("NYI"); e1 } //panic!("Can't deal with this...")
-            };
-
-            let inv = match counter.invert {
-                true => ",inv",
-                false => ""
-            };
-
-            let cmask = counter.counter_mask;
-
-            counters.push(format!("cpu/event=0x{:x},umask=0x{:x},cmask=0x{:x}{}/", event, umask, cmask, inv));
+        let mut counters: Vec<String> = Vec::new();
+        for args in group.get_perf_config() {
+            let arg_string = args.join(",");
+            counters.push(format!("cpu/{}/", arg_string));
         }
-
-        //perf stat -e cycles -e cpu/event=0x0e,umask=0x01,inv,cmask=0x01/ -a sleep 5
-        //
-        // If the Intel docs for a QM720 Core i7 describe an event as:
-        //
-        // Event  Umask  Event Mask
-        // Num.   Value  Mnemonic    Description                        Comment
-        //
-        // A8H      01H  LSD.UOPS    Counts the number of micro-ops     Use cmask=1 and
-        // delivered by loop stream detector  invert to count
-        // cycles
-        //
-        // raw encoding of 0x1A8 can be used:
-        //perf stat -e r1a8 -a sleep 1
-        //perf record -e r1a8 ...
-        //
 
         perf_record(idx, &cmd, &counters, record_path.as_path());
 
         let path_string = String::from_str(record_path.to_str().unwrap_or("undecodable")).unwrap();
         let r = wtr.encode(vec![cmd.join(" "), counters.join(" "), String::new(),  path_string]);
         assert!(r.is_ok());
+
         let r = wtr.flush();
         assert!(r.is_ok());
     }

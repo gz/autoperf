@@ -10,3 +10,4 @@ log = "0.3"
 env_logger = "0.3"
 csv = "0.14.*"
 x86 = { version = "0.9.*", path = "../rust-x86" }
+lazy_static = "0.1.*"
