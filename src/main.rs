@@ -39,19 +39,17 @@ lazy_static! {
 
 
 
-fn perf_record(idx: u64, cmd: &Vec<&str>, counters: &Vec<String>, datafile: &Path) {
+fn perf_record(cmd: &Vec<&str>, counters: &Vec<String>, datafile: &Path) {
     assert!(cmd.len() >= 1);
-    let counter_args: Vec<String> = counters.iter().map(|c| { format!("-e {}", c) } ).collect();
-
     let mut perf = Command::new("perf");
     let mut perf = perf.arg("record").arg("-o").arg(datafile.as_os_str());
-    let mut perf = perf.args(counter_args.as_slice());
+    let mut perf = perf.args(counters.as_slice());
     let mut perf = perf.args(cmd.as_slice());
 
     match perf.output() {
         Ok(out) => {
-            debug!("{:?} exit status was: {}", perf, out.status);
-            println!("stderr: {}", String::from_utf8_lossy(&out.stderr));
+            //debug!("{:?} exit status was: {}", perf, out.status);
+            //println!("stderr: {}", String::from_utf8_lossy(&out.stderr));
         },
         Err(err) => {
             error!("Executing '{}' failed : {}", cmd.join(" "), err)
@@ -118,6 +116,7 @@ impl PerfEvent {
         }
     }
 
+    /// Get the correct counter mask
     pub fn counter(&self) -> Counter {
         if *HT_AVAILABLE {
             self.0.counter
@@ -130,7 +129,6 @@ impl PerfEvent {
     ///
     /// # Arguments
     ///   * try_alternative: Can give a different event encoding (for offcore events).
-    ///
     fn perf_args(&self, try_alternative: bool) -> Vec<String> {
 
         // OFFCORE_RESPONSE_0 and OFFCORE_RESPONSE_1  provide identical functionality.  The reason
@@ -230,10 +228,7 @@ impl PerfEventGroup {
             }
 
             // 2. Now, consider the counter <-> event mapping constraints:
-            // 2.1 First we find our constraints
-            let new_event_counter = event.counter();
-
-            // 2.2 Now try to see if there is any event already in the group
+            // Try to see if there is any event already in the group
             // that would conflicts when running together with the new `event`:
             let conflicts = self.events.iter().any(|cur| {
                 match cur.counter() {
@@ -252,7 +247,7 @@ impl PerfEventGroup {
                 }
             });
             if conflicts {
-                panic!("Wow, this actually triggers?");
+                //panic!("Wow, this actually triggers?");
                 return false;
             }
 
@@ -332,16 +327,17 @@ fn run_profile(output_path: &Path, cmd: Vec<&str>) {
     for group in event_groups {
         let mut record_path = PathBuf::new();
         let idx = pb.inc();
+
         record_path.push(output_path);
         record_path.push(format!("{}_perf.data", idx));
 
         let mut counters: Vec<String> = Vec::new();
         for args in group.get_perf_config() {
             let arg_string = args.join(",");
-            counters.push(format!("cpu/{}/", arg_string));
+            counters.push(format!("-e cpu/{}/", arg_string));
         }
 
-        perf_record(idx, &cmd, &counters, record_path.as_path());
+        perf_record(&cmd, &counters, record_path.as_path());
 
         let path_string = String::from_str(record_path.to_str().unwrap_or("undecodable")).unwrap();
         let r = wtr.encode(vec![cmd.join(" "), counters.join(" "), String::new(),  path_string]);
@@ -357,12 +353,10 @@ fn check_for_perf() {
     match Command::new("perf").output() {
         Ok(out) => {
             if out.status.code() != Some(1) {
-                error!("'perf' not installed, you may need to install it (`sudo apt-get install linux-tools-common`).");
+                error!("'perf' seems to have some problems?");
+                debug!("perf exit status was: {}", out.status);
                 error!("{}", String::from_utf8_lossy(&out.stderr));
                 std::process::exit(2);
-            }
-            else {
-                debug!("perf exit status was: {}", out.status);
             }
         },
         Err(_) => {
@@ -387,7 +381,7 @@ fn check_for_perf_permissions() {
                     std::process::exit(3);
                 }
                 "0" => {
-                    debug!("kptr_restrict is already disabled (good).");
+                    //debug!("kptr_restrict is already disabled (good).");
                 }
                 _ => {
                     warn!("Unkown content read from '{}': {}. Proceeding anyways...", path.display(), s.trim());
