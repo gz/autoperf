@@ -33,7 +33,7 @@ fn perf_record(cmd: &Vec<&str>, counters: &Vec<String>, datafile: &Path) {
     let mut perf = perf.arg("record").arg("-o").arg(datafile.as_os_str());
     let mut perf = perf.arg("--raw-samples");
     let mut perf = perf.arg("--group");
-    let mut perf = perf.arg(counters.join(" "));
+    let mut perf = perf.args(counters);
     let mut perf = perf.args(cmd.as_slice());
     let perf_cmd_str: String = format!("{:?}", perf).replace("\"", "");
 
@@ -334,7 +334,7 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>) {
         let mut counters: Vec<String> = Vec::new();
         for args in group.get_perf_config() {
             let arg_string = args.join(",");
-            counters.push(format!("cpu/{}/", arg_string));
+            counters.push(format!("-e cpu/{}/", arg_string));
         }
 
         perf_record(&cmd, &counters, record_path.as_path());
