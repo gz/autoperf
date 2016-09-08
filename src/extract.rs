@@ -70,7 +70,7 @@ pub fn extract(path: &Path) {
         perf_data.push(&file);
 
         match parse_perf_file(perf_data.as_path()).map(|res| {  }) {
-            Ok(res) => { debug!("Successfully got dat a from {}", &file); }
+            Ok(res) => { debug!("Successfully got dat a from {}", &file); return }
             Err(e) => { error!("Unable to read file {}: {}", &file, e); }
         }
     }

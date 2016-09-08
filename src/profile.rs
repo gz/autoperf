@@ -32,9 +32,8 @@ fn perf_record(cmd: &Vec<&str>, counters: &Vec<String>, datafile: &Path) {
     let mut perf = Command::new("perf");
     let mut perf = perf.arg("record").arg("-o").arg(datafile.as_os_str());
     let mut perf = perf.arg("--raw-samples");
-    let mut perf = perf.arg("-e '{");
-    let mut perf = perf.arg(counters.join(","));
-    let mut perf = perf.arg("}'");
+    let mut perf = perf.arg("--group");
+    let mut perf = perf.arg(counters.join(" "));
     let mut perf = perf.args(cmd.as_slice());
     let perf_cmd_str: String = format!("{:?}", perf).replace("\"", "");
 
