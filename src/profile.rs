@@ -334,7 +334,7 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>) {
         let mut counters: Vec<String> = Vec::new();
         for args in group.get_perf_config() {
             let arg_string = args.join(",");
-            counters.push(format!("-e cpu/{}/", arg_string));
+            counters.push(format!("-e cpu/{}/S", arg_string));
         }
 
         perf_record(&cmd, &counters, record_path.as_path());
