@@ -1,5 +1,5 @@
 name: autoperf
-version: 0.1
+version: "0.1"
 author: Gerd Zellweger <mail@gerdzellweger.com>
 about: Uses less domain knowledge, but more time.
 args:
@@ -11,7 +11,7 @@ subcommands:
     - profile:
         settings:
             - TrailingVarArg
-        version: 0.1
+        version: "0.1"
         about: Gather performance events by using less domain knowledge, but more time.
         author: Gerd Zellweger <mail@gerdzellweger.com>
         args:
@@ -30,15 +30,15 @@ subcommands:
                 required: true
                 multiple: true
     - extract:
-        version: 0.1
-        about: Gather counter measurements from perf.data files in a CSV format.
+        version: "0.1"
+        about: Gather counter measurements from perf.data files in the CSV format.
         author: Gerd Zellweger <mail@gerdzellweger.com>
         args:
             - debug:
                 short: d
                 long: debug
                 help: Print verbose debug information.
-            - output:
+            - input:
                 short: i
                 long: input
                 help: Set input directory.

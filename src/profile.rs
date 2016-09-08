@@ -6,7 +6,6 @@ use std::process::Command;
 use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
-use std::str::FromStr;
 use csv;
 
 use pbr::ProgressBar;
@@ -33,17 +32,24 @@ fn perf_record(cmd: &Vec<&str>, counters: &Vec<String>, datafile: &Path) {
     let mut perf = Command::new("perf");
     let mut perf = perf.arg("record").arg("-o").arg(datafile.as_os_str());
     let mut perf = perf.arg("--raw-samples");
-    let mut perf = perf.arg("--exclude-perf");
-    let mut perf = perf.args(counters.as_slice());
+    let mut perf = perf.arg("-e '{");
+    let mut perf = perf.arg(counters.join(","));
+    let mut perf = perf.arg("}'");
     let mut perf = perf.args(cmd.as_slice());
+    let perf_cmd_str: String = format!("{:?}", perf).replace("\"", "");
 
     match perf.output() {
-        Ok(_) => {
-            //debug!("{:?} exit status was: {}", perf, out.status);
-            //println!("stderr: {}", String::from_utf8_lossy(&out.stderr));
+        Ok(out) => {
+            if !out.status.success() {
+                error!("perf command: {} got unknown exit status was: {}", perf_cmd_str, out.status);
+                debug!("stderr:\n{}", String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
+            }
+            if !datafile.exists() {
+                error!("perf command: {} succeeded but did not produce the required file {:?} (you should file a bug report!)", perf_cmd_str, datafile);
+            }
         },
         Err(err) => {
-            error!("Executing '{}' failed : {}", cmd.join(" "), err)
+            error!("Executing {} failed : {}", perf_cmd_str, err)
         }
     }
 }
@@ -323,18 +329,18 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>) {
         let idx = pb.inc();
 
         record_path.push(output_path);
-        record_path.push(format!("{}_perf.data", idx));
+        let filename = format!("{}_perf.data", idx);
+        record_path.push(&filename);
 
         let mut counters: Vec<String> = Vec::new();
         for args in group.get_perf_config() {
             let arg_string = args.join(",");
-            counters.push(format!("-e cpu/{}/", arg_string));
+            counters.push(format!("cpu/{}/", arg_string));
         }
 
         perf_record(&cmd, &counters, record_path.as_path());
 
-        let path_string = String::from_str(record_path.to_str().unwrap_or("undecodable")).unwrap();
-        let r = wtr.encode(vec![cmd.join(" "), counters.join(" "), String::new(),  path_string]);
+        let r = wtr.encode(vec![cmd.join(" "), counters.join(" "), String::new(), filename]);
         assert!(r.is_ok());
 
         let r = wtr.flush();

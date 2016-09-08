@@ -13,7 +13,6 @@ extern crate perfcnt;
 use clap::{App};
 use std::path::Path;
 
-
 mod extract;
 mod profile;
 
@@ -26,7 +25,7 @@ fn setup_logging() {
     use env_logger::LogBuilder;
 
     let format = |record: &LogRecord| {
-        format!("[{}] {}:{}: {}", record.level(), file!(), line!(), record.args())
+        format!("[{}] {}:{}: {}", record.level(), record.location().file(), record.location().line(), record.args())
     };
 
     let mut builder = LogBuilder::new();
