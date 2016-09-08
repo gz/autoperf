@@ -29,9 +29,18 @@ subcommands:
                 help: Command to execute.
                 required: true
                 multiple: true
-#            - config:
-#                short: c
-#                long: config
-#                value_name: FILE
-#                help: Sets a custom config file for different deployments.
-#                takes_value: true
+    - extract:
+        version: 0.1
+        about: Gather counter measurements from perf.data files in a CSV format.
+        author: Gerd Zellweger <mail@gerdzellweger.com>
+        args:
+            - debug:
+                short: d
+                long: debug
+                help: Print verbose debug information.
+            - output:
+                short: i
+                long: input
+                help: Set input directory.
+                value_name: DIRECTORY
+                takes_value: true
