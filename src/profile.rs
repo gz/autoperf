@@ -33,7 +33,8 @@ fn perf_record(cmd: &Vec<&str>, counters: &Vec<String>, datafile: &Path) {
     let mut perf = perf.arg("record").arg("-o").arg(datafile.as_os_str());
     let mut perf = perf.arg("--raw-samples");
     let mut perf = perf.arg("--group");
-    let mut perf = perf.args(counters);
+    let events: Vec<String> = counters.iter().map(|c| format!("-e {}", c)).collect();
+    let mut perf = perf.args(events.as_slice());
     let mut perf = perf.args(cmd.as_slice());
     let perf_cmd_str: String = format!("{:?}", perf).replace("\"", "");
 
@@ -271,6 +272,26 @@ impl PerfEventGroup {
 
         configs
     }
+
+    /// Returns a list of events as strings that can be passed to perf-record using
+    /// the -e arguments.
+    pub fn get_perf_config_strings(&self) -> Vec<String> {
+        let mut counters: Vec<String> = Vec::new();
+        for args in self.get_perf_config() {
+            let arg_string = args.join(",");
+            counters.push(format!("cpu/{}/S", arg_string));
+        }
+        counters
+    }
+
+    /// Returns a list of event names in this group.
+    ///
+    /// The order of the list of names matches with the order
+    /// returned by `get_perf_config_strings` or `get_perf_config`.
+    pub fn get_event_names(&self) -> Vec<&'static str> {
+        self.events.iter().map(|event| event.0.event_name).collect()
+    }
+
 }
 
 /// Given a list of events, create a list of event groups that can be measured together.
@@ -317,7 +338,7 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>) {
     perf_log.push("perf.csv");
 
     let mut wtr = csv::Writer::from_file(perf_log).unwrap();
-    let r = wtr.encode(("command", "counters", "breakpoints", "datafile"));
+    let r = wtr.encode(("command", "event_names", "perf_events", "breakpoints", "datafile"));
     assert!(r.is_ok());
 
     let event_groups = schedule_events(get_events());
@@ -331,15 +352,12 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>) {
         let filename = format!("{}_perf.data", idx);
         record_path.push(&filename);
 
-        let mut counters: Vec<String> = Vec::new();
-        for args in group.get_perf_config() {
-            let arg_string = args.join(",");
-            counters.push(format!("-e cpu/{}/S", arg_string));
-        }
+        let mut event_names: Vec<&'static str> = group.get_event_names();
+        let counters: Vec<String> = group.get_perf_config_strings();
 
         perf_record(&cmd, &counters, record_path.as_path());
 
-        let r = wtr.encode(vec![cmd.join(" "), counters.join(" "), String::new(), filename]);
+        let r = wtr.encode(vec![cmd.join(" "), event_names.join(","), counters.join(","), String::new(), filename]);
         assert!(r.is_ok());
 
         let r = wtr.flush();
