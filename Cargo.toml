@@ -2,7 +2,8 @@
 name = "autoperf"
 version = "0.1.0"
 authors = [
-    "Gerd Zellweger <mail@gerdzellweger.com>",
+    "Denny Lin <dennylin93@hs.ntnu.edu.tw>",
+    "Gerd Zellweger <mail@gerdzellweger.com>"
 ]
 
 [dependencies]
