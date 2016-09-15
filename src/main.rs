@@ -40,8 +40,10 @@ fn main() {
 
     if let Some(matches) = matches.subcommand_matches("profile") {
         let output_path = Path::new(matches.value_of("output").unwrap_or("out"));
+        let record: bool = matches.is_present("record");
         let cmd: Vec<&str> = matches.values_of("COMMAND").unwrap().collect();
-        profile(output_path, cmd);
+
+        profile(output_path, cmd, record);
     }
     if let Some(matches) = matches.subcommand_matches("extract") {
         let output_path = Path::new(matches.value_of("input").unwrap_or("out"));

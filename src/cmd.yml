@@ -12,7 +12,7 @@ subcommands:
         settings:
             - TrailingVarArg
         version: "0.1"
-        about: Gather performance events by using less domain knowledge, but more time.
+        about: Measure samples of all available H/W events using `perf stat`.
         author: Gerd Zellweger <mail@gerdzellweger.com>
         args:
             - debug:
@@ -25,13 +25,18 @@ subcommands:
                 help: Set output directory.
                 value_name: DIRECTORY
                 takes_value: true
+#            - record:
+#                short: r
+#                long: record
+#                help: Use `perf record` instead of `perf stat` (not recommended due to sampling rate differences).
+#                takes_value: true
             - COMMAND:
                 help: Command to execute.
                 required: true
                 multiple: true
     - extract:
         version: "0.1"
-        about: Gather counter measurements from perf.data files in the CSV format.
+        about: Merge counter measurements generated with the `profile` command in a single CSV file.
         author: Gerd Zellweger <mail@gerdzellweger.com>
         args:
             - debug:

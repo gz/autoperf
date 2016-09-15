@@ -27,13 +27,11 @@ lazy_static! {
     };
 }
 
-fn perf_record(cmd: &Vec<&str>, counters: &Vec<String>, datafile: &Path) {
+fn execute_perf(perf: &mut Command, cmd: &Vec<&str>, counters: &Vec<String>, datafile: &Path) -> String {
     assert!(cmd.len() >= 1);
-    let mut perf = Command::new("perf");
-    let mut perf = perf.arg("record").arg("-o").arg(datafile.as_os_str());
-    let mut perf = perf.arg("--raw-samples");
-    let mut perf = perf.arg("--group");
+    let mut perf = perf.arg("-o").arg(datafile.as_os_str());
     let events: Vec<String> = counters.iter().map(|c| format!("-e {}", c)).collect();
+
     let mut perf = perf.args(events.as_slice());
     let mut perf = perf.args(cmd.as_slice());
     let perf_cmd_str: String = format!("{:?}", perf).replace("\"", "");
@@ -52,6 +50,8 @@ fn perf_record(cmd: &Vec<&str>, counters: &Vec<String>, datafile: &Path) {
             error!("Executing {} failed : {}", perf_cmd_str, err)
         }
     }
+
+    perf_cmd_str
 }
 
 fn create_out_directory(out_dir: &Path) {
@@ -102,12 +102,40 @@ impl PerfEvent {
         PerfEventConfigIter{ event: self, curr: 0 }
     }
 
+    /// Is this event an uncore event?
+    pub fn is_uncore(&self) -> bool {
+//    "Unit": "CBO"
+//    "Unit": "iMPH-U"
+//    "Unit": "NCU"
+        self.0.unit.is_some()
+    }
+
+    /*fn unit_to_perf(&self) -> Option<&'static str> {
+        match self.0.unit.map(|u| {
+            match u {
+                "CBO" => "cbox",
+                "qpi_ll" => "qpi",
+                "sbo" => "sbox",
+                "iMPH-U" => "arb",
+                "NCU" => "xxx" // Don't know how to translate this... Only single counter in Haswell.
+            }
+        })
+    }*/
+
     /// Is this event an offcore event?
     pub fn is_offcore(&self) -> bool {
         match self.0.event_code {
-            Tuple::One(_) => false,
+            Tuple::One(_) => {
+                assert!(!self.0.offcore);
+                false
+            },
             Tuple::Two(_, _) => {
                 assert!(self.0.event_name.contains("OFFCORE"));
+                // This assertion does not hold for haswell :-/, not sure if data is broken or what
+                if !self.0.offcore {
+                    println!("{:?}", self.0.event_name);
+                }
+                assert!(self.0.offcore);
                 true
             },
         }
@@ -139,7 +167,8 @@ impl PerfEvent {
         // offcore response events at the same time.
         // Source: https://software.intel.com/en-us/forums/software-tuning-performance-optimization-platform-monitoring/topic/559227
 
-        let mut args = Vec::new();
+        let mut args = Vec::with_capacity(7);
+        args.push(format!("name={}", self.0.event_name));
 
         match self.0.event_code {
             Tuple::One(ev) => args.push(format!("event=0x{:x}", ev)),
@@ -185,6 +214,7 @@ impl PerfEvent {
     }
 }
 
+#[derive(Debug)]
 struct PerfEventGroup {
     events: Vec<PerfEvent>,
     size: usize,
@@ -244,7 +274,15 @@ impl PerfEventGroup {
                 }
             });
             if conflicts {
-                //panic!("Wow, this actually triggers?");
+                return false;
+            }
+
+
+            // 3. Isolate things that have erratas to not screw other events (see HSW30)
+            let errata = self.events.iter().any(|cur| {
+                cur.0.errata.is_some()
+            });
+            if errata || event.0.errata.is_some() && self.events.len() != 0 {
                 return false;
             }
 
@@ -324,13 +362,15 @@ fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>) -> 
         }
     }
 
+    //println!("{:?}", groups);
     groups
 }
 
-pub fn profile(output_path: &Path, cmd: Vec<&str>) {
+pub fn profile(output_path: &Path, cmd: Vec<&str>, record: bool) {
     create_out_directory(output_path);
     check_for_perf();
     check_for_perf_permissions();
+    check_for_disabled_nmi_watchdog();
 
     assert!(cmd.len() >= 1);
     let mut perf_log = PathBuf::new();
@@ -338,26 +378,37 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>) {
     perf_log.push("perf.csv");
 
     let mut wtr = csv::Writer::from_file(perf_log).unwrap();
-    let r = wtr.encode(("command", "event_names", "perf_events", "breakpoints", "datafile"));
+    let r = wtr.encode(("command", "event_names", "perf_events", "breakpoints", "datafile", "perf_command"));
     assert!(r.is_ok());
 
     let event_groups = schedule_events(get_events());
 
     let mut pb = ProgressBar::new(event_groups.len() as u64);
     for group in event_groups {
-        let mut record_path = PathBuf::new();
         let idx = pb.inc();
-
-        record_path.push(output_path);
-        let filename = format!("{}_perf.data", idx);
-        record_path.push(&filename);
 
         let mut event_names: Vec<&'static str> = group.get_event_names();
         let counters: Vec<String> = group.get_perf_config_strings();
 
-        perf_record(&cmd, &counters, record_path.as_path());
 
-        let r = wtr.encode(vec![cmd.join(" "), event_names.join(","), counters.join(","), String::new(), filename]);
+        let mut perf = Command::new("perf");
+        let mut record_path = PathBuf::new();
+        let mut filename = String::new();
+        if !record {
+            let mut perf = perf.arg("stat").arg("-aA").arg("-I 250").arg("-x ;");
+            record_path.push(output_path);
+            filename = format!("{}_stat.csv", idx);
+            record_path.push(&filename);
+        }
+        else {
+            let mut perf = perf.arg("record").arg("-f").arg("--raw-samples");
+            record_path.push(output_path);
+            filename = format!("{}_perf.data", idx);
+            record_path.push(&filename);
+        }
+
+        let executed_cmd = execute_perf(&mut perf, &cmd, &counters, record_path.as_path());
+        let r = wtr.encode(vec![cmd.join(" "), event_names.join(","), counters.join(","), String::new(), filename, executed_cmd]);
         assert!(r.is_ok());
 
         let r = wtr.flush();
@@ -409,6 +460,36 @@ fn check_for_perf_permissions() {
         Err(why) => {
             error!("Couldn't read {}: {}", path.display(), why.description());
             std::process::exit(3);
+        }
+    }
+}
+
+fn check_for_disabled_nmi_watchdog() {
+    let path = Path::new("/proc/sys/kernel/nmi_watchdog");
+    let mut file = File::open(path).expect("nmi_watchdog file does not exist?");
+    let mut s = String::new();
+
+    match file.read_to_string(&mut s) {
+        Ok(_) =>  {
+            match s.trim() {
+                "1" => {
+                    error!("nmi_watchdog is enabled. This can lead to counters not read (<not counted>). You can disable the watchdog using:");
+                    error!("\tsudo sh -c 'echo 0 > {}'\"", path.display());
+                    error!("to disable.");
+                    std::process::exit(3);
+                }
+                "0" => {
+                    //debug!("nmi_watchdog is already disabled (good).");
+                }
+                _ => {
+                    warn!("Unkown content read from '{}': {}. Proceeding anyways...", path.display(), s.trim());
+                }
+            }
+        }
+
+        Err(why) => {
+            error!("Couldn't read {}: {}", path.display(), why.description());
+            std::process::exit(4);
         }
     }
 }

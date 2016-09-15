@@ -22,5 +22,5 @@ $ rustup override set nightly
 
 Python:
 ```
-$ sudo pip install pandas numpy
+$ sudo pip install pandas numpy data_hacks
 ```
