@@ -1,7 +1,8 @@
 use std;
 
-use std::fs::File;
 use std::io::prelude::*;
+use std::fs;
+use std::fs::File;
 use std::process::Command;
 use std::error::Error;
 use std::path::Path;
@@ -24,6 +25,19 @@ lazy_static! {
     static ref PMU_COUNTERS: usize = {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters()) as usize
+    };
+
+    static ref PMU_DEVICES: Vec<String> = {
+        // TODO: Return empty Vec in case of error
+        let paths = fs::read_dir("/sys/bus/event_source/devices/").expect("Can't read devices directory.");
+        let mut devices = Vec::with_capacity(15);
+        for p in paths {
+            let path = p.expect("Is not a path.");
+            let file_name = path.file_name().into_string().expect("Is valid UTF-8 string.");
+            devices.push(file_name);
+        }
+
+        devices
     };
 }
 
@@ -68,59 +82,92 @@ fn get_events() -> Vec<&'static IntelPerformanceCounterDescription> {
     events
 }
 
-#[derive(Debug)]
-struct PerfEvent(&'static IntelPerformanceCounterDescription);
-
-struct PerfEventConfigIter<'a> {
-    event: &'a PerfEvent,
-    curr: usize,
+pub enum UncoreType {
+    /// Memory stuff
+    Arb,
+    /// The CBox manages the interface between the core and the LLC, so
+    /// the instances of uncore CBox is equal to number of cores
+    CBox,
+    /// ???
+    SBox,
+    /// QPI Stuff
+    QPI,
+    /// Types we don't know how to handle...
+    Unknown(&'static str)
 }
 
-impl<'a> Iterator for PerfEventConfigIter<'a> {
+impl UncoreType {
 
-    type Item = Vec<String>;
-
-    fn next(&mut self) -> Option<Vec<String>> {
-        self.curr += 1;
-
-        if self.curr == 1 {
-            return Some(self.event.perf_args(false));
+    fn new(unit: &'static str) -> UncoreType {
+        match unit {
+            "CBO" => UncoreType::CBox,
+            "qpi_ll" => UncoreType::QPI,
+            "sbo" => UncoreType::SBox,
+            "iMPH-U" => UncoreType::Arb,
+            _ => UncoreType::Unknown(unit)
         }
+    }
 
-        if self.curr == 2 && self.event.is_offcore() {
-            return Some(self.event.perf_args(true));
+    /// Return the perf prefix for selecting the right PMU unit in case of uncore counters.
+    fn to_perf_prefix(&self) -> &'static str {
+        match *self {
+            UncoreType::CBox => Some("uncore_cbox"),
+            UncoreType::QPI => Some("uncore_qpi"),
+            UncoreType::SBox => Some("uncore_sbox"),
+            UncoreType::Arb => Some("uncore_arb"),
+            UncoreType::Unknown(x) => x
         }
-
-        None
     }
 }
 
+
+#[derive(Debug)]
+struct PerfEvent(&'static IntelPerformanceCounterDescription);
+
 impl PerfEvent {
 
-    /// Iterator over all possible event configurations.
-    pub fn perf_configs(&self) -> PerfEventConfigIter {
-        PerfEventConfigIter{ event: self, curr: 0 }
+    /// Returns all possible configurations of the event.
+    /// This is a two vector tuple containing devices and configs:
+    ///
+    ///   * Devices are a subset of the ones listed in `/sys/bus/event_source/devices/`
+    ///     Usually just `cpu` but uncore events can be measured on multiple devices.
+    ///   * Configs are all possible combinations of attributes for this event.
+    ///     Usually one but offcore events have two.
+    ///
+    /// # Note
+    /// The assumption of the return type is that we can always match any
+    /// device with any config. Let's see how long this assumption will remain valid...
+    ///
+    pub fn perf_configs(&self) -> (Vec<String>, Vec<Vec<String>>) {
+        let mut devices = Vec::with_capacity(1);
+        let mut configs = Vec::with_capacity(2);
+
+        if self.is_uncore() {
+            let typ = self.uncore_type().expect("is_uncore() implies uncore type");
+
+            // XXX: Horrible vector transformation:
+            let matched_devices: Vec<String> = PMU_DEVICES.iter().filter(|d| d.starts_with(typ.to_perf_prefix())).map(|d| d.clone()).collect();
+            devices.extend(matched_devices);
+        }
+        else { // Offcore or regular event
+            devices.push(String::from("cpu"));
+        }
+
+        for args in self.perf_args() {
+            configs.push(args);
+        }
+
+        (devices, configs)
     }
 
     /// Is this event an uncore event?
     pub fn is_uncore(&self) -> bool {
-//    "Unit": "CBO"
-//    "Unit": "iMPH-U"
-//    "Unit": "NCU"
         self.0.unit.is_some()
     }
 
-    /*fn unit_to_perf(&self) -> Option<&'static str> {
-        match self.0.unit.map(|u| {
-            match u {
-                "CBO" => "cbox",
-                "qpi_ll" => "qpi",
-                "sbo" => "sbox",
-                "iMPH-U" => "arb",
-                "NCU" => "xxx" // Don't know how to translate this... Only single counter in Haswell.
-            }
-        })
-    }*/
+    fn uncore_type(&self) -> Option<UncoreType> {
+        self.0.unit.map(|u| UncoreType::new(u) )
+    }
 
     /// Is this event an offcore event?
     pub fn is_offcore(&self) -> bool {
@@ -131,11 +178,9 @@ impl PerfEvent {
             },
             Tuple::Two(_, _) => {
                 assert!(self.0.event_name.contains("OFFCORE"));
-                // This assertion does not hold for haswell :-/, not sure if data is broken or what
-                if !self.0.offcore {
-                    println!("{:?}", self.0.event_name);
-                }
-                assert!(self.0.offcore);
+                // The OR is because there is this weird meta-event OFFCORE_RESPONSE
+                // in the data files. It has offcore == false and is not really a proper event :/
+                assert!(self.0.offcore || self.0.event_name == "OFFCORE_RESPONSE");
                 true
             },
         }
@@ -154,8 +199,7 @@ impl PerfEvent {
     ///
     /// # Arguments
     ///   * try_alternative: Can give a different event encoding (for offcore events).
-    fn perf_args(&self, try_alternative: bool) -> Vec<String> {
-
+    fn perf_args(&self) -> Vec<Vec<String>> {
         // OFFCORE_RESPONSE_0 and OFFCORE_RESPONSE_1  provide identical functionality.  The reason
         // that there are two of them is that these events are associated with a separate MSR that is
         // used to program the types of requests/responses that you want to count (instead of being
@@ -167,51 +211,59 @@ impl PerfEvent {
         // offcore response events at the same time.
         // Source: https://software.intel.com/en-us/forums/software-tuning-performance-optimization-platform-monitoring/topic/559227
 
-        let mut args = Vec::with_capacity(7);
-        args.push(format!("name={}", self.0.event_name));
+        let two_configs: bool = match self.0.event_code {
+            Tuple::One(_) => false,
+            Tuple::Two(_, _) => true
+        };
+
+        let mut ret: Vec<Vec<String>> = vec![ Vec::with_capacity(7) ];
+        ret[0].push(format!("name={}", self.0.event_name));
+        if two_configs {
+            ret.push(Vec::with_capacity(7));
+            ret[1].push(format!("name={}", self.0.event_name));
+        }
 
         match self.0.event_code {
-            Tuple::One(ev) => args.push(format!("event=0x{:x}", ev)),
+            Tuple::One(ev) => ret[0].push(format!("event=0x{:x}", ev)),
             Tuple::Two(e1, e2) => {
-                if !try_alternative {
-                    args.push(format!("event=0x{:x}", e1))
-                }
-                else {
-                    args.push(format!("event=0x{:x}", e2))
-                }
+                assert!(two_configs);
+                ret[0].push(format!("event=0x{:x}", e1));
+                ret[1].push(format!("event=0x{:x}", e2));
             }
         };
 
         match self.0.umask {
-            Tuple::One(mask) => args.push(format!("umask=0x{:x}", mask)),
+            Tuple::One(mask) => ret[0].push(format!("umask=0x{:x}", mask)),
             Tuple::Two(m1, m2) => {
-                if !try_alternative {
-                    args.push(format!("umask=0x{:x}", m1))
-                }
-                else {
-                    args.push(format!("umask=0x{:x}", m2))
-                }
+                assert!(two_configs);
+                ret[0].push(format!("umask=0x{:x}", m1));
+                ret[1].push(format!("umask=0x{:x}", m2));
             }
         };
 
         if self.0.counter_mask != 0 {
-            args.push(format!("cmask=0x{:x}", self.0.counter_mask));
+            ret[0].push(format!("cmask=0x{:x}", self.0.counter_mask));
+            if two_configs { ret[1].push(format!("cmask=0x{:x}", self.0.counter_mask)); }
         }
 
         if self.0.offcore {
-            args.push(format!("offcore_rsp=0x{:x}", self.0.msr_value));
+            ret[0].push(format!("offcore_rsp=0x{:x}", self.0.msr_value));
+            if two_configs { ret[1].push(format!("offcore_rsp=0x{:x}", self.0.msr_value)); }
         }
 
         if self.0.invert {
-            args.push(String::from("inv=1"));
+            ret[0].push(String::from("inv=1"));
+            if two_configs { ret[1].push(String::from("inv=1")); }
         }
 
         if self.0.edge_detect {
-            args.push(String::from("edge=1"));
+            ret[0].push(String::from("edge=1"));
+            if two_configs { ret[1].push(String::from("edge=1")); }
         }
 
-        args
+        ret
     }
+
 }
 
 #[derive(Debug)]
@@ -229,10 +281,17 @@ impl PerfEventGroup {
         PerfEventGroup { size: group_size, events: Vec::with_capacity(group_size) }
     }
 
-    /// Returns how many offcore counters are in the group.
-    fn offcore_counters(&self) -> usize {
+    /// Returns how many offcore events are in the group.
+    fn offcore_events(&self) -> usize {
         self.events.iter().filter(|e| {
             e.is_offcore()
+        }).count()
+    }
+
+    /// Returns how many uncore events are in the group.
+    fn uncore_events(&self) -> usize {
+        self.events.iter().filter(|e| {
+            e.is_uncore()
         }).count()
     }
 
@@ -241,16 +300,28 @@ impl PerfEventGroup {
     /// Returns true if the event can be added to the group, false if we would be Unable
     /// to measure the event in the same group (given the PMU limitations).
     ///
-    /// Things we consider right now:
+    /// Things we consider (correctly) right now:
     /// * Can't have more than two offcore events because we only have two MSRs to measure them.
     /// * Some events can only use some counters.
+    ///
+    /// Things we consider (not entirely correct) right now:
+    /// * Event Erratas (not really detailed, just run them in isolation)
+    /// * Uncore limitations (just not more than two at once)
+    ///
     pub fn add_event(&mut self, event: PerfEvent) -> bool {
         if self.events.len() >= self.size {
             false
         }
         else {
-            // 1. Can't measure more than two offcore counters:
-            if event.is_offcore() && self.offcore_counters() == 2 {
+            // 1. Can't measure more than two offcore events:
+            if event.is_offcore() && self.offcore_events() == 2 {
+                return false;
+            }
+
+            // Don't measure more than two uncore events:
+            // (I don't know how to get the exact limits for every uncore piece in the system
+            // but two seems like a sane limit where we don't have multi-plexing)
+            if event.is_uncore() && self.uncore_events() == 2 {
                 return false;
             }
 
@@ -277,7 +348,6 @@ impl PerfEventGroup {
                 return false;
             }
 
-
             // 3. Isolate things that have erratas to not screw other events (see HSW30)
             let errata = self.events.iter().any(|cur| {
                 cur.0.errata.is_some()
@@ -294,32 +364,61 @@ impl PerfEventGroup {
     /// Find the right config to use for every event in the group.
     ///
     /// * We need to make sure we use the correct config if we have two offcore events in the same group.
-    pub fn get_perf_config(&self) -> Vec<Vec<String>> {
-        let mut configs: Vec<Vec<String>> = Vec::with_capacity(self.size);
-        let mut second_offcore = false; // Have we already added one offcore event?
+    pub fn get_perf_config(&self) -> Vec<String> {
+        let mut event_strings: Vec<String> = Vec::with_capacity(self.size);
+        let mut have_one_offcore = false; // Have we already added one offcore event?
 
         for event in self.events.iter() {
-            configs.push(match second_offcore && event.is_offcore() {
-                false => event.perf_configs().next().unwrap(), // Ok, always has at least one config
-                true => event.perf_configs().nth(1).unwrap() // Ok, as offcore implies two configs
-            });
+            let (devices, mut configs) = event.perf_configs();
+
+            // Adding offcore event:
             if event.is_offcore() {
-                second_offcore = true;
+                assert!(devices.len() == 1);
+                assert!(configs.len() == 2);
+                assert!(devices[0] == "cpu");
+
+                let config = match have_one_offcore {
+                    false => configs.get(0).unwrap(), // Ok, always has at least one config
+                    true => configs.get(1).unwrap() // Ok, as offcore implies two configs
+                };
+
+                event_strings.push( format!("{}/{}/S", devices[0], config.join(",")) );
+                have_one_offcore = true;
+            }
+            // Adding uncore event:
+            else if event.is_uncore() {
+                assert!(configs.len() == 1);
+
+                // We can have no devices if we don't understand how to match the unit name to perf names:
+                if devices.len() == 0 {
+                    debug!("Event '{}' currently not supported, ignored.", event.0.event_name);
+                }
+
+                // If we have an uncore event we just go ahead and measure it on all possible devices:
+                for device in devices {
+                    // Patch name in config so we know where this event was running
+                    // `perf stat` just reports CPU 0 for uncore events :-(
+                    configs[0][0] = format!("name={}.{}", device, event.0.event_name);
+                    event_strings.push( format!("{}/{}/S", device, configs[0].join(",") ) );
+                }
+            }
+            // Adding normal event:
+            else  {
+                assert!(devices.len() == 1);
+                assert!(configs.len() == 1);
+                assert!(devices[0] == "cpu");
+
+                event_strings.push( format!("{}/{}/S", devices[0], configs[0].join(",")) );
             }
         }
 
-        configs
+        event_strings
     }
 
     /// Returns a list of events as strings that can be passed to perf-record using
     /// the -e arguments.
     pub fn get_perf_config_strings(&self) -> Vec<String> {
-        let mut counters: Vec<String> = Vec::new();
-        for args in self.get_perf_config() {
-            let arg_string = args.join(",");
-            counters.push(format!("cpu/{}/S", arg_string));
-        }
-        counters
+        self.get_perf_config()
     }
 
     /// Returns a list of event names in this group.
@@ -390,10 +489,9 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>, record: bool) {
         let mut event_names: Vec<&'static str> = group.get_event_names();
         let counters: Vec<String> = group.get_perf_config_strings();
 
-
         let mut perf = Command::new("perf");
         let mut record_path = PathBuf::new();
-        let mut filename = String::new();
+        let mut filename: String;
         if !record {
             let mut perf = perf.arg("stat").arg("-aA").arg("-I 250").arg("-x ;");
             record_path.push(output_path);
