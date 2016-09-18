@@ -58,7 +58,7 @@ fn parse_perf_csv_file(path: &Path, writer: &mut csv::Writer<File>) -> io::Resul
                 warn!("Multiplexed counters: {}", event.trim());
             }
             if percent == 0.0 {
-                error!("Event {} was not measured at all?", value_string);
+                error!("Event {} was not measured at all?", event.trim());
                 process::exit(2);
             }
 
