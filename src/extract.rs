@@ -47,7 +47,7 @@ fn parse_perf_csv_file(path: &Path, writer: &mut csv::Writer<File>) -> io::Resul
             let (time, cpu, value_string, _, event, _, percent): Row = record.expect("Should not happen (in is_ok() branch)!");
 
             if value_string.trim() == "<not counted>" {
-                error!("Event {} was not measured. Abort for now...", {event});
+                error!("Event {} was not measured. Abort for now...", event);
                 // Maybe it's better to handle this by removing the event from all written rows
                 // and log this as a warning...
                 process::exit(1);
