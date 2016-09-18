@@ -1,0 +1,54 @@
+font.size: 18.0
+font.family: sans-serif
+font.sans-serif: Supria Sans, Lucida Grande, Bitstream Vera Sans, Helvetica Neue LT Pro
+font.style: normal
+font.variant: normal
+
+lines.linewidth: 4
+lines.solid_capstyle: butt
+
+# Don't really want a frame but in case we do we want the fancy one:
+legend.frameon: false
+legend.fancybox: true
+
+axes.color_cycle: 30a2da, fc4f30, e5ae38, 6d904f, 8b8b8b
+axes.facecolor: ffffff
+axes.edgecolor: cbcbcb
+axes.labelsize: large
+axes.axisbelow: true
+axes.grid: true
+axes.linewidth: 2.0
+axes.titlesize: x-large
+axes.labelweight: light
+
+# Remove small ticks at the labels, not necessary with grid:
+xtick.major.size: 0
+ytick.major.size: 0
+xtick.minor.size: 0
+ytick.minor.size: 0
+
+# Adds more space between x[0] and y[0] tick labels:
+xtick.major.pad: 7
+ytick.major.pad: 7
+
+patch.edgecolor: f0f0f0
+patch.linewidth: 0.5
+
+svg.fonttype: path
+
+grid.linestyle: -
+grid.linewidth: 1.0
+grid.color: cbcbcb
+
+savefig.edgecolor: f0f0f0
+savefig.facecolor: ffffff
+savefig.dpi: 300
+savefig.bbox: tight
+savefig.pad_inches: 0.05
+
+figure.subplot.left: 0.00
+figure.subplot.right: 1.0
+figure.subplot.bottom: 0.00
+figure.subplot.top: 0.9
+#figure.subplot.wspace  : 0.2    # the amount of width reserved for blank space between subplots
+#figure.subplot.hspace  : 0.2    # the amount of height reserved for white space between subplots
