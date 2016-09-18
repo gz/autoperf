@@ -12,7 +12,7 @@ use csv;
 
 use pbr::ProgressBar;
 use x86::shared::perfcnt::{core_counters, uncore_counters};
-use x86::shared::perfcnt::intel::description::{IntelPerformanceCounterDescription, Tuple, Counter};
+use x86::shared::perfcnt::intel::description::{IntelPerformanceCounterDescription, Tuple, MSRIndex, Counter};
 use x86::shared::{cpuid};
 
 lazy_static! {
@@ -148,13 +148,19 @@ impl UncoreType {
 
     /// Return the perf prefix for selecting the right PMU unit in case of uncore counters.
     fn to_perf_prefix(&self) -> Option<&'static str> {
-        match *self {
+
+        let res = match *self {
             UncoreType::CBox => Some("uncore_cbox"),
             UncoreType::QPI => Some("uncore_qpi"),
             UncoreType::SBox => Some("uncore_sbox"),
             UncoreType::Arb => Some("uncore_arb"),
             UncoreType::Unknown(x) => None
-        }
+        };
+
+        // Note: If anything here does not return uncore_ as a prefix, you need to update extract.rs!
+        res.map(|string| { assert!(string.starts_with("uncore_")) });
+
+        res
     }
 }
 
@@ -293,6 +299,17 @@ impl PerfEvent {
             ret[0].push(format!("offcore_rsp=0x{:x}", self.0.msr_value));
             if two_configs { ret[1].push(format!("offcore_rsp=0x{:x}", self.0.msr_value)); }
         }
+        else {
+            match self.0.msr_index {
+                MSRIndex::One(idx) => {
+                    assert!(idx == 0x3F6); // Load latency MSR
+                    ret[0].push(format!("ldlat=0x{:x}", self.0.msr_value));
+                    if two_configs { ret[1].push(format!("ldlat=0x{:x}", self.0.msr_value)); }
+                }
+                MSRIndex::Two(idx1, idx2) => unreachable!("Should not have non offcore events with two MSR index values."),
+                MSRIndex::None => { /* ignored, not a load latency event */ },
+            };
+        }
 
         if self.0.invert {
             ret[0].push(String::from("inv=1"));
@@ -346,6 +363,7 @@ impl PerfEventGroup {
     /// Things we consider (correctly) right now:
     /// * Can't have more than two offcore events because we only have two MSRs to measure them.
     /// * Some events can only use some counters.
+    /// * Taken alone attribute of the events
     ///
     /// Things we consider (not entirely correct) right now:
     /// * Event Erratas (not really detailed, just run them in isolation)
@@ -399,7 +417,15 @@ impl PerfEventGroup {
                 return false;
             }
 
-            // 4. If our own isolate event list contains the name we also run them alone:
+            // 4. If an event has the taken alone attribute set it needs to be measured alone
+            let have_taken_alone_event = self.events.iter().any(|cur| {
+                cur.0.taken_alone
+            });
+            if have_taken_alone_event || event.0.taken_alone && self.events.len() != 0 {
+                return false;
+            }
+
+            // 5. If our own isolate event list contains the name we also run them alone:
             let have_isolated_event = self.events.get(0).map_or(false, |e| {
                 ISOLATE_EVENTS.iter().any(|cur| *cur == e.0.event_name)
             });

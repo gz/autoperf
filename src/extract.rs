@@ -43,8 +43,9 @@ fn parse_perf_csv_file(path: &Path, writer: &mut csv::Writer<File>) -> io::Resul
     let mut rdr = csv::Reader::from_file(path).unwrap().has_headers(false).delimiter(b';').flexible(true);
 
     for record in rdr.decode() {
-        record.map(|r: Row| {
-            let (time, cpu, value_string, _, event, _, percent): Row = r;
+        if record.is_ok() {
+            let (time, cpu, value_string, _, event, _, percent): Row = record.expect("Should not happen (in is_ok() branch)!");
+
             if value_string.trim() == "<not counted>" {
                 error!("Event {} was not measured. Abort for now...", {event});
                 // Maybe it's better to handle this by removing the event from all written rows
@@ -61,10 +62,25 @@ fn parse_perf_csv_file(path: &Path, writer: &mut csv::Writer<File>) -> io::Resul
                 process::exit(2);
             }
 
-            let cpu_num = cpu.replace("CPU", "");
-            let time_ms = time * 1000.0;
-            writer.encode(&[ event.trim(), (time_ms.trunc() as u64).to_string().as_str(), cpu_num.trim(), value.to_string().as_str() ]);
-        });
+            // Perf will just report CPU0 for uncore events, so we temporarily encode the location
+            // in the event name and extract it here again:
+            let (location, name) = if !event.starts_with("uncore_") {
+                // Normal case, we just take the regular event and cpu fields from perf stat
+                (cpu.trim(), event.trim())
+            } else {
+                // Uncore events, use first part of the event name as the location
+                let (location, name) = event.split_at(event.find(".").unwrap());
+                (location, name.trim_left_matches(".").trim())
+            };
+
+            writer.encode(&[ name, time.to_string().as_str(), location, value.to_string().as_str() ]);
+        }
+        else {
+            match record.unwrap_err() {
+                csv::Error::Decode(s) => if !s.starts_with("Failed converting '#") { panic!("Can't decode line {}.", s) },
+                e => panic!("Unrecoverable error {} while decoding.", e)
+            };
+        }
     }
 
     Ok(())
