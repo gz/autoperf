@@ -4,12 +4,15 @@ use std::fs;
 use std::fs::{File, Metadata};
 use std::path::Path;
 use std::path::PathBuf;
+use std::str::FromStr;
+use std::process;
+
 use csv;
 
 use perfcnt::linux::perf_file::PerfFile;
 use perfcnt::linux::perf_format::*;
 
-/// I have no idea of the perf format guarantees events appear always in the same order :S
+// I have no idea if the perf format guarantees that events appear always in the same order :S
 fn verify_events_in_order(events: &Vec<EventDesc>, values: &Vec<(u64, Option<u64>)>) -> bool {
     for (idx, v) in values.iter().enumerate() {
         // Don't have id's we can't veryify anything
@@ -36,15 +39,28 @@ fn parse_perf_csv_file(path: &Path, writer: &mut csv::Writer<File>) -> io::Resul
         error!("Not a file {:?}", path);
     }
 
-    type Row = (f64, String, u64, String, String, String, f64);
+    type Row = (f64, String, String, String, String, String, f64);
     let mut rdr = csv::Reader::from_file(path).unwrap().has_headers(false).delimiter(b';').flexible(true);
 
     for record in rdr.decode() {
         record.map(|r: Row| {
-            let (time, cpu, value, _, event, _, percent): Row = r;
+            let (time, cpu, value_string, _, event, _, percent): Row = r;
+            if value_string.trim() == "<not counted>" {
+                error!("Event {} was not measured. Abort for now...", {event});
+                // Maybe it's better to handle this by removing the event from all written rows
+                // and log this as a warning...
+                process::exit(1);
+            }
+            let value = u64::from_str(value_string.trim()).expect("Should be a value now...");
+
             if percent < 91.0 {
                 warn!("Multiplexed counters: {}", event.trim());
             }
+            if percent == 0.0 {
+                error!("Event {} was not measured at all?", value_string);
+                process::exit(2);
+            }
+
             let cpu_num = cpu.replace("CPU", "");
             let time_ms = time * 1000.0;
             writer.encode(&[ event.trim(), (time_ms.trunc() as u64).to_string().as_str(), cpu_num.trim(), value.to_string().as_str() ]);
