@@ -38,15 +38,16 @@ def result_to_matrix(df):
 
 def minimum_nan_index(df):
     """
-    Return the earliest index that contains NaN over all columns.
+    Return the earliest index that contains NaN over all columns or None
+    if there are no NaN values in any columns.
 
     # Example
     For the following matrix it returns 1 as (1,1) is NaN:
-    EVENT1  EVENT2  EVENT3 .... EVENTN
-    12           9       5          12
-     1         NaN       2           5
-     0         NaN     100          12
-     0         NaN       1          99
+    idx | EVENT1   EVENT2  EVENT3 .... EVENTN
+      0 |     12        9       5          12
+      1 |      1      NaN       2           5
+      2 |      0      NaN     100          12
+      3 |      0      NaN       1          99
     """
     print df.isnull().any(axis=1)
     for idx, has_null in df.isnull().any(axis=1).iteritems():
@@ -113,21 +114,33 @@ def get_benchmark_data_files(benchmark, plot_output_dir):
         data_files.append((process_name, data_file))
     return data_files
 
+def time_to_ms(df):
+    df['TIME'] = df['TIME'].map(lambda x: int(x * 1000))
+
 def main(argv):
     if len(argv) > 2:
         usage(argv[0])
 
     data_directory = argv[1]
     # Parsed results.csv:
-    raw_data = pd.read_csv(get_results_file(data_directory), index_col=[0], skipinitialspace=True)
+    raw_data = pd.read_csv(get_results_file(data_directory), skipinitialspace=True)
+    raw_data.sortlevel(inplace=True)
+    time_to_ms(raw_data)
+    grouped_df = raw_data.groupby(['EVENT_NAME', 'TIME']).sum()
+    grouped_df.reset_index(level=['TIME'], inplace=True)
+    #print grouped_df
+    #sys.exit(1)
+
     # Remove events whose deltas are all 0:
-    df = raw_data.drop(get_all_zero_events(raw_data))
+    df = grouped_df.drop(get_all_zero_events(grouped_df))
     df = result_to_matrix(df)
     cut_off = minimum_nan_index(df)
-    print "cut off", cut_off
+    if cut_off != None:
+        print "have cut off value", cut_off
+        sys.exit(1)
 
     # Get list of events after pruning
-    events = list(df.columns[1:])
+    events = list(df.columns)
     correlation_matrix = pd.DataFrame(np.corrcoef([df[i] for i in events]),
                                       index=events, columns=events)
     assert correlation_matrix.shape == (len(events), len(events))
@@ -138,11 +151,12 @@ def main(argv):
             assert not np.isnan(correlation_matrix.ix[i, j])
 
     # Write correlation matrix
-    correlation_file = os.path.join(plot_output_dir, 'event_correlation.dat')
+    correlation_file = os.path.join(data_directory, 'event_correlation.dat')
     persist_correlation(correlation_file, events, correlation_matrix)
 
     # Get event names
-    events_file = os.path.join(plot_output_dir, 'events.dat')
+    """
+    events_file = os.path.join(data_directory, 'events.dat')
     event_names = pd.read_csv(events_file, sep='\t', header=None, index_col=0)
     event_names = event_names.to_dict()[1]
 
@@ -158,6 +172,7 @@ def main(argv):
     excluded_events_file = os.path.join(plot_output_dir,
                                         'excluded_events.dat')
     persist_excluded_events(excluded_events_file, excluded_events)
+    """
 
 if __name__ == '__main__':
     main(sys.argv)
