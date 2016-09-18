@@ -8,8 +8,6 @@ To generate a CSV result file from intermediate source files run:
 
 This will put a `results.csv` file in your default (result) output directory which can be parsed by Python.
 
-
-
 # Install dependencies
 
 Rust:
@@ -19,8 +17,7 @@ $ cd autoperf
 $ rustup override set nightly
 ```
 
-
 Python:
 ```
-$ sudo pip install pandas numpy data_hacks
+$ sudo pip install pandas numpy ascii_graph
 ```

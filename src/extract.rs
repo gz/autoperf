@@ -47,7 +47,7 @@ fn parse_perf_csv_file(path: &Path, writer: &mut csv::Writer<File>) -> io::Resul
             }
             let cpu_num = cpu.replace("CPU", "");
             let time_ms = time * 1000.0;
-            try!(writer.encode(&[ event.trim(), (time_ms.trunc() as u64).to_string().as_str(), cpu_num.trim(), value.to_string().as_str() ]));
+            writer.encode(&[ event.trim(), (time_ms.trunc() as u64).to_string().as_str(), cpu_num.trim(), value.to_string().as_str() ]);
         });
     }
 
@@ -102,7 +102,7 @@ fn parse_perf_file(path: &Path, event_names: Vec<&str>, writer: &mut csv::Writer
                     let &(_, name) = event_info.iter().find(|ev| ev.0.ids.contains(&id)).unwrap();
                     let sample_value = format!("{}", event_count);
 
-                    try!(writer.encode(&[ name, time.as_str(), pid.as_str(), tid.as_str(), cpu.as_str(), sample_value.as_str() ]));
+                    writer.encode(&[ name, time.as_str(), pid.as_str(), tid.as_str(), cpu.as_str(), sample_value.as_str() ]).unwrap();
                 }
 
             }

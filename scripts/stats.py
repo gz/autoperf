@@ -21,9 +21,23 @@ def histogram(L):
     return d
 
 
-def yield_sample_lengths(df):
+def yield_cpu_sample_lengths(df):
     for idx in df.index.unique():
-        yield len(df.loc[[idx], 'SAMPLE_VALUE'])
+        if not idx.startswith("uncore_"):
+            yield len(df.loc[[idx], 'SAMPLE_VALUE'])
+
+def yield_uncore_sample_lengths(df):
+    for idx in df.index.unique():
+        if idx.startswith("uncore_"):
+            yield len(df.loc[[idx], 'SAMPLE_VALUE'])
+
+def samples_histogram(df, lengths_fn):
+    lengths = histogram(lengths_fn(df))
+    data = []
+    for key, value in lengths.iteritems():
+        data.append( ("%d samples" % key, value) )
+    data = sorted(data, key=lambda x: x[1])
+    return data
 
 if __name__ == '__main__':
     data_directory = sys.argv[1]
@@ -32,21 +46,20 @@ if __name__ == '__main__':
     all_events = df.index.unique()
     all_zero = get_all_zero_events(df)
 
-    print "Total Events:", len(all_events)
-    title = "Event samples reported all zeroes (%d / %d):" % (len(all_zero), len(all_events))
+    print "Total Events measured:", len(all_events)
+    title = "List of event samples that reported only zeroes (%d / %d):" % (len(all_zero), len(all_events))
     print '\n  - '.join([title] + all_zero)
     df = df.drop(all_zero)
 
     # Sample histogram
     graph = Pyasciigraph()
-    lengths = histogram(yield_sample_lengths(df))
-    data = []
-    for key, value in lengths.iteritems():
-        data.append( ("%d samples" % key, value) )
-    data.sort()
-
-    for line in graph.graph('Recorded samples histogram:', data):
+    for line in graph.graph('Recorded CPU samples histogram:', samples_histogram(df, yield_cpu_sample_lengths)):
         print line.encode('utf-8')
 
-    for idx in df.index.unique():
-        print idx, len(df.loc[[idx], 'SAMPLE_VALUE'])
+    for line in graph.graph('Recorded uncore samples histogram:', samples_histogram(df, yield_uncore_sample_lengths)):
+        print line.encode('utf-8')
+
+    # TODO: Should be CPU events
+    print "The five events with fewest samples are:"
+    for idx in sorted(df.index.unique(), key=lambda x: len(df.loc[[x], 'SAMPLE_VALUE']))[:5]:
+        print idx, ":", len(df.loc[[idx], 'SAMPLE_VALUE']), "samples"

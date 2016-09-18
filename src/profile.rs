@@ -7,6 +7,7 @@ use std::process::Command;
 use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
+use std::str::FromStr;
 use csv;
 
 use pbr::ProgressBar;
@@ -38,6 +39,42 @@ lazy_static! {
         }
 
         devices
+    };
+
+    // Sometimes the perfmon data is missing the errata information (as is the case with the IvyBridge file).\
+    // We provide a list of IvyBridge events instead here.
+    static ref ISOLATE_EVENTS: Vec<&'static str> = {
+        let cpuid = cpuid::CpuId::new();
+        cpuid.get_feature_info().map_or(
+            vec![],
+            |fi| {
+                let (family, extended_model, model) = (fi.family_id(), fi.extended_model_id(), fi.model_id());
+                // IvyBridge
+                if family == 0x6 && extended_model == 0x3 && model == 0xa {
+                    vec![   "MEM_UOPS_RETIRED.ALL_STORES",
+                            "MEM_LOAD_UOPS_RETIRED.L1_MISS",
+                            "MEM_LOAD_UOPS_RETIRED.HIT_LFB",
+                            "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_HITM",
+                            "MEM_LOAD_UOPS_RETIRED.L2_HIT",
+                            "MEM_UOPS_RETIRED.SPLIT_LOADS",
+                            "MEM_UOPS_RETIRED.ALL_LOADS",
+                            "MEM_LOAD_UOPS_LLC_MISS_RETIRED.LOCAL_DRAM",
+                            "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_NONE",
+                            "MEM_LOAD_UOPS_RETIRED.L1_HIT",
+                            "MEM_UOPS_RETIRED.STLB_MISS_STORES",
+                            "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_HIT",
+                            "MEM_LOAD_UOPS_RETIRED.LLC_MISS",
+                            "MEM_LOAD_UOPS_RETIRED.L2_MISS",
+                            "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_MISS",
+                            "MEM_UOPS_RETIRED.STLB_MISS_LOADS",
+                            "MEM_UOPS_RETIRED.LOCK_LOADS",
+                            "MEM_LOAD_UOPS_RETIRED.LLC_HIT",
+                            "MEM_UOPS_RETIRED.SPLIT_STORES" ]
+                }
+                else {
+                    vec![]
+                }
+        })
     };
 }
 
@@ -99,23 +136,24 @@ pub enum UncoreType {
 impl UncoreType {
 
     fn new(unit: &'static str) -> UncoreType {
-        match unit {
-            "CBO" => UncoreType::CBox,
+        match unit.to_lowercase().as_str() {
+            "cbo" => UncoreType::CBox,
             "qpi_ll" => UncoreType::QPI,
             "sbo" => UncoreType::SBox,
-            "iMPH-U" => UncoreType::Arb,
+            "imph-u" => UncoreType::Arb,
+            "arb" => UncoreType::Arb,
             _ => UncoreType::Unknown(unit)
         }
     }
 
     /// Return the perf prefix for selecting the right PMU unit in case of uncore counters.
-    fn to_perf_prefix(&self) -> &'static str {
+    fn to_perf_prefix(&self) -> Option<&'static str> {
         match *self {
             UncoreType::CBox => Some("uncore_cbox"),
             UncoreType::QPI => Some("uncore_qpi"),
             UncoreType::SBox => Some("uncore_sbox"),
             UncoreType::Arb => Some("uncore_arb"),
-            UncoreType::Unknown(x) => x
+            UncoreType::Unknown(x) => None
         }
     }
 }
@@ -146,8 +184,13 @@ impl PerfEvent {
             let typ = self.uncore_type().expect("is_uncore() implies uncore type");
 
             // XXX: Horrible vector transformation:
-            let matched_devices: Vec<String> = PMU_DEVICES.iter().filter(|d| d.starts_with(typ.to_perf_prefix())).map(|d| d.clone()).collect();
+            let matched_devices: Vec<String> = PMU_DEVICES
+                .iter()
+                .filter(|d| typ.to_perf_prefix().map_or(false, |t| d.starts_with(t)) ).map(|d| d.clone()).collect();
             devices.extend(matched_devices);
+            if devices.len() == 0 {
+                debug!("Got no device to measure this event:\n{:?}", self.0);
+            }
         }
         else { // Offcore or regular event
             devices.push(String::from("cpu"));
@@ -356,6 +399,14 @@ impl PerfEventGroup {
                 return false;
             }
 
+            // 4. If our own isolate event list contains the name we also run them alone:
+            let have_isolated_event = self.events.get(0).map_or(false, |e| {
+                ISOLATE_EVENTS.iter().any(|cur| *cur == e.0.event_name)
+            });
+            if have_isolated_event || ISOLATE_EVENTS.iter().any(|cur| *cur == event.0.event_name) && self.events.len() != 0 {
+                return false;
+            }
+
             self.events.push(event);
             true
         }
@@ -468,8 +519,10 @@ fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>) -> 
 pub fn profile(output_path: &Path, cmd: Vec<&str>, record: bool) {
     create_out_directory(output_path);
     check_for_perf();
-    check_for_perf_permissions();
-    check_for_disabled_nmi_watchdog();
+    let ret = check_for_perf_permissions() || check_for_disabled_nmi_watchdog() || check_for_perf_paranoia();
+    if !ret {
+        std::process::exit(3);
+    }
 
     assert!(cmd.len() >= 1);
     let mut perf_log = PathBuf::new();
@@ -522,17 +575,19 @@ fn check_for_perf() {
                 error!("'perf' seems to have some problems?");
                 debug!("perf exit status was: {}", out.status);
                 error!("{}", String::from_utf8_lossy(&out.stderr));
+                error!("You may require a restart after fixing this so `/sys/bus/event_source/devices` is updated!");
                 std::process::exit(2);
             }
         },
         Err(_) => {
             error!("'perf' does not seem to be executable? You may need to install it (Ubuntu: `sudo apt-get install linux-tools-common`).");
+            error!("You may require a restart after fixing this so `/sys/bus/event_source/devices` is updated!");
             std::process::exit(2);
         }
     }
 }
 
-fn check_for_perf_permissions() {
+fn check_for_perf_permissions() -> bool {
     let path = Path::new("/proc/sys/kernel/kptr_restrict");
     let mut file = File::open(path).expect("kptr_restrict file does not exist?");
     let mut s = String::new();
@@ -544,7 +599,7 @@ fn check_for_perf_permissions() {
                     error!("kptr restriction is enabled. You can either run autoperf as root or do:");
                     error!("\tsudo sh -c \"echo 0 >> {}\"", path.display());
                     error!("to disable.");
-                    std::process::exit(3);
+                    return false;
                 }
                 "0" => {
                     //debug!("kptr_restrict is already disabled (good).");
@@ -560,9 +615,11 @@ fn check_for_perf_permissions() {
             std::process::exit(3);
         }
     }
+
+    true
 }
 
-fn check_for_disabled_nmi_watchdog() {
+fn check_for_disabled_nmi_watchdog() -> bool {
     let path = Path::new("/proc/sys/kernel/nmi_watchdog");
     let mut file = File::open(path).expect("nmi_watchdog file does not exist?");
     let mut s = String::new();
@@ -571,10 +628,10 @@ fn check_for_disabled_nmi_watchdog() {
         Ok(_) =>  {
             match s.trim() {
                 "1" => {
-                    error!("nmi_watchdog is enabled. This can lead to counters not read (<not counted>). You can disable the watchdog using:");
-                    error!("\tsudo sh -c 'echo 0 > {}'\"", path.display());
+                    error!("nmi_watchdog is enabled. This can lead to counters not read (<not counted>). Execute");
+                    error!("\tsudo sh -c 'echo 0 > {}'", path.display());
                     error!("to disable.");
-                    std::process::exit(3);
+                    return false;
                 }
                 "0" => {
                     //debug!("nmi_watchdog is already disabled (good).");
@@ -590,4 +647,35 @@ fn check_for_disabled_nmi_watchdog() {
             std::process::exit(4);
         }
     }
+
+    true
+}
+
+
+fn check_for_perf_paranoia() -> bool {
+    let path = Path::new("/proc/sys/kernel/perf_event_paranoid");
+    let mut file = File::open(path).expect("perf_event_paranoid file does not exist?");
+    let mut s = String::new();
+
+    return match file.read_to_string(&mut s) {
+        Ok(_) =>  {
+            let digit = i64::from_str(s.trim()).unwrap_or_else(|op| {
+                warn!("Unkown content read from '{}': {}. Proceeding anyways...", path.display(), s.trim());
+                1
+            });
+
+            if digit >= 0 {
+                error!("perf_event_paranoid is enabled. This means we can't collect system wide stats. Execute");
+                error!("\tsudo sh -c 'echo -1 > {}'", path.display());
+                error!("to disable.");
+                return false;
+            }
+            return true;
+        }
+
+        Err(why) => {
+            error!("Couldn't read {}: {}", path.display(), why.description());
+            std::process::exit(4);
+        }
+    };
 }
