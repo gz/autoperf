@@ -11,7 +11,7 @@ colors = LinearSegmentedColormap.from_list('seismic',
                                            ['#ca0020', '#ffffff', '#2a99d6'])
 
 def heatmap(plot_output_dir, data):
-    plt.style.use(['ethplot.mplstyle'])
+    plt.style.use([os.path.join(sys.path[0], 'ethplot.mplstyle')])
     fig, ax = plt.subplots()
 
     ax.xaxis.set_visible(False)

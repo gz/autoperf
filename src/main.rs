@@ -9,16 +9,18 @@ extern crate pbr;
 extern crate csv;
 extern crate x86;
 extern crate perfcnt;
+extern crate yaml_rust;
 
 use clap::{App};
 use std::path::Path;
 
 mod extract;
 mod profile;
+mod pair;
 
 use profile::{profile};
 use extract::{extract};
-
+use pair::{pair};
 
 fn setup_logging() {
     use log::{LogRecord, LogLevelFilter};
@@ -48,5 +50,9 @@ fn main() {
     if let Some(matches) = matches.subcommand_matches("extract") {
         let output_path = Path::new(matches.value_of("input").unwrap_or("out"));
         extract(output_path);
+    }
+    if let Some(matches) = matches.subcommand_matches("pair") {
+        let output_path = Path::new(matches.value_of("output").unwrap_or("out"));
+        pair(output_path);
     }
 }

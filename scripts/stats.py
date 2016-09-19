@@ -61,5 +61,5 @@ if __name__ == '__main__':
 
     # TODO: Should be CPU events
     print "The five events with fewest samples are:"
-    for idx in sorted(df.index.unique(), key=lambda x: len(df.loc[[x], 'SAMPLE_VALUE']))[:5]:
+    for idx in sorted(df.index.unique(), key=lambda x: len(df.loc[[x], 'SAMPLE_VALUE']))[:100]:
         print idx, ":", len(df.loc[[idx], 'SAMPLE_VALUE']), "samples"

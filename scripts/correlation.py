@@ -136,8 +136,8 @@ def main(argv):
     df = result_to_matrix(df)
     cut_off = minimum_nan_index(df)
     if cut_off != None:
-        print "have cut off value", cut_off
-        sys.exit(1)
+        df = df[:cut_off]
+        print df
 
     # Get list of events after pruning
     events = list(df.columns)

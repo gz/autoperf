@@ -11,9 +11,7 @@ subcommands:
     - profile:
         settings:
             - TrailingVarArg
-        version: "0.1"
-        about: Measure samples of all available H/W events using `perf stat`.
-        author: Gerd Zellweger <mail@gerdzellweger.com>
+        about: Measure all available H/W events for a command using `perf stat`.
         args:
             - debug:
                 short: d
@@ -34,10 +32,21 @@ subcommands:
                 help: Command to execute.
                 required: true
                 multiple: true
+    - pair:
+        about: Pair two programs together and measure all hardware events.
+        args:
+            - debug:
+                short: d
+                long: debug
+                help: Print verbose debug information.
+            - output:
+                short: o
+                long: output
+                help: Set output directory.
+                value_name: DIRECTORY
+                takes_value: true
     - extract:
-        version: "0.1"
         about: Merge counter measurements generated with the `profile` command in a single CSV file.
-        author: Gerd Zellweger <mail@gerdzellweger.com>
         args:
             - debug:
                 short: d

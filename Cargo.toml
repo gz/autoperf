@@ -7,11 +7,12 @@ authors = [
 ]
 
 [dependencies]
-clap = { version = "2", features = ["yaml"] }
 pbr = "0.3.*"
 log = "0.3"
 env_logger = "0.3"
 csv = "0.*"
 lazy_static = "0.1.*"
 perfcnt = "0.3.*"
+yaml-rust = "0.3.*"
+clap = { version = "2", features = ["yaml"] }
 x86 = { version = "0.9.*", path = "../rust-x86" }

@@ -154,7 +154,7 @@ impl UncoreType {
             UncoreType::QPI => Some("uncore_qpi"),
             UncoreType::SBox => Some("uncore_sbox"),
             UncoreType::Arb => Some("uncore_arb"),
-            UncoreType::Unknown(x) => None
+            UncoreType::Unknown(_) => None
         };
 
         // Note: If anything here does not return uncore_ as a prefix, you need to update extract.rs!
@@ -306,7 +306,7 @@ impl PerfEvent {
                     ret[0].push(format!("ldlat=0x{:x}", self.0.msr_value));
                     if two_configs { ret[1].push(format!("ldlat=0x{:x}", self.0.msr_value)); }
                 }
-                MSRIndex::Two(idx1, idx2) => unreachable!("Should not have non offcore events with two MSR index values."),
+                MSRIndex::Two(_, _) => unreachable!("Should not have non offcore events with two MSR index values."),
                 MSRIndex::None => { /* ignored, not a load latency event */ },
             };
         }

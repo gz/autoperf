@@ -73,7 +73,7 @@ fn parse_perf_csv_file(path: &Path, writer: &mut csv::Writer<File>) -> io::Resul
                 (location, name.trim_left_matches(".").trim())
             };
 
-            writer.encode(&[ name, time.to_string().as_str(), location, value.to_string().as_str() ]);
+            writer.encode(&[ name, time.to_string().as_str(), location, value.to_string().as_str() ]).unwrap();
         }
         else {
             match record.unwrap_err() {
@@ -174,7 +174,7 @@ pub fn extract(path: &Path) {
 
     for row in rows {
         //println!("{:?}", row);
-        let (cmd, event_names, _, _, file, _) = row;
+        let (_, event_names, _, _, file, _) = row;
         let string_names: Vec<&str> = event_names.split(",").collect();
         debug!("Processing: {}", string_names.join(", "));
 
