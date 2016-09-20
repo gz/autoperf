@@ -134,7 +134,7 @@ fn parse_perf_file(path: &Path, event_names: Vec<&str>, writer: &mut csv::Writer
                     let &(_, name) = event_info.iter().find(|ev| ev.0.ids.contains(&id)).unwrap();
                     let sample_value = format!("{}", event_count);
 
-                    writer.encode(&[ name, time.as_str(), pid.as_str(), tid.as_str(), cpu.as_str(), sample_value.as_str() ]).unwrap();
+                    writer.encode(&[ name, time.as_str(), cpu.as_str(), sample_value.as_str() ]).unwrap();
                 }
 
             }

@@ -578,7 +578,7 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>, record: bool) {
             record_path.push(&filename);
         }
         else {
-            let mut perf = perf.arg("record").arg("-f").arg("--raw-samples");
+            let mut perf = perf.arg("record").arg("--group").arg("-F 4").arg("-a").arg("--raw-samples");
             record_path.push(output_path);
             filename = format!("{}_perf.data", idx);
             record_path.push(&filename);

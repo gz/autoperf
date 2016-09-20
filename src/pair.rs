@@ -5,8 +5,10 @@ use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
-use std::str::FromStr;
+use std::str::{FromStr, from_utf8_unchecked};
+use std::fmt;
 use x86::shared::{cpuid};
+use nom::*;
 
 use csv;
 use yaml_rust::{YamlLoader};
@@ -21,9 +23,55 @@ pub type L3 = u64;
 pub type Online = u64;
 pub type MHz = u64;
 
-#[derive(Debug)]
-pub struct CpuInfo {
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
+pub struct NodeInfo {
     node: Node,
+    memory: u64
+}
+
+fn to_string(s: &[u8]) -> &str {
+    unsafe { from_utf8_unchecked(s) }
+}
+
+fn to_u64(s: &str) -> u64 {
+    FromStr::from_str(s).unwrap()
+}
+
+fn buf_to_u64(s: &[u8]) -> u64 {
+    to_u64(to_string(s))
+}
+
+named!(parse_numactl_size<&[u8], NodeInfo>,
+    chain!(
+        tag!("node") ~
+        take_while!(is_space) ~
+        node: take_while!(is_digit) ~
+        take_while!(is_space) ~
+        tag!("size:") ~
+        take_while!(is_space) ~
+        size: take_while!(is_digit) ~
+        take_while!(is_space) ~
+        tag!("MB"),
+        || NodeInfo { node: buf_to_u64(node), memory: buf_to_u64(size) * 1000000 }
+    )
+);
+
+fn get_node_info(node: Node, numactl_output: &String) -> Option<NodeInfo> {
+    let find_prefix = format!("node {} size:", node);
+    for line in numactl_output.split('\n') {
+        if line.starts_with(find_prefix.as_str()) {
+            let res = parse_numactl_size(line.as_bytes());
+            return Some(res.unwrap().1);
+        }
+    }
+
+    None
+}
+
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct CpuInfo {
+    node: NodeInfo,
     socket: Socket,
     core: Core,
     cpu: Cpu,
@@ -38,7 +86,7 @@ pub struct MachineTopology {
 
 impl MachineTopology {
 
-    pub fn new(lscpu_output: String) -> MachineTopology {
+    pub fn new(lscpu_output: String, numactl_output: String) -> MachineTopology {
         let no_comments: Vec<&str> = lscpu_output.split('\n').filter(|s| s.trim().len() > 0 && !s.trim().starts_with("#")).collect();
         type Row = (Node, Socket, Core, Cpu, String); // Online MHz
 
@@ -49,8 +97,8 @@ impl MachineTopology {
         for row in rows {
             let caches: Vec<u64> = row.4.split(":").map(|s| u64::from_str(s).unwrap()).collect();
             assert_eq!(caches.len(), 4);
-
-            let tuple: CpuInfo = CpuInfo { node: row.0, socket: row.1, core: row.2, cpu: row.3, l1: caches[0], l2: caches[2], l3: caches[3] };
+            let node: NodeInfo = get_node_info(row.0, &numactl_output).expect("Can't find node in numactl output?");
+            let tuple: CpuInfo = CpuInfo { node: node, socket: row.1, core: row.2, cpu: row.3, l1: caches[0], l2: caches[2], l3: caches[3] };
             data.push(tuple);
         }
 
@@ -64,8 +112,8 @@ impl MachineTopology {
         cpus
     }
 
-    pub fn cores(&self) -> Vec<Cpu> {
-        let mut cores: Vec<Cpu> = self.data.iter().map(|t| t.core).collect();
+    pub fn cores(&self) -> Vec<Core> {
+        let mut cores: Vec<Core> = self.data.iter().map(|t| t.core).collect();
         cores.sort();
         cores.dedup();
         cores
@@ -78,11 +126,15 @@ impl MachineTopology {
         sockets
     }
 
-    pub fn nodes(&self) -> Vec<Node> {
-        let mut nodes: Vec<Node> = self.data.iter().map(|t| t.node).collect();
+    pub fn nodes(&self) -> Vec<NodeInfo> {
+        let mut nodes: Vec<NodeInfo> = self.data.iter().map(|t| t.node).collect();
         nodes.sort();
         nodes.dedup();
         nodes
+    }
+
+    pub fn max_memory(&self) -> u64 {
+        self.nodes().iter().map(|t| t.memory).sum()
     }
 
     pub fn l1(&self) -> Vec<L1> {
@@ -130,7 +182,7 @@ impl MachineTopology {
         })
     }
 
-    pub fn cpus_on_node(&self, node: Node) -> Vec<&CpuInfo> {
+    pub fn cpus_on_node(&self, node: NodeInfo) -> Vec<&CpuInfo> {
         self.data.iter().filter(|t| t.node == node).collect()
     }
 
@@ -179,6 +231,24 @@ impl MachineTopology {
     }
 }
 
+fn save_numa_topology(output_path: &Path) -> io::Result<String> {
+    let out = try!(Command::new("numactl").arg("--hardware").output());
+    if out.status.success() {
+        // Save to result directory:
+        let mut numactl_file: PathBuf = output_path.to_path_buf();
+        numactl_file.push("numactl.dat");
+        let mut f = try!(File::create(numactl_file.as_path()));
+        let content = String::from_utf8(out.stdout).unwrap_or(String::new());
+        try!(f.write(content.as_bytes()));
+        Ok(content)
+    }
+    else {
+        error!("numactl command: got unknown exit status was: {}", out.status);
+        debug!("stderr:\n{}", String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
+        unreachable!()
+    }
+}
+
 fn save_cpu_topology(output_path: &Path) -> io::Result<String> {
     let out = try!(Command::new("lscpu").arg("--parse=NODE,SOCKET,CORE,CPU,CACHE").output());
     if out.status.success() {
@@ -201,16 +271,91 @@ fn save_cpu_topology(output_path: &Path) -> io::Result<String> {
     }
 }
 
-pub fn pair(output_path: &Path) {
-    let topo_string = save_cpu_topology(output_path).expect("Can't save CPU topology");
-    let mt = MachineTopology::new(topo_string);
+struct Deployment<'a> {
+    a: Vec<&'a CpuInfo>,
+    b: Vec<&'a CpuInfo>,
+    mem: Vec<NodeInfo>
+}
 
-    println!("{:?} size: {:?}", mt.same_l1(), mt.l1_size());
-    println!("{:?} size: {:?}", mt.same_l2(), mt.l2_size());
-    println!("{:?} size: {:?}", mt.same_l3(), mt.l3_size());
-    println!("{:?}", mt.same_socket());
-    println!("{:?}", mt.same_node());
-    println!("{:?}", mt.same_core());
+impl<'a> Deployment<'a> {
+    pub fn split(possible_groupings: Vec<Vec<&'a CpuInfo>>, size: u64, avoid_smt: bool) -> Deployment<'a> {
+        let mut cpus = possible_groupings.into_iter().last().unwrap();
+
+        if avoid_smt {
+            // Find all the cores:
+            let mut cores: Vec<Cpu> = cpus.iter().map(|t| t.core).collect();
+            cores.sort();
+            cores.dedup();
+            assert!(cores.len() == cpus.len() / 2); // Assume we have 2 SMT per core
+
+            // Pick a CpuInfo for every core:
+            let mut to_remove: Vec<usize> = Vec::with_capacity(cores.len());
+            for core in cores.into_iter() {
+                for cpu in cpus.iter() {
+                    if cpu.core == core {
+                        to_remove.push(core as usize);
+                        break;
+                    }
+                }
+            }
+
+            // Remove one of the hyper-thread pairs:
+            for idx in to_remove {
+                cpus.remove(idx);
+            }
+        }
+
+        let cpus_len = cpus.len();
+        assert!(cpus_len % 2 == 0);
+
+        let upper_half = cpus.split_off(cpus_len / 2);
+        let lower_half = cpus;
+
+        let mut node: NodeInfo = lower_half[0].node;
+        node.memory = size; //as f64 * 0.95;
+
+        Deployment { a: lower_half, b: upper_half, mem: vec![node] }
+    }
+}
+
+impl<'a> fmt::Display for Deployment<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let a: Vec<Cpu> = self.a.iter().map(|c| c.cpu).collect();
+        let b: Vec<Cpu> = self.b.iter().map(|c| c.cpu).collect();
+
+        try!(write!(f, "Deployment Plan:\n"));
+        try!(write!(f, "-- Group A: {:?}\n", a));
+        try!(write!(f, "-- Group B: {:?}\n", b));
+        try!(write!(f, "-- Memory:\n"));
+        for n in self.mem.iter() {
+            try!(write!(f, " - Node {}: {} Bytes\n", n.node, n.memory));
+        }
+        Ok(())
+    }
+}
+
+/*
+put this stuff in deployment:
+struct Run<'a> {
+    binary_a: &'a str,
+    args_a: &'a str,
+    binary_b: &'a str,
+    args_b: &'a str,
+    deployment: &'a Deployment
+}
+*/
+pub fn pair(output_path: &Path) {
+    let lscpu_string = save_cpu_topology(output_path).expect("Can't save CPU topology");
+    let numactl_string = save_numa_topology(output_path).expect("Can't save NUMA topology");
+    let mt = MachineTopology::new(lscpu_string, numactl_string);
+
+    // println!("{:?} size: {:?}", mt.same_l1(), mt.l1_size());
+    // println!("{:?} size: {:?}", mt.same_l2(), mt.l2_size());
+    // println!("{:?} size: {:?}", mt.same_l3(), mt.l3_size());
+    // println!("{:?}", mt.same_socket());
+    // println!("{:?}", mt.same_node());
+    // println!("{:?}", mt.same_core());
+    // println!("{:?}", mt.max_memory());
 
     let mut manifest: PathBuf = output_path.to_path_buf();
     manifest.push("manifest.yml");
@@ -235,22 +380,25 @@ pub fn pair(output_path: &Path) {
     debug!("{:?}", args2);
     debug!("{:?}", configs);
 
-
-
+    let mut deployments: Vec<Deployment> = Vec::with_capacity(20);
     for config in configs {
-        debug!("Config is {}", config);
         if config == "Caches" {
-            println!("L1 Interference:");
-            println!("Run on cores {:?}", mt.same_l1().last().unwrap());
-            println!("With memory sizes {:?} and {:?}", mt.l1_size().unwrap(), "xxx");
+            // Cache interference on HW threads
+            deployments.push(Deployment::split(mt.same_l1(), mt.l1_size().unwrap_or(0), false));
+            deployments.push(Deployment::split(mt.same_l2(), mt.l2_size().unwrap_or(0), false));
 
-
-            println!("L2 Interference:");
-            println!("{:?}", mt.same_l2().last().unwrap());
-
-            println!("L3 Interference:");
-            println!("{:?}", mt.same_l3().last().unwrap());
+            // LLC
+            deployments.push(Deployment::split(mt.same_l3(), mt.l3_size().unwrap_or(0), false));
+            deployments.push(Deployment::split(mt.same_l3(), mt.l3_size().unwrap_or(0), true));
+        }
+        if config == "Memory" {
+            warn!("Memory configuration not yet supported");
         }
     }
+
+    for d in deployments.iter() {
+        println!("{}", d);
+    }
+
 
 }
