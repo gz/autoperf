@@ -576,9 +576,6 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>, env: Vec<(String, String)>, r
             perf.arg("-aA");
             perf.arg("-I 250");
             perf.arg("-x ;");
-            for &(ref key, ref value) in env.iter() {
-                perf.env(key, value);
-            }
             record_path.push(output_path);
             filename = format!("{}_stat.csv", idx);
             record_path.push(&filename);
@@ -592,6 +589,10 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>, env: Vec<(String, String)>, r
             record_path.push(output_path);
             filename = format!("{}_perf.data", idx);
             record_path.push(&filename);
+        }
+        // Add the environment variables:
+        for &(ref key, ref value) in env.iter() {
+            perf.env(key, value);
         }
 
         let executed_cmd = execute_perf(&mut perf, &cmd, &counters, record_path.as_path());
