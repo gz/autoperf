@@ -623,7 +623,7 @@ fn check_for_perf_permissions() -> bool {
             match s.trim() {
                 "1" => {
                     error!("kptr restriction is enabled. You can either run autoperf as root or do:");
-                    error!("\tsudo sh -c \"echo 0 >> {}\"", path.display());
+                    error!("\tsudo sh -c 'echo 0 >> {}'", path.display());
                     error!("to disable.");
                     return false;
                 }

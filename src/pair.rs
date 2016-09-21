@@ -1,17 +1,19 @@
 use std::io;
 use std::io::prelude::*;
-//use std::fs;
+use std::fs;
 use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Child, Stdio};
 use std::str::{FromStr, from_utf8_unchecked};
 use std::fmt;
+
 use x86::shared::{cpuid};
 use nom::*;
-
 use csv;
 use yaml_rust::{YamlLoader};
+
+use profile;
 
 pub type Node = u64;
 pub type Socket = u64;
@@ -22,6 +24,31 @@ pub type L2 = u64;
 pub type L3 = u64;
 pub type Online = u64;
 pub type MHz = u64;
+
+
+fn get_hostname() -> Option<String> {
+    use libc::{gethostname, c_char, size_t, c_int};
+
+    let mut buf: [i8; 64] = [0; 64];
+    let err = unsafe { gethostname (buf.as_mut_ptr(), buf.len()) };
+
+    if err != 0 {
+        info!("Can't read the hostname with gethostname: {}", io::Error::last_os_error());
+        return None;
+    }
+
+    // find the first 0 byte (i.e. just after the data that gethostname wrote)
+    let actual_len = buf.iter().position(|byte| *byte == 0).unwrap_or(buf.len());
+    let c_str: Vec<u8> = buf[..actual_len].into_iter().map(|i| *i as u8).collect();
+
+    Some( String::from_utf8(c_str).unwrap() )
+}
+
+fn mkdir(out_dir: &PathBuf) {
+    if !out_dir.exists() {
+        fs::create_dir(out_dir.as_path()).expect("Can't create `out` directory");
+    }
+}
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
 pub struct NodeInfo {
@@ -272,13 +299,14 @@ fn save_cpu_topology(output_path: &Path) -> io::Result<String> {
 }
 
 struct Deployment<'a> {
+    description: &'static str,
     a: Vec<&'a CpuInfo>,
     b: Vec<&'a CpuInfo>,
     mem: Vec<NodeInfo>
 }
 
 impl<'a> Deployment<'a> {
-    pub fn split(possible_groupings: Vec<Vec<&'a CpuInfo>>, size: u64, avoid_smt: bool) -> Deployment<'a> {
+    pub fn split(desc: &'static str, possible_groupings: Vec<Vec<&'a CpuInfo>>, size: u64, avoid_smt: bool) -> Deployment<'a> {
         let mut cpus = possible_groupings.into_iter().last().unwrap();
 
         if avoid_smt {
@@ -314,7 +342,7 @@ impl<'a> Deployment<'a> {
         let mut node: NodeInfo = lower_half[0].node;
         node.memory = size; //as f64 * 0.95;
 
-        Deployment { a: lower_half, b: upper_half, mem: vec![node] }
+        Deployment { description: desc, a: lower_half, b: upper_half, mem: vec![node] }
     }
 }
 
@@ -323,39 +351,117 @@ impl<'a> fmt::Display for Deployment<'a> {
         let a: Vec<Cpu> = self.a.iter().map(|c| c.cpu).collect();
         let b: Vec<Cpu> = self.b.iter().map(|c| c.cpu).collect();
 
-        try!(write!(f, "Deployment Plan:\n"));
-        try!(write!(f, "-- Group A: {:?}\n", a));
-        try!(write!(f, "-- Group B: {:?}\n", b));
-        try!(write!(f, "-- Memory:\n"));
+        try!(write!(f, "Deployment Plan for {}:\n", self.description));
+        try!(write!(f, "-- Program A cores: {:?}\n", a));
+        try!(write!(f, "-- Program B cores: {:?}\n", b));
+        try!(write!(f, "-- Use memory:\n"));
         for n in self.mem.iter() {
-            try!(write!(f, " - Node {}: {} Bytes\n", n.node, n.memory));
+            try!(write!(f, " - On node {}: {} Bytes\n", n.node, n.memory));
         }
         Ok(())
     }
 }
 
-/*
-put this stuff in deployment:
 struct Run<'a> {
+    output_path: PathBuf,
     binary_a: &'a str,
-    args_a: &'a str,
+    args_a: &'a Vec<&'a str>,
+    child_b: Option<Child>,
     binary_b: &'a str,
-    args_b: &'a str,
-    deployment: &'a Deployment
+    args_b: &'a Vec<&'a str>,
+    deployment: &'a Deployment<'a>
 }
-*/
-pub fn pair(output_path: &Path) {
-    let lscpu_string = save_cpu_topology(output_path).expect("Can't save CPU topology");
-    let numactl_string = save_numa_topology(output_path).expect("Can't save NUMA topology");
-    let mt = MachineTopology::new(lscpu_string, numactl_string);
 
-    // println!("{:?} size: {:?}", mt.same_l1(), mt.l1_size());
-    // println!("{:?} size: {:?}", mt.same_l2(), mt.l2_size());
-    // println!("{:?} size: {:?}", mt.same_l3(), mt.l3_size());
-    // println!("{:?}", mt.same_socket());
-    // println!("{:?}", mt.same_node());
-    // println!("{:?}", mt.same_core());
-    // println!("{:?}", mt.max_memory());
+impl<'a> Run<'a> {
+    fn new(output_path: &Path, a: &'a str, args_a: &'a Vec<&str>, b: &'a str, args_b: &'a Vec<&str>, deployment: &'a Deployment) -> Run<'a> {
+        let mut out_dir = output_path.to_path_buf();
+        out_dir.push(deployment.description);
+        mkdir(&out_dir);
+
+        Run { output_path: out_dir, binary_a: a, args_a: args_a, binary_b: b,
+              args_b: args_b, deployment: deployment,
+              child_b: None }
+    }
+
+    fn get_args_for_a(&self) -> Vec<String> {
+        let nthreads = self.deployment.a.len();
+
+        self.args_a.iter()
+            .map(|s| s.to_string())
+            .map(|s| {
+                s.replace("$NUM_THREADS", format!("{}", nthreads).as_str())
+        }).collect()
+    }
+
+    fn get_args_for_b(&self) -> Vec<String> {
+        let nthreads = self.deployment.b.len();
+
+        self.args_a.iter()
+            .map(|s| s.to_string())
+            .map(|s| {
+                s.replace("$NUM_THREADS", format!("{}", nthreads).as_str())
+        }).collect()
+    }
+
+    fn profile_a(&self) -> io::Result<()> {
+        debug!("Starting profiling and running A: {}", self.binary_a);
+        let mut perf_data_path_buf = self.output_path.clone();
+        perf_data_path_buf.push("stat");
+        mkdir(&perf_data_path_buf);
+        let perf_path = perf_data_path_buf.as_path();
+
+        profile::profile(&perf_path, vec!["echo", "bla"], false);
+        Ok(())
+    }
+
+    fn start_b(&mut self) -> io::Result<Child> {
+        debug!("Starting B: {}", self.binary_b);
+        Command::new(self.binary_a)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .args(self.get_args_for_b().as_slice())
+                .spawn()
+    }
+
+    fn save_output<T: io::Read>(&self, filename: &str, what: &mut T) -> io::Result<()> {
+        let mut stdout = String::new();
+        what.read_to_string(&mut stdout);
+        let mut stdout_path = self.output_path.clone();
+        stdout_path.push(filename);
+        let mut f = try!(File::create(stdout_path.as_path()));
+        try!(f.write_all(stdout.as_bytes()));
+
+        Ok(())
+    }
+
+    fn profile(&mut self) -> io::Result<()> {
+        let mut deployment_path = self.output_path.clone();
+        deployment_path.push("deployment.txt");
+        let mut f = try!(File::create(deployment_path.as_path()));
+        try!(f.write_all(format!("{}", self.deployment).as_bytes()));
+
+        let mut app_b = try!(self.start_b());
+        try!(self.profile_a());
+
+        // Done, do clean-up:
+        try!(app_b.kill());
+
+        app_b.stdout.map(|mut c| { self.save_output("B_stdout.txt", &mut c) });
+        app_b.stderr.map(|mut c| { self.save_output("B_stderr.txt", &mut c) });
+
+        Ok(())
+    }
+}
+
+pub fn pair(output_path: &Path) {
+    let mut out_dir = output_path.to_path_buf();
+    let hostname = get_hostname().unwrap_or(String::from("unknown"));
+    out_dir.push(hostname);
+    mkdir(&out_dir);
+
+    let lscpu_string = save_cpu_topology(&out_dir).expect("Can't save CPU topology");
+    let numactl_string = save_numa_topology(&out_dir).expect("Can't save NUMA topology");
+    let mt = MachineTopology::new(lscpu_string, numactl_string);
 
     let mut manifest: PathBuf = output_path.to_path_buf();
     manifest.push("manifest.yml");
@@ -370,26 +476,20 @@ pub fn pair(output_path: &Path) {
     let configs: Vec<&str> = doc["configurations"].as_vec().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
 
     let binary1: &str = doc["program1"]["binary"].as_str().unwrap();
-    let args1: Vec<&str> = doc["program2"]["arguments"].as_vec().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
+    let args1: Vec<&str> = doc["program1"]["arguments"].as_vec().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
     let binary2: &str = doc["program2"]["binary"].as_str().unwrap();
     let args2: Vec<&str> = doc["program2"]["arguments"].as_vec().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
 
-    debug!("{:?}", binary1);
-    debug!("{:?}", args1);
-    debug!("{:?}", binary2);
-    debug!("{:?}", args2);
-    debug!("{:?}", configs);
-
-    let mut deployments: Vec<Deployment> = Vec::with_capacity(20);
+    let mut deployments: Vec<Deployment> = Vec::with_capacity(4);
     for config in configs {
         if config == "Caches" {
             // Cache interference on HW threads
-            deployments.push(Deployment::split(mt.same_l1(), mt.l1_size().unwrap_or(0), false));
-            deployments.push(Deployment::split(mt.same_l2(), mt.l2_size().unwrap_or(0), false));
+            deployments.push(Deployment::split("L1-SMT", mt.same_l1(), mt.l1_size().unwrap_or(0), false));
+            deployments.push(Deployment::split("L2-SMT", mt.same_l2(), mt.l2_size().unwrap_or(0), false));
 
             // LLC
-            deployments.push(Deployment::split(mt.same_l3(), mt.l3_size().unwrap_or(0), false));
-            deployments.push(Deployment::split(mt.same_l3(), mt.l3_size().unwrap_or(0), true));
+            deployments.push(Deployment::split("L3-SMT", mt.same_l3(), mt.l3_size().unwrap_or(0), false));
+            deployments.push(Deployment::split("L3-no-SMT", mt.same_l3(), mt.l3_size().unwrap_or(0), true));
         }
         if config == "Memory" {
             warn!("Memory configuration not yet supported");
@@ -397,8 +497,7 @@ pub fn pair(output_path: &Path) {
     }
 
     for d in deployments.iter() {
-        println!("{}", d);
+        let mut run = Run::new(out_dir.as_path(), binary1, &args1, binary2, &args2, d);
+        run.profile();
     }
-
-
 }

@@ -15,5 +15,6 @@ lazy_static = "0.1.*"
 perfcnt = "0.3.*"
 yaml-rust = "0.3.*"
 nom = "^1.2.3"
+libc = "0.2.16"
 clap = { version = "2", features = ["yaml"] }
 x86 = { version = "0.9.*", path = "../rust-x86" }
