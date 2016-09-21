@@ -542,7 +542,7 @@ fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>) -> 
     groups
 }
 
-pub fn profile(output_path: &Path, cmd: Vec<&str>, record: bool) {
+pub fn profile(output_path: &Path, cmd: Vec<&str>, env: Vec<(String, String)>, record: bool) {
     create_out_directory(output_path);
     check_for_perf();
     let ret = check_for_perf_permissions() || check_for_disabled_nmi_watchdog() || check_for_perf_paranoia();
@@ -573,6 +573,9 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>, record: bool) {
         let mut filename: String;
         if !record {
             let mut perf = perf.arg("stat").arg("-aA").arg("-I 250").arg("-x ;");
+            for &(ref key, ref value) in env.iter() {
+                perf = perf.env(key, value);
+            }
             record_path.push(output_path);
             filename = format!("{}_stat.csv", idx);
             record_path.push(&filename);

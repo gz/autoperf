@@ -366,9 +366,13 @@ struct Run<'a> {
     output_path: PathBuf,
     binary_a: &'a str,
     args_a: &'a Vec<&'a str>,
+    is_openmp_a: bool,
+
     child_b: Option<Child>,
     binary_b: &'a str,
     args_b: &'a Vec<&'a str>,
+    is_openmp_b: bool,
+
     deployment: &'a Deployment<'a>
 }
 
@@ -378,9 +382,21 @@ impl<'a> Run<'a> {
         out_dir.push(deployment.description);
         mkdir(&out_dir);
 
-        Run { output_path: out_dir, binary_a: a, args_a: args_a, binary_b: b,
-              args_b: args_b, deployment: deployment,
-              child_b: None }
+        Run { output_path: out_dir,
+              binary_a: a, args_a: args_a, is_openmp_a: true,
+              binary_b: b, args_b: args_b, is_openmp_b: true,
+              deployment: deployment, child_b: None }
+    }
+
+    fn get_env_for_a(&self) -> Vec<(String, String)> {
+        let mut env: Vec<(String, String)> = Vec::with_capacity(2);
+        if self.is_openmp_a {
+            let cpus: Vec<String> = self.deployment.a.iter().map(|c| format!("{}", c.cpu)).collect();
+            println!("{:?}", cpus);
+            env.push( (String::from("GOMP_CPU_AFFINITY"), format!("\"{}\"", cpus.join(" "))) );
+        }
+
+        env
     }
 
     fn get_args_for_a(&self) -> Vec<String> {
@@ -410,7 +426,13 @@ impl<'a> Run<'a> {
         mkdir(&perf_data_path_buf);
         let perf_path = perf_data_path_buf.as_path();
 
-        profile::profile(&perf_path, vec!["echo", "bla"], false);
+        let args = self.get_args_for_a();
+        let mut cmd: Vec<&str> = vec![ self.binary_a ];
+        cmd.extend( args.iter().map(|c| c.as_str() ));
+
+        //println!("{:?}", self.get_env_for_a());
+
+        profile::profile(&perf_path, cmd, self.get_env_for_a(), false);
         Ok(())
     }
 
