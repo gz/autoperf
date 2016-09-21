@@ -100,7 +100,6 @@ pub fn main() {
     key_to_name.insert("GenuineIntel-6-3F","HaswellX");
     key_to_name.insert("GenuineIntel-6-3D","Broadwell");
     key_to_name.insert("GenuineIntel-6-4F","BroadwellX");
-    key_to_name.insert("GenuineIntel-6-4F","BroadwellX");
     key_to_name.insert("GenuineIntel-6-56","BroadwellDE");
     key_to_name.insert("GenuineIntel-6-4E","Skylake");
     key_to_name.insert("GenuineIntel-6-57","KnightsLanding");
