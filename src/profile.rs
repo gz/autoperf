@@ -570,18 +570,25 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>, env: Vec<(String, String)>, r
 
         let mut perf = Command::new("perf");
         let mut record_path = PathBuf::new();
-        let mut filename: String;
+        let filename: String;
         if !record {
-            let mut perf = perf.arg("stat").arg("-aA").arg("-I 250").arg("-x ;");
+            perf.arg("stat");
+            perf.arg("-aA");
+            perf.arg("-I 250");
+            perf.arg("-x ;");
             for &(ref key, ref value) in env.iter() {
-                perf = perf.env(key, value);
+                perf.env(key, value);
             }
             record_path.push(output_path);
             filename = format!("{}_stat.csv", idx);
             record_path.push(&filename);
         }
         else {
-            let mut perf = perf.arg("record").arg("--group").arg("-F 4").arg("-a").arg("--raw-samples");
+            perf.arg("record");
+            perf.arg("--group");
+            perf.arg("-F 4");
+            perf.arg("-a");
+            perf.arg("--raw-samples");
             record_path.push(output_path);
             filename = format!("{}_perf.data", idx);
             record_path.push(&filename);
