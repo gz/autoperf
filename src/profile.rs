@@ -12,8 +12,9 @@ use csv;
 
 use pbr::ProgressBar;
 use x86::shared::perfcnt::{core_counters, uncore_counters};
-use x86::shared::perfcnt::intel::description::{IntelPerformanceCounterDescription, Tuple, MSRIndex, Counter};
-use x86::shared::{cpuid};
+use x86::shared::perfcnt::intel::description::{IntelPerformanceCounterDescription, Tuple,
+                                               MSRIndex, Counter};
+use x86::shared::cpuid;
 
 lazy_static! {
     static ref HT_AVAILABLE: bool = {
@@ -29,7 +30,7 @@ lazy_static! {
     };
 
     static ref PMU_DEVICES: Vec<String> = {
-        // TODO: Return empty Vec in case of error
+// TODO: Return empty Vec in case of error
         let paths = fs::read_dir("/sys/bus/event_source/devices/").expect("Can't read devices directory.");
         let mut devices = Vec::with_capacity(15);
         for p in paths {
@@ -41,8 +42,8 @@ lazy_static! {
         devices
     };
 
-    // Sometimes the perfmon data is missing the errata information (as is the case with the IvyBridge file).\
-    // We provide a list of IvyBridge events instead here.
+// Sometimes the perfmon data is missing the errata information (as is the case with the IvyBridge file).\
+// We provide a list of IvyBridge events instead here.
     static ref ISOLATE_EVENTS: Vec<&'static str> = {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_feature_info().map_or(
@@ -78,7 +79,11 @@ lazy_static! {
     };
 }
 
-fn execute_perf(perf: &mut Command, cmd: &Vec<&str>, counters: &Vec<String>, datafile: &Path) -> String {
+fn execute_perf(perf: &mut Command,
+                cmd: &Vec<&str>,
+                counters: &Vec<String>,
+                datafile: &Path)
+                -> String {
     assert!(cmd.len() >= 1);
     let mut perf = perf.arg("-o").arg(datafile.as_os_str());
     let events: Vec<String> = counters.iter().map(|c| format!("-e {}", c)).collect();
@@ -90,16 +95,20 @@ fn execute_perf(perf: &mut Command, cmd: &Vec<&str>, counters: &Vec<String>, dat
     match perf.output() {
         Ok(out) => {
             if !out.status.success() {
-                error!("perf command: {} got unknown exit status was: {}", perf_cmd_str, out.status);
-                debug!("stderr:\n{}", String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
+                error!("perf command: {} got unknown exit status was: {}",
+                       perf_cmd_str,
+                       out.status);
+                debug!("stderr:\n{}",
+                       String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
             }
             if !datafile.exists() {
-                error!("perf command: {} succeeded but did not produce the required file {:?} (you should file a bug report!)", perf_cmd_str, datafile);
+                error!("perf command: {} succeeded but did not produce the required file {:?} \
+                        (you should file a bug report!)",
+                       perf_cmd_str,
+                       datafile);
             }
-        },
-        Err(err) => {
-            error!("Executing {} failed : {}", perf_cmd_str, err)
         }
+        Err(err) => error!("Executing {} failed : {}", perf_cmd_str, err),
     }
 
     perf_cmd_str
@@ -112,8 +121,10 @@ fn create_out_directory(out_dir: &Path) {
 }
 
 fn get_events() -> Vec<&'static IntelPerformanceCounterDescription> {
-    let mut events: Vec<&IntelPerformanceCounterDescription> = core_counters().unwrap().values().collect();
-    let mut uncore_events: Vec<&IntelPerformanceCounterDescription> = uncore_counters().unwrap().values().collect();
+    let mut events: Vec<&IntelPerformanceCounterDescription> =
+        core_counters().unwrap().values().collect();
+    let mut uncore_events: Vec<&IntelPerformanceCounterDescription> =
+        uncore_counters().unwrap().values().collect();
     events.append(&mut uncore_events);
 
     events
@@ -130,11 +141,10 @@ pub enum UncoreType {
     /// QPI Stuff
     QPI,
     /// Types we don't know how to handle...
-    Unknown(&'static str)
+    Unknown(&'static str),
 }
 
 impl UncoreType {
-
     fn new(unit: &'static str) -> UncoreType {
         match unit.to_lowercase().as_str() {
             "cbo" => UncoreType::CBox,
@@ -142,7 +152,7 @@ impl UncoreType {
             "sbo" => UncoreType::SBox,
             "imph-u" => UncoreType::Arb,
             "arb" => UncoreType::Arb,
-            _ => UncoreType::Unknown(unit)
+            _ => UncoreType::Unknown(unit),
         }
     }
 
@@ -154,11 +164,11 @@ impl UncoreType {
             UncoreType::QPI => Some("uncore_qpi"),
             UncoreType::SBox => Some("uncore_sbox"),
             UncoreType::Arb => Some("uncore_arb"),
-            UncoreType::Unknown(_) => None
+            UncoreType::Unknown(_) => None,
         };
 
         // Note: If anything here does not return uncore_ as a prefix, you need to update extract.rs!
-        res.map(|string| { assert!(string.starts_with("uncore_")) });
+        res.map(|string| assert!(string.starts_with("uncore_")));
 
         res
     }
@@ -169,7 +179,6 @@ impl UncoreType {
 struct PerfEvent(&'static IntelPerformanceCounterDescription);
 
 impl PerfEvent {
-
     /// Returns all possible configurations of the event.
     /// This is a two vector tuple containing devices and configs:
     ///
@@ -190,15 +199,16 @@ impl PerfEvent {
             let typ = self.uncore_type().expect("is_uncore() implies uncore type");
 
             // XXX: Horrible vector transformation:
-            let matched_devices: Vec<String> = PMU_DEVICES
-                .iter()
-                .filter(|d| typ.to_perf_prefix().map_or(false, |t| d.starts_with(t)) ).map(|d| d.clone()).collect();
+            let matched_devices: Vec<String> = PMU_DEVICES.iter()
+                .filter(|d| typ.to_perf_prefix().map_or(false, |t| d.starts_with(t)))
+                .map(|d| d.clone())
+                .collect();
             devices.extend(matched_devices);
             if devices.len() == 0 {
                 debug!("Got no device to measure this event:\n{:?}", self.0);
             }
-        }
-        else { // Offcore or regular event
+        } else {
+            // Offcore or regular event
             devices.push(String::from("cpu"));
         }
 
@@ -215,7 +225,7 @@ impl PerfEvent {
     }
 
     fn uncore_type(&self) -> Option<UncoreType> {
-        self.0.unit.map(|u| UncoreType::new(u) )
+        self.0.unit.map(|u| UncoreType::new(u))
     }
 
     /// Is this event an offcore event?
@@ -224,14 +234,14 @@ impl PerfEvent {
             Tuple::One(_) => {
                 assert!(!self.0.offcore);
                 false
-            },
+            }
             Tuple::Two(_, _) => {
                 assert!(self.0.event_name.contains("OFFCORE"));
                 // The OR is because there is this weird meta-event OFFCORE_RESPONSE
                 // in the data files. It has offcore == false and is not really a proper event :/
                 assert!(self.0.offcore || self.0.event_name == "OFFCORE_RESPONSE");
                 true
-            },
+            }
         }
     }
 
@@ -262,10 +272,10 @@ impl PerfEvent {
 
         let two_configs: bool = match self.0.event_code {
             Tuple::One(_) => false,
-            Tuple::Two(_, _) => true
+            Tuple::Two(_, _) => true,
         };
 
-        let mut ret: Vec<Vec<String>> = vec![ Vec::with_capacity(7) ];
+        let mut ret: Vec<Vec<String>> = vec![Vec::with_capacity(7)];
         ret[0].push(format!("name={}", self.0.event_name));
         if two_configs {
             ret.push(Vec::with_capacity(7));
@@ -292,38 +302,50 @@ impl PerfEvent {
 
         if self.0.counter_mask != 0 {
             ret[0].push(format!("cmask=0x{:x}", self.0.counter_mask));
-            if two_configs { ret[1].push(format!("cmask=0x{:x}", self.0.counter_mask)); }
+            if two_configs {
+                ret[1].push(format!("cmask=0x{:x}", self.0.counter_mask));
+            }
         }
 
         if self.0.offcore {
             ret[0].push(format!("offcore_rsp=0x{:x}", self.0.msr_value));
-            if two_configs { ret[1].push(format!("offcore_rsp=0x{:x}", self.0.msr_value)); }
-        }
-        else {
+            if two_configs {
+                ret[1].push(format!("offcore_rsp=0x{:x}", self.0.msr_value));
+            }
+        } else {
             match self.0.msr_index {
                 MSRIndex::One(idx) => {
                     assert!(idx == 0x3F6); // Load latency MSR
                     ret[0].push(format!("ldlat=0x{:x}", self.0.msr_value));
-                    if two_configs { ret[1].push(format!("ldlat=0x{:x}", self.0.msr_value)); }
+                    if two_configs {
+                        ret[1].push(format!("ldlat=0x{:x}", self.0.msr_value));
+                    }
                 }
-                MSRIndex::Two(_, _) => unreachable!("Should not have non offcore events with two MSR index values."),
-                MSRIndex::None => { /* ignored, not a load latency event */ },
+                MSRIndex::Two(_, _) => {
+                    unreachable!("Should not have non offcore events with two MSR index values.")
+                }
+                MSRIndex::None => {
+                    // ignored, not a load latency event
+                }
             };
         }
 
         if self.0.invert {
             ret[0].push(String::from("inv=1"));
-            if two_configs { ret[1].push(String::from("inv=1")); }
+            if two_configs {
+                ret[1].push(String::from("inv=1"));
+            }
         }
 
         if self.0.edge_detect {
             ret[0].push(String::from("edge=1"));
-            if two_configs { ret[1].push(String::from("edge=1")); }
+            if two_configs {
+                ret[1].push(String::from("edge=1"));
+            }
         }
 
         ret
     }
-
 }
 
 #[derive(Debug)]
@@ -333,26 +355,30 @@ struct PerfEventGroup {
 }
 
 impl PerfEventGroup {
-
     /// Make a new performance event group.
     ///
     /// Group size should not exceed amount of available counters.
     pub fn new(group_size: usize) -> PerfEventGroup {
-        PerfEventGroup { size: group_size, events: Vec::with_capacity(group_size) }
+        PerfEventGroup {
+            size: group_size,
+            events: Vec::with_capacity(group_size),
+        }
     }
 
     /// Returns how many offcore events are in the group.
     fn offcore_events(&self) -> usize {
-        self.events.iter().filter(|e| {
-            e.is_offcore()
-        }).count()
+        self.events
+            .iter()
+            .filter(|e| e.is_offcore())
+            .count()
     }
 
     /// Returns how many uncore events are in the group.
     fn uncore_events(&self) -> usize {
-        self.events.iter().filter(|e| {
-            e.is_uncore()
-        }).count()
+        self.events
+            .iter()
+            .filter(|e| e.is_uncore())
+            .count()
     }
 
     /// Try to add an event to an event group.
@@ -372,8 +398,7 @@ impl PerfEventGroup {
     pub fn add_event(&mut self, event: PerfEvent) -> bool {
         if self.events.len() >= self.size {
             false
-        }
-        else {
+        } else {
             // 1. Can't measure more than two offcore events:
             if event.is_offcore() && self.offcore_events() == 2 {
                 return false;
@@ -396,13 +421,13 @@ impl PerfEventGroup {
                             Counter::Programmable(emask) => (cmask | emask).count_ones() < 2,
                             _ => false, // No conflict
                         }
-                    },
+                    }
                     Counter::Fixed(cmask) => {
                         match event.counter() {
                             Counter::Fixed(emask) => (cmask | emask).count_ones() < 2,
                             _ => false, // No conflict
                         }
-                    },
+                    }
                 }
             });
             if conflicts {
@@ -410,17 +435,13 @@ impl PerfEventGroup {
             }
 
             // 3. Isolate things that have erratas to not screw other events (see HSW30)
-            let errata = self.events.iter().any(|cur| {
-                cur.0.errata.is_some()
-            });
+            let errata = self.events.iter().any(|cur| cur.0.errata.is_some());
             if errata || event.0.errata.is_some() && self.events.len() != 0 {
                 return false;
             }
 
             // 4. If an event has the taken alone attribute set it needs to be measured alone
-            let have_taken_alone_event = self.events.iter().any(|cur| {
-                cur.0.taken_alone
-            });
+            let have_taken_alone_event = self.events.iter().any(|cur| cur.0.taken_alone);
             if have_taken_alone_event || event.0.taken_alone && self.events.len() != 0 {
                 return false;
             }
@@ -429,7 +450,9 @@ impl PerfEventGroup {
             let have_isolated_event = self.events.get(0).map_or(false, |e| {
                 ISOLATE_EVENTS.iter().any(|cur| *cur == e.0.event_name)
             });
-            if have_isolated_event || ISOLATE_EVENTS.iter().any(|cur| *cur == event.0.event_name) && self.events.len() != 0 {
+            if have_isolated_event ||
+               ISOLATE_EVENTS.iter().any(|cur| *cur == event.0.event_name) &&
+               self.events.len() != 0 {
                 return false;
             }
 
@@ -456,10 +479,10 @@ impl PerfEventGroup {
 
                 let config = match have_one_offcore {
                     false => configs.get(0).unwrap(), // Ok, always has at least one config
-                    true => configs.get(1).unwrap() // Ok, as offcore implies two configs
+                    true => configs.get(1).unwrap(), // Ok, as offcore implies two configs
                 };
 
-                event_strings.push( format!("{}/{}/S", devices[0], config.join(",")) );
+                event_strings.push(format!("{}/{}/S", devices[0], config.join(",")));
                 have_one_offcore = true;
             }
             // Adding uncore event:
@@ -468,7 +491,8 @@ impl PerfEventGroup {
 
                 // We can have no devices if we don't understand how to match the unit name to perf names:
                 if devices.len() == 0 {
-                    debug!("Event '{}' currently not supported, ignored.", event.0.event_name);
+                    debug!("Event '{}' currently not supported, ignored.",
+                           event.0.event_name);
                 }
 
                 // If we have an uncore event we just go ahead and measure it on all possible devices:
@@ -476,16 +500,16 @@ impl PerfEventGroup {
                     // Patch name in config so we know where this event was running
                     // `perf stat` just reports CPU 0 for uncore events :-(
                     configs[0][0] = format!("name={}.{}", device, event.0.event_name);
-                    event_strings.push( format!("{}/{}/S", device, configs[0].join(",") ) );
+                    event_strings.push(format!("{}/{}/S", device, configs[0].join(",")));
                 }
             }
             // Adding normal event:
-            else  {
+            else {
                 assert!(devices.len() == 1);
                 assert!(configs.len() == 1);
                 assert!(devices[0] == "cpu");
 
-                event_strings.push( format!("{}/{}/S", devices[0], configs[0].join(",")) );
+                event_strings.push(format!("{}/{}/S", devices[0], configs[0].join(",")));
             }
         }
 
@@ -505,11 +529,11 @@ impl PerfEventGroup {
     pub fn get_event_names(&self) -> Vec<&'static str> {
         self.events.iter().map(|event| event.0.event_name).collect()
     }
-
 }
 
 /// Given a list of events, create a list of event groups that can be measured together.
-fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>) -> Vec<PerfEventGroup> {
+fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>)
+                   -> Vec<PerfEventGroup> {
     if *PMU_COUNTERS == 0 {
         error!("No PMU counters? Can't measure anything.");
         return Vec::default();
@@ -538,14 +562,15 @@ fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>) -> 
         }
     }
 
-    //println!("{:?}", groups);
+    // println!("{:?}", groups);
     groups
 }
 
 pub fn profile(output_path: &Path, cmd: Vec<&str>, env: Vec<(String, String)>, record: bool) {
     create_out_directory(output_path);
     check_for_perf();
-    let ret = check_for_perf_permissions() || check_for_disabled_nmi_watchdog() || check_for_perf_paranoia();
+    let ret = check_for_perf_permissions() || check_for_disabled_nmi_watchdog() ||
+              check_for_perf_paranoia();
     if !ret {
         std::process::exit(3);
     }
@@ -556,7 +581,12 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>, env: Vec<(String, String)>, r
     perf_log.push("perf.csv");
 
     let mut wtr = csv::Writer::from_file(perf_log).unwrap();
-    let r = wtr.encode(("command", "event_names", "perf_events", "breakpoints", "datafile", "perf_command"));
+    let r = wtr.encode(("command",
+                        "event_names",
+                        "perf_events",
+                        "breakpoints",
+                        "datafile",
+                        "perf_command"));
     assert!(r.is_ok());
 
     let event_groups = schedule_events(get_events());
@@ -579,8 +609,7 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>, env: Vec<(String, String)>, r
             record_path.push(output_path);
             filename = format!("{}_stat.csv", idx);
             record_path.push(&filename);
-        }
-        else {
+        } else {
             perf.arg("record");
             perf.arg("--group");
             perf.arg("-F 4");
@@ -596,7 +625,12 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>, env: Vec<(String, String)>, r
         }
 
         let executed_cmd = execute_perf(&mut perf, &cmd, &counters, record_path.as_path());
-        let r = wtr.encode(vec![cmd.join(" "), event_names.join(","), counters.join(","), String::new(), filename, executed_cmd]);
+        let r = wtr.encode(vec![cmd.join(" "),
+                                event_names.join(","),
+                                counters.join(","),
+                                String::new(),
+                                filename,
+                                executed_cmd]);
         assert!(r.is_ok());
 
         let r = wtr.flush();
@@ -612,13 +646,16 @@ fn check_for_perf() {
                 error!("'perf' seems to have some problems?");
                 debug!("perf exit status was: {}", out.status);
                 error!("{}", String::from_utf8_lossy(&out.stderr));
-                error!("You may require a restart after fixing this so `/sys/bus/event_source/devices` is updated!");
+                error!("You may require a restart after fixing this so \
+                        `/sys/bus/event_source/devices` is updated!");
                 std::process::exit(2);
             }
-        },
+        }
         Err(_) => {
-            error!("'perf' does not seem to be executable? You may need to install it (Ubuntu: `sudo apt-get install linux-tools-common`).");
-            error!("You may require a restart after fixing this so `/sys/bus/event_source/devices` is updated!");
+            error!("'perf' does not seem to be executable? You may need to install it (Ubuntu: \
+                    `sudo apt-get install linux-tools-common`).");
+            error!("You may require a restart after fixing this so \
+                    `/sys/bus/event_source/devices` is updated!");
             std::process::exit(2);
         }
     }
@@ -630,19 +667,22 @@ fn check_for_perf_permissions() -> bool {
     let mut s = String::new();
 
     match file.read_to_string(&mut s) {
-        Ok(_) =>  {
+        Ok(_) => {
             match s.trim() {
                 "1" => {
-                    error!("kptr restriction is enabled. You can either run autoperf as root or do:");
+                    error!("kptr restriction is enabled. You can either run autoperf as root or \
+                            do:");
                     error!("\tsudo sh -c 'echo 0 >> {}'", path.display());
                     error!("to disable.");
                     return false;
                 }
                 "0" => {
-                    //debug!("kptr_restrict is already disabled (good).");
+                    // debug!("kptr_restrict is already disabled (good).");
                 }
                 _ => {
-                    warn!("Unkown content read from '{}': {}. Proceeding anyways...", path.display(), s.trim());
+                    warn!("Unkown content read from '{}': {}. Proceeding anyways...",
+                          path.display(),
+                          s.trim());
                 }
             }
         }
@@ -662,19 +702,22 @@ fn check_for_disabled_nmi_watchdog() -> bool {
     let mut s = String::new();
 
     match file.read_to_string(&mut s) {
-        Ok(_) =>  {
+        Ok(_) => {
             match s.trim() {
                 "1" => {
-                    error!("nmi_watchdog is enabled. This can lead to counters not read (<not counted>). Execute");
+                    error!("nmi_watchdog is enabled. This can lead to counters not read (<not \
+                            counted>). Execute");
                     error!("\tsudo sh -c 'echo 0 > {}'", path.display());
                     error!("to disable.");
                     return false;
                 }
                 "0" => {
-                    //debug!("nmi_watchdog is already disabled (good).");
+                    // debug!("nmi_watchdog is already disabled (good).");
                 }
                 _ => {
-                    warn!("Unkown content read from '{}': {}. Proceeding anyways...", path.display(), s.trim());
+                    warn!("Unkown content read from '{}': {}. Proceeding anyways...",
+                          path.display(),
+                          s.trim());
                 }
             }
         }
@@ -695,14 +738,17 @@ fn check_for_perf_paranoia() -> bool {
     let mut s = String::new();
 
     return match file.read_to_string(&mut s) {
-        Ok(_) =>  {
+        Ok(_) => {
             let digit = i64::from_str(s.trim()).unwrap_or_else(|op| {
-                warn!("Unkown content read from '{}': {}. Proceeding anyways...", path.display(), s.trim());
+                warn!("Unkown content read from '{}': {}. Proceeding anyways...",
+                      path.display(),
+                      s.trim());
                 1
             });
 
             if digit >= 0 {
-                error!("perf_event_paranoid is enabled. This means we can't collect system wide stats. Execute");
+                error!("perf_event_paranoid is enabled. This means we can't collect system wide \
+                        stats. Execute");
                 error!("\tsudo sh -c 'echo -1 > {}'", path.display());
                 error!("to disable.");
                 return false;

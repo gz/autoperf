@@ -8,10 +8,10 @@ use std::process::{Command, Child, Stdio};
 use std::str::{FromStr, from_utf8_unchecked};
 use std::fmt;
 
-use x86::shared::{cpuid};
+use x86::shared::cpuid;
 use nom::*;
 use csv;
-use yaml_rust::{YamlLoader};
+use yaml_rust::YamlLoader;
 
 use profile;
 
@@ -30,10 +30,11 @@ fn get_hostname() -> Option<String> {
     use libc::{gethostname, c_char, size_t, c_int};
 
     let mut buf: [i8; 64] = [0; 64];
-    let err = unsafe { gethostname (buf.as_mut_ptr(), buf.len()) };
+    let err = unsafe { gethostname(buf.as_mut_ptr(), buf.len()) };
 
     if err != 0 {
-        info!("Can't read the hostname with gethostname: {}", io::Error::last_os_error());
+        info!("Can't read the hostname with gethostname: {}",
+              io::Error::last_os_error());
         return None;
     }
 
@@ -41,7 +42,7 @@ fn get_hostname() -> Option<String> {
     let actual_len = buf.iter().position(|byte| *byte == 0).unwrap_or(buf.len());
     let c_str: Vec<u8> = buf[..actual_len].into_iter().map(|i| *i as u8).collect();
 
-    Some( String::from_utf8(c_str).unwrap() )
+    Some(String::from_utf8(c_str).unwrap())
 }
 
 fn mkdir(out_dir: &PathBuf) {
@@ -53,7 +54,7 @@ fn mkdir(out_dir: &PathBuf) {
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
 pub struct NodeInfo {
     node: Node,
-    memory: u64
+    memory: u64,
 }
 
 fn to_string(s: &[u8]) -> &str {
@@ -104,17 +105,18 @@ pub struct CpuInfo {
     cpu: Cpu,
     l1: L1,
     l2: L2,
-    l3: L3
+    l3: L3,
 }
 
 pub struct MachineTopology {
-    data: Vec<CpuInfo>
+    data: Vec<CpuInfo>,
 }
 
 impl MachineTopology {
-
     pub fn new(lscpu_output: String, numactl_output: String) -> MachineTopology {
-        let no_comments: Vec<&str> = lscpu_output.split('\n').filter(|s| s.trim().len() > 0 && !s.trim().starts_with("#")).collect();
+        let no_comments: Vec<&str> = lscpu_output.split('\n')
+            .filter(|s| s.trim().len() > 0 && !s.trim().starts_with("#"))
+            .collect();
         type Row = (Node, Socket, Core, Cpu, String); // Online MHz
 
         let mut rdr = csv::Reader::from_string(no_comments.join("\n")).has_headers(false);
@@ -124,8 +126,17 @@ impl MachineTopology {
         for row in rows {
             let caches: Vec<u64> = row.4.split(":").map(|s| u64::from_str(s).unwrap()).collect();
             assert_eq!(caches.len(), 4);
-            let node: NodeInfo = get_node_info(row.0, &numactl_output).expect("Can't find node in numactl output?");
-            let tuple: CpuInfo = CpuInfo { node: node, socket: row.1, core: row.2, cpu: row.3, l1: caches[0], l2: caches[2], l3: caches[3] };
+            let node: NodeInfo = get_node_info(row.0, &numactl_output)
+                .expect("Can't find node in numactl output?");
+            let tuple: CpuInfo = CpuInfo {
+                node: node,
+                socket: row.1,
+                core: row.2,
+                cpu: row.3,
+                l1: caches[0],
+                l2: caches[2],
+                l3: caches[3],
+            };
             data.push(tuple);
         }
 
@@ -174,8 +185,10 @@ impl MachineTopology {
     pub fn l1_size(&self) -> Option<u64> {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_cache_parameters().map(|mut cparams| {
-                let cache = cparams.find(|c| { c.level() == 1 && c.cache_type() == cpuid::CacheType::DATA }).unwrap();
-                (cache.associativity() * cache.physical_line_partitions() * cache.coherency_line_size() * cache.sets()) as u64
+            let cache = cparams.find(|c| c.level() == 1 && c.cache_type() == cpuid::CacheType::DATA)
+                .unwrap();
+            (cache.associativity() * cache.physical_line_partitions() *
+             cache.coherency_line_size() * cache.sets()) as u64
         })
     }
 
@@ -189,8 +202,11 @@ impl MachineTopology {
     pub fn l2_size(&self) -> Option<u64> {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_cache_parameters().map(|mut cparams| {
-                let cache = cparams.find(|c| { c.level() == 2 && c.cache_type() == cpuid::CacheType::UNIFIED }).unwrap();
-                (cache.associativity() * cache.physical_line_partitions() * cache.coherency_line_size() * cache.sets()) as u64
+            let cache =
+                cparams.find(|c| c.level() == 2 && c.cache_type() == cpuid::CacheType::UNIFIED)
+                    .unwrap();
+            (cache.associativity() * cache.physical_line_partitions() *
+             cache.coherency_line_size() * cache.sets()) as u64
         })
     }
 
@@ -204,8 +220,11 @@ impl MachineTopology {
     pub fn l3_size(&self) -> Option<u64> {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_cache_parameters().map(|mut cparams| {
-                let cache = cparams.find(|c| { c.level() == 3 && c.cache_type() == cpuid::CacheType::UNIFIED }).unwrap();
-                (cache.associativity() * cache.physical_line_partitions() * cache.coherency_line_size() * cache.sets()) as u64
+            let cache =
+                cparams.find(|c| c.level() == 3 && c.cache_type() == cpuid::CacheType::UNIFIED)
+                    .unwrap();
+            (cache.associativity() * cache.physical_line_partitions() *
+             cache.coherency_line_size() * cache.sets()) as u64
         })
     }
 
@@ -268,8 +287,7 @@ fn save_numa_topology(output_path: &Path) -> io::Result<String> {
         let content = String::from_utf8(out.stdout).unwrap_or(String::new());
         try!(f.write(content.as_bytes()));
         Ok(content)
-    }
-    else {
+    } else {
         error!("numactl command: got unknown exit status was: {}", out.status);
         debug!("stderr:\n{}", String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
         unreachable!()
@@ -285,13 +303,14 @@ fn save_cpu_topology(output_path: &Path) -> io::Result<String> {
         let mut f = try!(File::create(lscpu_file.as_path()));
         let content = String::from_utf8(out.stdout).unwrap_or(String::new());
         {
-            let no_comments: Vec<&str> = content.split('\n').filter(|s| s.trim().len() > 0 && !s.trim().starts_with("#")).collect();
+            let no_comments: Vec<&str> = content.split('\n')
+                .filter(|s| s.trim().len() > 0 && !s.trim().starts_with("#"))
+                .collect();
             try!(f.write(no_comments.join("\n").as_bytes()));
         }
 
         Ok(content)
-    }
-    else {
+    } else {
         error!("lscpu command: got unknown exit status was: {}", out.status);
         debug!("stderr:\n{}", String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
         unreachable!()
@@ -302,11 +321,15 @@ struct Deployment<'a> {
     description: &'static str,
     a: Vec<&'a CpuInfo>,
     b: Vec<&'a CpuInfo>,
-    mem: Vec<NodeInfo>
+    mem: Vec<NodeInfo>,
 }
 
 impl<'a> Deployment<'a> {
-    pub fn split(desc: &'static str, possible_groupings: Vec<Vec<&'a CpuInfo>>, size: u64, avoid_smt: bool) -> Deployment<'a> {
+    pub fn split(desc: &'static str,
+                 possible_groupings: Vec<Vec<&'a CpuInfo>>,
+                 size: u64,
+                 avoid_smt: bool)
+                 -> Deployment<'a> {
         let mut cpus = possible_groupings.into_iter().last().unwrap();
 
         if avoid_smt {
@@ -342,7 +365,12 @@ impl<'a> Deployment<'a> {
         let mut node: NodeInfo = lower_half[0].node;
         node.memory = size; //as f64 * 0.95;
 
-        Deployment { description: desc, a: lower_half, b: upper_half, mem: vec![node] }
+        Deployment {
+            description: desc,
+            a: lower_half,
+            b: upper_half,
+            mem: vec![node],
+        }
     }
 }
 
@@ -373,27 +401,41 @@ struct Run<'a> {
     args_b: &'a Vec<&'a str>,
     is_openmp_b: bool,
 
-    deployment: &'a Deployment<'a>
+    deployment: &'a Deployment<'a>,
 }
 
 impl<'a> Run<'a> {
-    fn new(output_path: &Path, a: &'a str, args_a: &'a Vec<&str>, b: &'a str, args_b: &'a Vec<&str>, deployment: &'a Deployment) -> Run<'a> {
+    fn new(output_path: &Path,
+           a: &'a str,
+           args_a: &'a Vec<&str>,
+           b: &'a str,
+           args_b: &'a Vec<&str>,
+           deployment: &'a Deployment)
+           -> Run<'a> {
         let mut out_dir = output_path.to_path_buf();
         out_dir.push(deployment.description);
         mkdir(&out_dir);
 
-        Run { output_path: out_dir,
-              binary_a: a, args_a: args_a, is_openmp_a: true,
-              binary_b: b, args_b: args_b, is_openmp_b: true,
-              deployment: deployment, child_b: None }
+        Run {
+            output_path: out_dir,
+            binary_a: a,
+            args_a: args_a,
+            is_openmp_a: true,
+            binary_b: b,
+            args_b: args_b,
+            is_openmp_b: true,
+            deployment: deployment,
+            child_b: None,
+        }
     }
 
     fn get_env_for_a(&self) -> Vec<(String, String)> {
         let mut env: Vec<(String, String)> = Vec::with_capacity(2);
         if self.is_openmp_a {
-            let cpus: Vec<String> = self.deployment.a.iter().map(|c| format!("{}", c.cpu)).collect();
+            let cpus: Vec<String> =
+                self.deployment.a.iter().map(|c| format!("{}", c.cpu)).collect();
             println!("{:?}", cpus);
-            env.push( (String::from("GOMP_CPU_AFFINITY"), format!("\"{}\"", cpus.join(" "))) );
+            env.push((String::from("GOMP_CPU_AFFINITY"), format!("\"{}\"", cpus.join(" "))));
         }
 
         env
@@ -402,21 +444,21 @@ impl<'a> Run<'a> {
     fn get_args_for_a(&self) -> Vec<String> {
         let nthreads = self.deployment.a.len();
 
-        self.args_a.iter()
+        self.args_a
+            .iter()
             .map(|s| s.to_string())
-            .map(|s| {
-                s.replace("$NUM_THREADS", format!("{}", nthreads).as_str())
-        }).collect()
+            .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str()))
+            .collect()
     }
 
     fn get_args_for_b(&self) -> Vec<String> {
         let nthreads = self.deployment.b.len();
 
-        self.args_a.iter()
+        self.args_a
+            .iter()
             .map(|s| s.to_string())
-            .map(|s| {
-                s.replace("$NUM_THREADS", format!("{}", nthreads).as_str())
-        }).collect()
+            .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str()))
+            .collect()
     }
 
     fn profile_a(&self) -> io::Result<()> {
@@ -428,9 +470,9 @@ impl<'a> Run<'a> {
 
         let args = self.get_args_for_a();
         let mut cmd: Vec<&str> = vec![ self.binary_a ];
-        cmd.extend( args.iter().map(|c| c.as_str() ));
+        cmd.extend(args.iter().map(|c| c.as_str()));
 
-        //println!("{:?}", self.get_env_for_a());
+        // println!("{:?}", self.get_env_for_a());
 
         profile::profile(&perf_path, cmd, self.get_env_for_a(), false);
         Ok(())
@@ -439,10 +481,10 @@ impl<'a> Run<'a> {
     fn start_b(&mut self) -> io::Result<Child> {
         debug!("Starting B: {}", self.binary_b);
         Command::new(self.binary_a)
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .args(self.get_args_for_b().as_slice())
-                .spawn()
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .args(self.get_args_for_b().as_slice())
+            .spawn()
     }
 
     fn save_output<T: io::Read>(&self, filename: &str, what: &mut T) -> io::Result<()> {
@@ -468,8 +510,8 @@ impl<'a> Run<'a> {
         // Done, do clean-up:
         try!(app_b.kill());
 
-        app_b.stdout.map(|mut c| { self.save_output("B_stdout.txt", &mut c) });
-        app_b.stderr.map(|mut c| { self.save_output("B_stderr.txt", &mut c) });
+        app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
+        app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
 
         Ok(())
     }
@@ -495,12 +537,23 @@ pub fn pair(output_path: &Path) {
     let docs = YamlLoader::load_from_str(s.as_str()).unwrap();
 
     let doc = &docs[0];
-    let configs: Vec<&str> = doc["configurations"].as_vec().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
+    let configs: Vec<&str> =
+        doc["configurations"].as_vec().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
 
     let binary1: &str = doc["program1"]["binary"].as_str().unwrap();
-    let args1: Vec<&str> = doc["program1"]["arguments"].as_vec().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
+    let args1: Vec<&str> = doc["program1"]["arguments"]
+        .as_vec()
+        .unwrap()
+        .iter()
+        .map(|s| s.as_str().unwrap())
+        .collect();
     let binary2: &str = doc["program2"]["binary"].as_str().unwrap();
-    let args2: Vec<&str> = doc["program2"]["arguments"].as_vec().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
+    let args2: Vec<&str> = doc["program2"]["arguments"]
+        .as_vec()
+        .unwrap()
+        .iter()
+        .map(|s| s.as_str().unwrap())
+        .collect();
 
     let mut deployments: Vec<Deployment> = Vec::with_capacity(4);
     for config in configs {
@@ -511,7 +564,10 @@ pub fn pair(output_path: &Path) {
 
             // LLC
             deployments.push(Deployment::split("L3-SMT", mt.same_l3(), mt.l3_size().unwrap_or(0), false));
-            deployments.push(Deployment::split("L3-no-SMT", mt.same_l3(), mt.l3_size().unwrap_or(0), true));
+            deployments.push(Deployment::split("L3-no-SMT",
+                                               mt.same_l3(),
+                                               mt.l3_size().unwrap_or(0),
+                                               true));
         }
         if config == "Memory" {
             warn!("Memory configuration not yet supported");

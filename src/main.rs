@@ -13,24 +13,31 @@ extern crate csv;
 extern crate x86;
 extern crate perfcnt;
 extern crate yaml_rust;
+extern crate phf;
 
-use clap::{App};
+use clap::App;
 use std::path::Path;
 
 mod extract;
 mod profile;
 mod pair;
+mod stats;
 
-use profile::{profile};
-use extract::{extract};
-use pair::{pair};
+use profile::profile;
+use extract::extract;
+use pair::pair;
+use stats::stats;
 
 fn setup_logging() {
     use log::{LogRecord, LogLevelFilter};
     use env_logger::LogBuilder;
 
     let format = |record: &LogRecord| {
-        format!("[{}] {}:{}: {}", record.level(), record.location().file(), record.location().line(), record.args())
+        format!("[{}] {}:{}: {}",
+                record.level(),
+                record.location().file(),
+                record.location().line(),
+                record.args())
     };
 
     let mut builder = LogBuilder::new();
@@ -58,4 +65,9 @@ fn main() {
         let output_path = Path::new(matches.value_of("output").unwrap_or("out"));
         pair(output_path);
     }
+    if let Some(matches) = matches.subcommand_matches("stats") {
+        let output_path = Path::new(matches.value_of("output").unwrap_or("out"));
+        stats(output_path);
+    }
+
 }

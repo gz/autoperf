@@ -17,12 +17,13 @@ fn verify_events_in_order(events: &Vec<EventDesc>, values: &Vec<(u64, Option<u64
     for (idx, v) in values.iter().enumerate() {
         // Don't have id's we can't veryify anything
         if v.1.is_none() {
-            warn!("Don't have IDs with the sample values, so we can't tell which event a sample belongs to.");
+            warn!("Don't have IDs with the sample values, so we can't tell which event a sample \
+                   belongs to.");
             return true;
         }
 
         let id: u64 = v.1.unwrap_or(0);
-        if !events.get(idx).map_or(false, |ev| { ev.ids.contains(&id) }) {
+        if !events.get(idx).map_or(false, |ev| ev.ids.contains(&id)) {
             return false;
         }
     }
@@ -40,11 +41,13 @@ fn parse_perf_csv_file(path: &Path, writer: &mut csv::Writer<File>) -> io::Resul
     }
 
     type Row = (f64, String, String, String, String, String, f64);
-    let mut rdr = csv::Reader::from_file(path).unwrap().has_headers(false).delimiter(b';').flexible(true);
+    let mut rdr =
+        csv::Reader::from_file(path).unwrap().has_headers(false).delimiter(b';').flexible(true);
 
     for record in rdr.decode() {
         if record.is_ok() {
-            let (time, cpu, value_string, _, event, _, percent): Row = record.expect("Should not happen (in is_ok() branch)!");
+            let (time, cpu, value_string, _, event, _, percent): Row =
+                record.expect("Should not happen (in is_ok() branch)!");
 
             if value_string.trim() == "<not counted>" {
                 error!("Event {} was not measured. Abort for now...", event);
@@ -73,12 +76,16 @@ fn parse_perf_csv_file(path: &Path, writer: &mut csv::Writer<File>) -> io::Resul
                 (location, name.trim_left_matches(".").trim())
             };
 
-            writer.encode(&[ name, time.to_string().as_str(), location, value.to_string().as_str() ]).unwrap();
-        }
-        else {
+            writer.encode(&[name, time.to_string().as_str(), location, value.to_string().as_str()])
+                .unwrap();
+        } else {
             match record.unwrap_err() {
-                csv::Error::Decode(s) => if !s.starts_with("Failed converting '#") { panic!("Can't decode line {}.", s) },
-                e => panic!("Unrecoverable error {} while decoding.", e)
+                csv::Error::Decode(s) => {
+                    if !s.starts_with("Failed converting '#") {
+                        panic!("Can't decode line {}.", s)
+                    }
+                }
+                e => panic!("Unrecoverable error {} while decoding.", e),
             };
         }
     }
@@ -88,7 +95,10 @@ fn parse_perf_csv_file(path: &Path, writer: &mut csv::Writer<File>) -> io::Resul
 
 /// Extracts the data and writes it to a CSV file that looks like this:
 /// EVENT_NAME, TIME, CPU, SAMPLE_VALUE
-fn parse_perf_file(path: &Path, event_names: Vec<&str>, writer: &mut csv::Writer<File>) -> io::Result<()> {
+fn parse_perf_file(path: &Path,
+                   event_names: Vec<&str>,
+                   writer: &mut csv::Writer<File>)
+                   -> io::Result<()> {
 
     // Check if it's a file:
     let meta: Metadata = try!(fs::metadata(path));
@@ -101,28 +111,28 @@ fn parse_perf_file(path: &Path, event_names: Vec<&str>, writer: &mut csv::Writer
     try!(file.read_to_end(&mut buf));
     let pf = PerfFile::new(buf);
 
-    //debug!("GroupDescriptions: {:?}", pf.get_group_descriptions());
-    //debug!("EventDescription: {:?}", pf.get_event_description());
+    // debug!("GroupDescriptions: {:?}", pf.get_group_descriptions());
+    // debug!("EventDescription: {:?}", pf.get_event_description());
 
     let event_desc = pf.get_event_description().unwrap();
     let event_info: Vec<(&EventDesc, &&str)> = event_desc.iter().zip(event_names.iter()).collect();
-    //debug!("Event Infos: {:?}", event_info);
+    // debug!("Event Infos: {:?}", event_info);
 
 
     for e in pf.data() {
         if e.header.event_type != EventType::Sample {
-            continue
+            continue;
         }
 
         match e.data {
             EventData::Sample(rec) => {
-                //println!("{:?}", rec);
+                // println!("{:?}", rec);
                 let time = format!("{}", rec.time.unwrap());
                 let ptid = rec.ptid.unwrap();
                 let pid = format!("{}", ptid.pid);
                 let tid = format!("{}", ptid.tid);
                 let cpu = format!("{}", rec.cpu.unwrap().cpu);
-                //let ip = format!("0x{:x}", rec.ip.unwrap());
+                // let ip = format!("0x{:x}", rec.ip.unwrap());
 
                 let v = rec.v.unwrap();
                 assert!(verify_events_in_order(&event_desc, &v.values));
@@ -134,11 +144,12 @@ fn parse_perf_file(path: &Path, event_names: Vec<&str>, writer: &mut csv::Writer
                     let &(_, name) = event_info.iter().find(|ev| ev.0.ids.contains(&id)).unwrap();
                     let sample_value = format!("{}", event_count);
 
-                    writer.encode(&[ name, time.as_str(), cpu.as_str(), sample_value.as_str() ]).unwrap();
+                    writer.encode(&[name, time.as_str(), cpu.as_str(), sample_value.as_str()])
+                        .unwrap();
                 }
 
             }
-            _ => unreachable!("Should not happen")
+            _ => unreachable!("Should not happen"),
         }
     }
 
@@ -173,7 +184,7 @@ pub fn extract(path: &Path) {
     wrtr.encode(&["EVENT_NAME", "TIME", "CPU", "SAMPLE_VALUE"]).unwrap();
 
     for row in rows {
-        //println!("{:?}", row);
+        // println!("{:?}", row);
         let (_, event_names, _, _, file, _) = row;
         let string_names: Vec<&str> = event_names.split(",").collect();
         debug!("Processing: {}", string_names.join(", "));
@@ -183,9 +194,14 @@ pub fn extract(path: &Path) {
 
         let file_ext = perf_data.extension().expect("File does not have an extension");
         match file_ext.to_str().unwrap() {
-            "data" => parse_perf_file(perf_data.as_path(), event_names.split(",").collect(), &mut wrtr).unwrap(),
+            "data" => {
+                parse_perf_file(perf_data.as_path(),
+                                event_names.split(",").collect(),
+                                &mut wrtr)
+                    .unwrap()
+            }
             "csv" => parse_perf_csv_file(perf_data.as_path(), &mut wrtr).unwrap(),
-            _ => panic!("Unknown file extension, I can't parse this.")
+            _ => panic!("Unknown file extension, I can't parse this."),
         };
     }
 }

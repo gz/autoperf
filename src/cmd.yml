@@ -8,6 +8,12 @@ args:
         multiple: true
         help: Sets the level of verbosity
 subcommands:
+    - stats:
+        about: Generates statistics about performance events.
+        args:
+            - output:
+                help: Output folder.
+                required: true
     - profile:
         settings:
             - TrailingVarArg
