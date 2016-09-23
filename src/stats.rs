@@ -29,7 +29,7 @@ fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
 
         let cc_count = core_counters.map(|c| c.len()).unwrap_or(0);
         let uc_count = uncore_counters.map(|c| c.len()).unwrap_or(0);
-        writer.encode(&[name, year, cc_count.to_string().as_str(), uc_count.to_string().as_str(), counters])
+        writer.encode(&[year, name, cc_count.to_string().as_str(), uc_count.to_string().as_str(), counters])
             .unwrap();
     }
 }
