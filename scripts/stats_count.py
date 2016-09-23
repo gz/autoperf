@@ -16,17 +16,14 @@ if __name__ == '__main__':
     raw_data.sort_values(by=['year', 'counters'], inplace=True)
     raw_data.set_index('year', inplace=True)
     raw_data['events'] = raw_data['core events'] + raw_data['uncore events']
-    print raw_data
-    #raw_data.plot()
-    #ycounters = raw_data['counters'] #.drop_duplicates(keep='last')
 
     LEFT = -0.056
     ax1 = fig.add_subplot(1, 1, 1)
 
-    ax1.set_ylabel('Hardware Performance Events', rotation='horizontal', horizontalalignment='left')
+    ax1.set_ylabel('Hardware Performance Events')
     ax1.set_xlabel('Year of Release')
 
-    ax1.yaxis.set_label_coords(LEFT-0.030, 1.03)
+    #ax1.yaxis.set_label_coords(LEFT-0.030, 1.03)
     ax1.spines['top'].set_visible(False)
     ax1.spines['right'].set_visible(False)
     ax1.get_xaxis().tick_bottom()
@@ -81,4 +78,4 @@ if __name__ == '__main__':
     plt.setp(ax1.get_xticklabels(), fontproperties=ticks_font)
     plt.setp(ax1.get_yticklabels(), fontproperties=ticks_font)
 
-    plt.savefig(NAME + ".pdf", format='pdf')
+    plt.savefig(os.path.join(sys.argv[1], NAME + ".pdf"), format='pdf')
