@@ -61,13 +61,15 @@ fn common_event_names(a: Option<&'static EventMap>, b: Option<&'static EventMap>
 fn save_architecture_comparison(key_to_name: &ArchitectureMap, csv_result: &Path) {
     let mut writer = csv::Writer::from_file(csv_result).unwrap();
     writer.encode(&["name1",
+                  "year1",
                   "name2",
+                  "year2",
                   "common core events",
                   "common uncore events",
                   "name1 core events",
                   "name1 uncore events",
                   "name2 core events",
-                  "name2 uncore event"])
+                  "name2 uncore events"])
         .unwrap();
 
     for (key1, &(name1, year1, _)) in key_to_name.iter() {
@@ -83,7 +85,9 @@ fn save_architecture_comparison(key_to_name: &ArchitectureMap, csv_result: &Path
                 perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-uncore", key2).as_str());
 
             writer.encode(&[name1,
+                            year1,
                             name2,
+                            year2,
                             common_event_names(core_counters1, core_counters2)
                                 .to_string()
                                 .as_str(),
