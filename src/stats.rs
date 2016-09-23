@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use x86::shared::perfcnt;
 use x86::shared::perfcnt::intel::description::IntelPerformanceCounterDescription;
 use phf::Map;
+use csv;
+use super::util::*;
 
 fn edit_distance(a: &str, b: &str) -> i32 {
     let len_a = a.chars().count();
@@ -78,43 +80,59 @@ fn common_event_desc_distance(a: Option<&'static EventMap>, b: Option<&'static E
     }
 }
 
-pub fn stats(output_path: &Path) {
-    let mut key_to_name = HashMap::new();
-    key_to_name.insert("GenuineIntel-6-2E", "NehalemEX");
-    key_to_name.insert("GenuineIntel-6-1E", "NehalemEP");
-    key_to_name.insert("GenuineIntel-6-2F", "WestmereEX");
-    key_to_name.insert("GenuineIntel-6-25", "WestmereEP-SP");
-    key_to_name.insert("GenuineIntel-6-2C", "WestmereEP-DP");
-    key_to_name.insert("GenuineIntel-6-37", "Silvermont");
-    key_to_name.insert("GenuineIntel-6-5C", "Goldmont");
-    key_to_name.insert("GenuineIntel-6-1C", "Bonnell");
-    key_to_name.insert("GenuineIntel-6-2A", "SandyBridge");
-    key_to_name.insert("GenuineIntel-6-2D", "Jaketown");
-    key_to_name.insert("GenuineIntel-6-3A", "IvyBridge");
-    key_to_name.insert("GenuineIntel-6-3E", "IvyTown");
-    key_to_name.insert("GenuineIntel-6-3C", "Haswell");
-    key_to_name.insert("GenuineIntel-6-3F", "HaswellX");
-    key_to_name.insert("GenuineIntel-6-3D", "Broadwell");
-    key_to_name.insert("GenuineIntel-6-4F", "BroadwellX");
-    key_to_name.insert("GenuineIntel-6-56", "BroadwellDE");
-    key_to_name.insert("GenuineIntel-6-4E", "Skylake");
-    key_to_name.insert("GenuineIntel-6-57", "KnightsLanding");
+fn save_event_counts(key_to_name: &HashMap<&'static str, (&'static str, &'static str)>,
+                     csv_result: &Path) {
+    let mut writer = csv::Writer::from_file(csv_result).unwrap();
+    writer.encode(&["year", "architecture", "core events", "uncore events"]).unwrap();
 
-    println!("architecture,core events,uncore events");
-    for (key, name) in key_to_name.iter() {
+    for (key, value) in key_to_name.iter() {
         let core_counters =
             perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-core", key).as_str());
         let uncore_counters =
             perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-uncore", key).as_str());
 
-        println!("{},{},{}",
-                 name,
-                 core_counters.map(|c| c.len()).unwrap_or(0),
-                 uncore_counters.map(|c| c.len()).unwrap_or(0)) ;
-    }
 
-    for (key1, name1) in key_to_name.iter() {
-        for (key2, name2) in key_to_name.iter() {
+        let cc_count = core_counters.map(|c| c.len()).unwrap_or(0);
+        let uc_count = uncore_counters.map(|c| c.len()).unwrap_or(0);
+        writer.encode(&[value.0,
+                      value.1,
+                      format!("{}", cc_count).as_str(),
+                      format!("{}", uc_count).as_str()])
+            .unwrap();
+    }
+}
+
+pub fn stats(output_path: &Path) {
+    mkdir(output_path);
+
+    let mut key_to_name = HashMap::new();
+    key_to_name.insert("GenuineIntel-6-2E", ("NehalemEX", "2008?"));
+    key_to_name.insert("GenuineIntel-6-1E", ("NehalemEP", "2008?"));
+    key_to_name.insert("GenuineIntel-6-2F", ("WestmereEX", "2010"));
+    key_to_name.insert("GenuineIntel-6-25", ("WestmereEP-SP", "2010"));
+    key_to_name.insert("GenuineIntel-6-2C", ("WestmereEP-DP", "2010"));
+    key_to_name.insert("GenuineIntel-6-37", ("Silvermont", "2013"));
+    key_to_name.insert("GenuineIntel-6-5C", ("Goldmont", "2016"));
+    key_to_name.insert("GenuineIntel-6-1C", ("Bonnell", "2008"));
+    key_to_name.insert("GenuineIntel-6-2A", ("SandyBridge", "2011"));
+    key_to_name.insert("GenuineIntel-6-2D", ("Jaketown", "2011"));
+    key_to_name.insert("GenuineIntel-6-3A", ("IvyBridge", "2012"));
+    key_to_name.insert("GenuineIntel-6-3E", ("IvyBridge-EP", "2014"));
+    key_to_name.insert("GenuineIntel-6-3C", ("Haswell", "2013"));
+    key_to_name.insert("GenuineIntel-6-3F", ("HaswellX", "2014 ?"));
+    key_to_name.insert("GenuineIntel-6-3D", ("Broadwell", "2014"));
+    key_to_name.insert("GenuineIntel-6-4F", ("BroadwellX", "2016"));
+    key_to_name.insert("GenuineIntel-6-56", ("BroadwellDE", "2015"));
+    key_to_name.insert("GenuineIntel-6-4E", ("Skylake", "2015"));
+    key_to_name.insert("GenuineIntel-6-57", ("KnightsLanding", "2016"));
+
+
+    let mut csv_result_file = output_path.to_path_buf();
+    csv_result_file.push("events.csv");
+    save_event_counts(&key_to_name, csv_result_file.as_path());
+
+    for (key1, &(name1, year1)) in key_to_name.iter() {
+        for (key2, &(name2, year2)) in key_to_name.iter() {
             let core_counters1 =
                 perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-core", key1).as_str());
             let uncore_counters1 =

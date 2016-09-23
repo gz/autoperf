@@ -22,6 +22,7 @@ mod extract;
 mod profile;
 mod pair;
 mod stats;
+mod util;
 
 use profile::profile;
 use extract::extract;

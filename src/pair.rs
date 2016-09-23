@@ -14,6 +14,7 @@ use csv;
 use yaml_rust::YamlLoader;
 
 use profile;
+use super::util::*;
 
 pub type Node = u64;
 pub type Socket = u64;
@@ -43,12 +44,6 @@ fn get_hostname() -> Option<String> {
     let c_str: Vec<u8> = buf[..actual_len].into_iter().map(|i| *i as u8).collect();
 
     Some(String::from_utf8(c_str).unwrap())
-}
-
-fn mkdir(out_dir: &PathBuf) {
-    if !out_dir.exists() {
-        fs::create_dir(out_dir.as_path()).expect("Can't create `out` directory");
-    }
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
