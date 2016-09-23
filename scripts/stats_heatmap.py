@@ -66,12 +66,39 @@ def heatmap(name, data):
 if __name__ == "__main__":
     NAME = "common_events_heatmap"
     raw_data = pd.read_csv(os.path.join(sys.argv[1], "architecture_comparison.csv"), skipinitialspace=True)
-    raw_data['year1'].map(lambda y: int(y))
     raw_data['name1 total events'] = raw_data['name1 core events'] + raw_data['name1 uncore events']
     raw_data['name2 total events'] = raw_data['name2 core events'] + raw_data['name2 uncore events']
     raw_data['common events'] = raw_data['common core events'] + raw_data['common uncore events']
     raw_data['common events fraction'] = (raw_data['common events'] / raw_data['name1 total events']) * 100
-    raw_data.sort_values(by=['year1', 'year2'], inplace=True)
+    raw_data = raw_data.sort_values(by=['year1', 'year2'])
 
-    pivot_table = raw_data.pivot(index='name1', columns='name2', values='common events fraction')
+
+
+    pivot_table = raw_data.pivot_table(index='name1', columns='name2', values='common events fraction')
+    values = [
+        "Bonnell",
+        "NehalemEP",
+        "NehalemEX",
+        "WestmereEP-SP",
+        "WestmereEP-DP",
+        "WestmereEX",
+        "Jaketown",
+        "SandyBridge",
+        "IvyBridge",
+        "Silvermont",
+        "Haswell",
+        "IvyBridgeEP",
+        "HaswellX",
+        "Broadwell",
+        "BroadwellDE",
+        "Skylake",
+        "BroadwellX",
+        "Goldmont",
+        "KnightsLanding"
+    ]
+    mi = pd.MultiIndex.from_product([values])
+    print mi
+    pivot_table = pivot_table.reindex_axis(mi, 1)
+    pivot_table = pivot_table.reindex_axis(mi, 0)
+
     heatmap(NAME, pivot_table)

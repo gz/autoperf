@@ -208,21 +208,21 @@ pub fn stats(output_path: &Path) {
     key_to_name.insert("GenuineIntel-6-1C", ("Bonnell", "2008", "4"));
     key_to_name.insert("GenuineIntel-6-1E", ("NehalemEP", "2009", "4"));
     key_to_name.insert("GenuineIntel-6-2E", ("NehalemEX", "2010", "4"));
-    key_to_name.insert("GenuineIntel-6-2F", ("WestmereEX", "2011", "4"));
     key_to_name.insert("GenuineIntel-6-25", ("WestmereEP-SP", "2010", "4"));
     key_to_name.insert("GenuineIntel-6-2C", ("WestmereEP-DP", "2010", "4"));
-    key_to_name.insert("GenuineIntel-6-37", ("Silvermont", "2013", "8"));
-    key_to_name.insert("GenuineIntel-6-5C", ("Goldmont", "2016", "8"));
-    key_to_name.insert("GenuineIntel-6-2A", ("SandyBridge", "2011", "8"));
+    key_to_name.insert("GenuineIntel-6-2F", ("WestmereEX", "2011", "4"));
     key_to_name.insert("GenuineIntel-6-2D", ("Jaketown", "2011", "8"));
+    key_to_name.insert("GenuineIntel-6-2A", ("SandyBridge", "2011", "8"));
     key_to_name.insert("GenuineIntel-6-3A", ("IvyBridge", "2012", "8"));
-    key_to_name.insert("GenuineIntel-6-3E", ("IvyBridgeEP", "2014", "8"));
+    key_to_name.insert("GenuineIntel-6-37", ("Silvermont", "2013", "8"));
     key_to_name.insert("GenuineIntel-6-3C", ("Haswell", "2013", "8"));
+    key_to_name.insert("GenuineIntel-6-3E", ("IvyBridgeEP", "2014", "8"));
     key_to_name.insert("GenuineIntel-6-3F", ("HaswellX", "2014", "8"));
     key_to_name.insert("GenuineIntel-6-3D", ("Broadwell", "2014", "8"));
-    key_to_name.insert("GenuineIntel-6-4F", ("BroadwellX", "2016", "8"));
     key_to_name.insert("GenuineIntel-6-56", ("BroadwellDE", "2015", "8"));
     key_to_name.insert("GenuineIntel-6-4E", ("Skylake", "2015", "8"));
+    key_to_name.insert("GenuineIntel-6-4F", ("BroadwellX", "2016", "8"));
+    key_to_name.insert("GenuineIntel-6-5C", ("Goldmont", "2016", "8"));
     key_to_name.insert("GenuineIntel-6-57", ("KnightsLanding", "2016", "4"));
 
     let mut csv_result_file = output_path.to_path_buf();
