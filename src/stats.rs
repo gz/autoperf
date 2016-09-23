@@ -13,14 +13,14 @@ use x86::shared::perfcnt::intel::description::IntelPerformanceCounterDescription
 use super::util::*;
 
 type EventMap = Map<&'static str, IntelPerformanceCounterDescription>;
-type ArchitectureMap = HashMap<&'static str, (&'static str, &'static str)>;
+type ArchitectureMap = HashMap<&'static str, (&'static str, &'static str, &'static str)>;
 
 /// Saves the event count for all architectures to a file.
 fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
     let mut writer = csv::Writer::from_file(csv_result).unwrap();
-    writer.encode(&["year", "architecture", "core events", "uncore events"]).unwrap();
+    writer.encode(&["year", "architecture", "core events", "uncore events", "counters"]).unwrap();
 
-    for (key, &(name, year)) in key_to_name.iter() {
+    for (key, &(name, year, counters)) in key_to_name.iter() {
         let core_counters =
             perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-core", key).as_str());
         let uncore_counters =
@@ -29,7 +29,7 @@ fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
 
         let cc_count = core_counters.map(|c| c.len()).unwrap_or(0);
         let uc_count = uncore_counters.map(|c| c.len()).unwrap_or(0);
-        writer.encode(&[name, year, cc_count.to_string().as_str(), uc_count.to_string().as_str()])
+        writer.encode(&[name, year, cc_count.to_string().as_str(), uc_count.to_string().as_str(), counters])
             .unwrap();
     }
 }
@@ -66,8 +66,8 @@ fn save_architecture_comparison(key_to_name: &ArchitectureMap, csv_result: &Path
                   "name2 uncore event"])
         .unwrap();
 
-    for (key1, &(name1, year1)) in key_to_name.iter() {
-        for (key2, &(name2, year2)) in key_to_name.iter() {
+    for (key1, &(name1, year1, _)) in key_to_name.iter() {
+        for (key2, &(name2, year2, _)) in key_to_name.iter() {
             let core_counters1 =
                 perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-core", key1).as_str());
             let uncore_counters1 =
@@ -159,8 +159,8 @@ fn common_event_desc_distance(writer: &mut csv::Writer<File>,
 /// Does a pairwise comparison of all architectures by computing edit distances of shared events.
 fn save_edit_distances(key_to_name: &ArchitectureMap, output_dir: &Path) {
 
-    for (key1, &(name1, year1)) in key_to_name.iter() {
-        for (key2, &(name2, year2)) in key_to_name.iter() {
+    for (key1, &(name1, year1, _)) in key_to_name.iter() {
+        for (key2, &(name2, year2, _)) in key_to_name.iter() {
 
             let mut csv_result = output_dir.to_path_buf();
             csv_result.push(format!("editdist_{}-vs-{}.csv", name1, name2));
@@ -190,25 +190,25 @@ pub fn stats(output_path: &Path) {
     mkdir(output_path);
 
     let mut key_to_name = HashMap::new();
-    key_to_name.insert("GenuineIntel-6-2E", ("NehalemEX", "2010"));
-    key_to_name.insert("GenuineIntel-6-1E", ("NehalemEP", "2009"));
-    key_to_name.insert("GenuineIntel-6-2F", ("WestmereEX", "2010"));
-    key_to_name.insert("GenuineIntel-6-25", ("WestmereEP-SP", "2010"));
-    key_to_name.insert("GenuineIntel-6-2C", ("WestmereEP-DP", "2010"));
-    key_to_name.insert("GenuineIntel-6-37", ("Silvermont", "2013"));
-    key_to_name.insert("GenuineIntel-6-5C", ("Goldmont", "2016"));
-    key_to_name.insert("GenuineIntel-6-1C", ("Bonnell", "2008"));
-    key_to_name.insert("GenuineIntel-6-2A", ("SandyBridge", "2011"));
-    key_to_name.insert("GenuineIntel-6-2D", ("Jaketown", "2011"));
-    key_to_name.insert("GenuineIntel-6-3A", ("IvyBridge", "2012"));
-    key_to_name.insert("GenuineIntel-6-3E", ("IvyBridgeEP", "2014"));
-    key_to_name.insert("GenuineIntel-6-3C", ("Haswell", "2013"));
-    key_to_name.insert("GenuineIntel-6-3F", ("HaswellX", "2014"));
-    key_to_name.insert("GenuineIntel-6-3D", ("Broadwell", "2014"));
-    key_to_name.insert("GenuineIntel-6-4F", ("BroadwellX", "2016"));
-    key_to_name.insert("GenuineIntel-6-56", ("BroadwellDE", "2015"));
-    key_to_name.insert("GenuineIntel-6-4E", ("Skylake", "2015"));
-    key_to_name.insert("GenuineIntel-6-57", ("KnightsLanding", "2016"));
+    key_to_name.insert("GenuineIntel-6-1C", ("Bonnell", "2008", "4"));
+    key_to_name.insert("GenuineIntel-6-1E", ("NehalemEP", "2009", "4"));
+    key_to_name.insert("GenuineIntel-6-2E", ("NehalemEX", "2010", "4"));
+    key_to_name.insert("GenuineIntel-6-2F", ("WestmereEX", "2010", "4"));
+    key_to_name.insert("GenuineIntel-6-25", ("WestmereEP-SP", "2010", "4"));
+    key_to_name.insert("GenuineIntel-6-2C", ("WestmereEP-DP", "2010", "4"));
+    key_to_name.insert("GenuineIntel-6-37", ("Silvermont", "2013", "8"));
+    key_to_name.insert("GenuineIntel-6-5C", ("Goldmont", "2016", "8"));
+    key_to_name.insert("GenuineIntel-6-2A", ("SandyBridge", "2011", "8"));
+    key_to_name.insert("GenuineIntel-6-2D", ("Jaketown", "2011", "8"));
+    key_to_name.insert("GenuineIntel-6-3A", ("IvyBridge", "2012", "8"));
+    key_to_name.insert("GenuineIntel-6-3E", ("IvyBridgeEP", "2014", "8"));
+    key_to_name.insert("GenuineIntel-6-3C", ("Haswell", "2013", "8"));
+    key_to_name.insert("GenuineIntel-6-3F", ("HaswellX", "2014", "8"));
+    key_to_name.insert("GenuineIntel-6-3D", ("Broadwell", "2014", "8"));
+    key_to_name.insert("GenuineIntel-6-4F", ("BroadwellX", "2016", "8"));
+    key_to_name.insert("GenuineIntel-6-56", ("BroadwellDE", "2015", "8"));
+    key_to_name.insert("GenuineIntel-6-4E", ("Skylake", "2015", "8"));
+    key_to_name.insert("GenuineIntel-6-57", ("KnightsLanding", "2016", "4"));
 
     let mut csv_result_file = output_path.to_path_buf();
     csv_result_file.push("events.csv");
