@@ -38,13 +38,39 @@ if __name__ == '__main__':
         name = row[1]['architecture']
         events = row[1]['events']
 
+        xpos = year + 0.1
+        ypos = events
+
         if year == 2016:
-            ax1.annotate(name, xy=(year, events), xytext=(2015.2, ytext), weight='light')
-        else:
-            ytext = events
-            if name == "Westmere EP":
-                ytext -= 20
-            ax1.annotate(name, xy=(year, events), xytext=(year+0.1, ytext), weight='light')
+            xpos = 2014.7
+        if name == "Westmere EP":
+            ypos -= 20
+        if name == "BroadwellX":
+            ypos -= 70
+            xpos += 0.1
+        if name == "Broadwell":
+            xpos -= 1.2
+        if name == "KnightsLanding":
+            ypos += 35
+            xpos -= 0.3
+        if name == "Goldmont":
+            xpos += 0.2
+        if name == "Skylake":
+            ypos -= 55
+        if name == "NehalemEP":
+            xpos -= 1.2
+            ypos += 35
+        if name == "NehalemEX": # 553
+            xpos -= 0.8
+            ypos += 55
+        if name == "WestmereEP-SP": # 576
+            name = "WestmereEP"
+            xpos -= 0.8
+            ypos -= 110
+        if name == "WestmereEP-DP": # 542
+            continue # ignore this event (same as EP-SP..)
+
+        ax1.annotate(name, xy=(xpos, ypos), xytext=(xpos, ypos), weight='light')
 
     p = ax1.plot(raw_data['events'], marker='o', linestyle='None')
     p = ax1.plot(raw_data['counters'])

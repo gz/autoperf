@@ -29,7 +29,11 @@ fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
 
         let cc_count = core_counters.map(|c| c.len()).unwrap_or(0);
         let uc_count = uncore_counters.map(|c| c.len()).unwrap_or(0);
-        writer.encode(&[year, name, cc_count.to_string().as_str(), uc_count.to_string().as_str(), counters])
+        writer.encode(&[year,
+                      name,
+                      cc_count.to_string().as_str(),
+                      uc_count.to_string().as_str(),
+                      counters])
             .unwrap();
     }
 }
@@ -144,12 +148,19 @@ fn common_event_desc_distance(writer: &mut csv::Writer<File>,
         match b_map.get(key1) {
             Some(value2) => {
                 assert_eq!(value1.event_name, value2.event_name);
-                let ed = edit_distance(value1.brief_description, value2.brief_description).to_string();
+                let ed = edit_distance(value1.brief_description, value2.brief_description)
+                    .to_string();
                 let uncore_str = if uncore { "true" } else { "false" };
 
-                try!(writer.encode(&[ value1.event_name, ed.as_str(), uncore_str, value1.brief_description, value2.brief_description ]))
+                try!(writer.encode(&[value1.event_name,
+                                     ed.as_str(),
+                                     uncore_str,
+                                     value1.brief_description,
+                                     value2.brief_description]))
             }
-            None => { /* Ignore event names that are not shared in both architectures */ }
+            None => {
+                // Ignore event names that are not shared in both architectures
+            }
         }
     }
 
@@ -193,7 +204,7 @@ pub fn stats(output_path: &Path) {
     key_to_name.insert("GenuineIntel-6-1C", ("Bonnell", "2008", "4"));
     key_to_name.insert("GenuineIntel-6-1E", ("NehalemEP", "2009", "4"));
     key_to_name.insert("GenuineIntel-6-2E", ("NehalemEX", "2010", "4"));
-    key_to_name.insert("GenuineIntel-6-2F", ("WestmereEX", "2010", "4"));
+    key_to_name.insert("GenuineIntel-6-2F", ("WestmereEX", "2011", "4"));
     key_to_name.insert("GenuineIntel-6-25", ("WestmereEP-SP", "2010", "4"));
     key_to_name.insert("GenuineIntel-6-2C", ("WestmereEP-DP", "2010", "4"));
     key_to_name.insert("GenuineIntel-6-37", ("Silvermont", "2013", "8"));
