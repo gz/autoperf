@@ -8,6 +8,8 @@ ticks_font = font_manager.FontProperties(family='Decima Mono')
 plt.style.use([os.path.join(sys.path[0], 'ethplot.mplstyle')])
 NAME = "counters_vs_events"
 
+
+
 if __name__ == '__main__':
     fig = plt.figure()
 
@@ -17,13 +19,11 @@ if __name__ == '__main__':
     raw_data.set_index('year', inplace=True)
     raw_data['events'] = raw_data['core events'] + raw_data['uncore events']
 
-    LEFT = -0.056
     ax1 = fig.add_subplot(1, 1, 1)
 
     ax1.set_ylabel('Hardware Performance Events')
     ax1.set_xlabel('Year of Release')
 
-    #ax1.yaxis.set_label_coords(LEFT-0.030, 1.03)
     ax1.spines['top'].set_visible(False)
     ax1.spines['right'].set_visible(False)
     ax1.get_xaxis().tick_bottom()
@@ -71,6 +71,7 @@ if __name__ == '__main__':
 
     p = ax1.plot(raw_data['events'], marker='o', linestyle='None')
     p = ax1.plot(raw_data['counters'])
+    plt.xticks(raw_data.index.unique())
 
     ax1.annotate("HW Counters per Core", xy=(2014, 0), xytext=(2013.4, 29), color=p[0].get_color())
 
@@ -78,4 +79,6 @@ if __name__ == '__main__':
     plt.setp(ax1.get_xticklabels(), fontproperties=ticks_font)
     plt.setp(ax1.get_yticklabels(), fontproperties=ticks_font)
 
-    plt.savefig(os.path.join(sys.argv[1], NAME + ".pdf"), format='pdf')
+
+    plt.savefig(os.path.join(sys.argv[1], NAME + ".png"), format='png', pad_inches=0.0)
+    plt.savefig(os.path.join(sys.argv[1], NAME + ".pdf"), format='pdf', pad_inches=0.0)

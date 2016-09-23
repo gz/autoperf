@@ -60,8 +60,8 @@ def heatmap(name, data):
         t.tick1On = False
         t.tick2On = False
 
-    plt.savefig(name + ".png", format='png')
-    plt.savefig(name + ".pdf", format='pdf', pad_inches=0.0)
+    plt.savefig(os.path.join(sys.argv[1], name + ".png"), format='png')
+    plt.savefig(os.path.join(sys.argv[1], name + ".pdf"), format='pdf', pad_inches=0.0)
 
 if __name__ == "__main__":
     NAME = "common_events_heatmap"
@@ -71,8 +71,6 @@ if __name__ == "__main__":
     raw_data['common events'] = raw_data['common core events'] + raw_data['common uncore events']
     raw_data['common events fraction'] = (raw_data['common events'] / raw_data['name1 total events']) * 100
     raw_data = raw_data.sort_values(by=['year1', 'year2'])
-
-
 
     pivot_table = raw_data.pivot_table(index='name1', columns='name2', values='common events fraction')
     values = [
@@ -97,7 +95,6 @@ if __name__ == "__main__":
         "KnightsLanding"
     ]
     mi = pd.MultiIndex.from_product([values])
-    print mi
     pivot_table = pivot_table.reindex_axis(mi, 1)
     pivot_table = pivot_table.reindex_axis(mi, 0)
 
