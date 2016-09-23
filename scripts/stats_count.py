@@ -33,25 +33,18 @@ if __name__ == '__main__':
     ax1.get_yaxis().tick_left()
     ax1.set_xlim(2007.5, 2016.5)
 
-    """
-    for datapoint in data.split("\n"):
-        year, name, events, counters = datapoint.split(',')
-        name = name.strip()
-        year = int(year)
-        events = int(events)
-        counters = int(counters)
+    for row in raw_data.iterrows():
+        year = row[0]
+        name = row[1]['architecture']
+        events = row[1]['events']
 
-        ycounters.append(counters)
-        y.append(events)
-        if year == 2015:
-            ytext = events-20 if name == 'Skylake' else events+20
-            ax1.annotate(name, xy=(year, events), xytext=(2014.2, ytext), weight='light')
+        if year == 2016:
+            ax1.annotate(name, xy=(year, events), xytext=(2015.2, ytext), weight='light')
         else:
             ytext = events
             if name == "Westmere EP":
                 ytext -= 20
             ax1.annotate(name, xy=(year, events), xytext=(year+0.1, ytext), weight='light')
-    """
 
     p = ax1.plot(raw_data['events'], marker='o', linestyle='None')
     p = ax1.plot(raw_data['counters'])
