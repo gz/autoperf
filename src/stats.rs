@@ -15,57 +15,7 @@ use super::util::*;
 type EventMap = Map<&'static str, IntelPerformanceCounterDescription>;
 type ArchitectureMap = HashMap<&'static str, (&'static str, &'static str)>;
 
-fn edit_distance(a: &str, b: &str) -> i32 {
-    let len_a = a.chars().count();
-    let len_b = b.chars().count();
-
-    let row: Vec<i32> = vec![0; len_b + 1];
-    let mut matrix: Vec<Vec<i32>> = vec![row; len_a + 1];
-
-    let chars_a: Vec<char> = a.chars().collect();
-    let chars_b: Vec<char> = b.chars().collect();
-
-    for i in 0..len_a {
-        matrix[i + 1][0] = (i + 1) as i32;
-    }
-    for i in 0..len_b {
-        matrix[0][i + 1] = (i + 1) as i32;
-    }
-
-    for i in 0..len_a {
-        for j in 0..len_b {
-            let ind: i32 = if chars_a[i] == chars_b[j] { 0 } else { 1 };
-
-            let min = vec![matrix[i][j + 1] + 1, matrix[i + 1][j] + 1, matrix[i][j] + ind]
-                .into_iter()
-                .min()
-                .unwrap();
-
-            matrix[i + 1][j + 1] = if min == 0 { 0 } else { min };
-        }
-    }
-    matrix[len_a][len_b]
-}
-
-// Find all events with the same name
-fn common_event_names(a: Option<&'static EventMap>, b: Option<&'static EventMap>) -> usize {
-    if a.is_none() || b.is_none() {
-        return 0;
-    }
-
-    let a_map = a.unwrap();
-    let b_map = b.unwrap();
-
-    let mut counter = 0;
-    for (key, value) in a_map.entries() {
-        if b_map.get(key).is_some() {
-            counter += 1
-        }
-    }
-
-    counter
-}
-
+/// Saves the event count for all architectures to a file.
 fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
     let mut writer = csv::Writer::from_file(csv_result).unwrap();
     writer.encode(&["year", "architecture", "core events", "uncore events"]).unwrap();
@@ -84,6 +34,26 @@ fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
     }
 }
 
+/// Given two EventMaps count all the shared (same event name key) events.
+fn common_event_names(a: Option<&'static EventMap>, b: Option<&'static EventMap>) -> usize {
+    if a.is_none() || b.is_none() {
+        return 0;
+    }
+
+    let a_map = a.unwrap();
+    let b_map = b.unwrap();
+
+    let mut counter = 0;
+    for (key, value) in a_map.entries() {
+        if b_map.get(key).is_some() {
+            counter += 1
+        }
+    }
+
+    counter
+}
+
+/// Does pairwise comparison of all architectures and saves their shared events to a file.
 fn save_architecture_comparison(key_to_name: &ArchitectureMap, csv_result: &Path) {
     let mut writer = csv::Writer::from_file(csv_result).unwrap();
     writer.encode(&["name1",
@@ -124,7 +94,40 @@ fn save_architecture_comparison(key_to_name: &ArchitectureMap, csv_result: &Path
     }
 }
 
-// Find all events with the same name
+/// Computes the Levenshtein edit distance of two strings.
+fn edit_distance(a: &str, b: &str) -> i32 {
+    let len_a = a.chars().count();
+    let len_b = b.chars().count();
+
+    let row: Vec<i32> = vec![0; len_b + 1];
+    let mut matrix: Vec<Vec<i32>> = vec![row; len_a + 1];
+
+    let chars_a: Vec<char> = a.chars().collect();
+    let chars_b: Vec<char> = b.chars().collect();
+
+    for i in 0..len_a {
+        matrix[i + 1][0] = (i + 1) as i32;
+    }
+    for i in 0..len_b {
+        matrix[0][i + 1] = (i + 1) as i32;
+    }
+
+    for i in 0..len_a {
+        for j in 0..len_b {
+            let ind: i32 = if chars_a[i] == chars_b[j] { 0 } else { 1 };
+
+            let min = vec![matrix[i][j + 1] + 1, matrix[i + 1][j] + 1, matrix[i][j] + ind]
+                .into_iter()
+                .min()
+                .unwrap();
+
+            matrix[i + 1][j + 1] = if min == 0 { 0 } else { min };
+        }
+    }
+    matrix[len_a][len_b]
+}
+
+/// Computes the edit distance of the event description for common events shared in 'a' and 'b'.
 fn common_event_desc_distance(writer: &mut csv::Writer<File>,
                               a: Option<&'static EventMap>,
                               b: Option<&'static EventMap>,
@@ -153,6 +156,7 @@ fn common_event_desc_distance(writer: &mut csv::Writer<File>,
     Ok(())
 }
 
+/// Does a pairwise comparison of all architectures by computing edit distances of shared events.
 fn save_edit_distances(key_to_name: &ArchitectureMap, output_dir: &Path) {
 
     for (key1, &(name1, year1)) in key_to_name.iter() {
@@ -181,7 +185,7 @@ fn save_edit_distances(key_to_name: &ArchitectureMap, output_dir: &Path) {
     }
 }
 
-
+/// Generate all the stats about Intel events and save them to a file.
 pub fn stats(output_path: &Path) {
     mkdir(output_path);
 
