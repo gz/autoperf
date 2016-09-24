@@ -110,8 +110,8 @@ fn edit_distance(a: &str, b: &str) -> i32 {
     let row: Vec<i32> = vec![0; len_b + 1];
     let mut matrix: Vec<Vec<i32>> = vec![row; len_a + 1];
 
-    let chars_a: Vec<char> = a.chars().collect();
-    let chars_b: Vec<char> = b.chars().collect();
+    let chars_a: Vec<char> = a.to_lowercase().chars().collect();
+    let chars_b: Vec<char> = b.to_lowercase().chars().collect();
 
     for i in 0..len_a {
         matrix[i + 1][0] = (i + 1) as i32;
