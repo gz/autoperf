@@ -462,7 +462,7 @@ impl<'a> Run<'a> {
     fn get_args_for_b(&self) -> Vec<String> {
         let nthreads = self.deployment.b.len();
 
-        self.args_a
+        self.args_b
             .iter()
             .map(|s| s.to_string())
             .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str()))
@@ -490,8 +490,8 @@ impl<'a> Run<'a> {
     }
 
     fn start_b(&mut self) -> io::Result<Child> {
-        debug!("Starting B: {}", self.binary_b);
-        Command::new(self.binary_a)
+        debug!("Starting B: {} {:?}", self.binary_b, self.get_args_for_b());
+        Command::new(self.binary_b)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .args(self.get_args_for_b().as_slice())
@@ -516,7 +516,7 @@ impl<'a> Run<'a> {
         try!(f.write_all(format!("{}", self).as_bytes()));
 
         // Profile alone
-        try!(self.profile_a("alone"));
+        // try!(self.profile_a("alone"));
 
         // Profile together with B
         let mut app_b = try!(self.start_b());
