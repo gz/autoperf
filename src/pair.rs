@@ -389,6 +389,7 @@ struct Run<'a> {
     output_path: PathBuf,
     binary_a: &'a str,
     args_a: &'a Vec<&'a str>,
+    breakpoints: &'a Vec<&'a str>,
     is_openmp_a: bool,
 
     child_b: Option<Child>,
@@ -403,6 +404,7 @@ impl<'a> Run<'a> {
     fn new(output_path: &Path,
            a: &'a str,
            args_a: &'a Vec<&str>,
+           breakpoints: &'a Vec<&str>,
            b: &'a str,
            args_b: &'a Vec<&str>,
            deployment: &'a Deployment)
@@ -415,6 +417,7 @@ impl<'a> Run<'a> {
             output_path: out_dir,
             binary_a: a,
             args_a: args_a,
+            breakpoints: breakpoints,
             is_openmp_a: true,
             binary_b: b,
             args_b: args_b,
@@ -429,8 +432,18 @@ impl<'a> Run<'a> {
         if self.is_openmp_a {
             let cpus: Vec<String> =
                 self.deployment.a.iter().map(|c| format!("{}", c.cpu)).collect();
-            println!("{:?}", cpus);
-            env.push((String::from("GOMP_CPU_AFFINITY"), format!("\"{}\"", cpus.join(" "))));
+            env.push((String::from("GOMP_CPU_AFFINITY"), format!("{}", cpus.join(","))));
+        }
+
+        env
+    }
+
+    fn get_env_for_b(&self) -> Vec<(String, String)> {
+        let mut env: Vec<(String, String)> = Vec::with_capacity(2);
+        if self.is_openmp_a {
+            let cpus: Vec<String> =
+                self.deployment.b.iter().map(|c| format!("{}", c.cpu)).collect();
+            env.push((String::from("GOMP_CPU_AFFINITY"), format!("{}", cpus.join(","))));
         }
 
         env
@@ -467,9 +480,12 @@ impl<'a> Run<'a> {
         let mut cmd: Vec<&str> = vec![ self.binary_a ];
         cmd.extend(args.iter().map(|c| c.as_str()));
 
-        // println!("{:?}", self.get_env_for_a());
-
-        profile::profile(&perf_path, cmd, self.get_env_for_a(), false);
+        debug!("Spawning {:?} with environment {:?}", cmd, self.get_env_for_a());
+        profile::profile(&perf_path,
+                         cmd,
+                         self.get_env_for_a(),
+                         self.breakpoints.iter().map(|s| s.to_string()).collect(),
+                         false);
         Ok(())
     }
 
@@ -495,22 +511,33 @@ impl<'a> Run<'a> {
 
     fn profile(&mut self) -> io::Result<()> {
         let mut deployment_path = self.output_path.clone();
-        deployment_path.push("deployment.txt");
+        deployment_path.push("run.txt");
         let mut f = try!(File::create(deployment_path.as_path()));
-        try!(f.write_all(format!("{}", self.deployment).as_bytes()));
+        try!(f.write_all(format!("{}", self).as_bytes()));
 
         let mut app_b = try!(self.start_b());
+
         try!(self.profile_a());
 
         // Done, do clean-up:
         try!(app_b.kill());
-
         app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
         app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
 
         Ok(())
     }
 }
+
+impl<'a> fmt::Display for Run<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(write!(f, "A: {:?} {} {:?}\n", self.get_env_for_a(), self.binary_a, self.get_args_for_a()));
+        try!(write!(f, "A Breakpoints: {:?}\n", self.breakpoints));
+        try!(write!(f, "B: {:?} {} {:?}\n", self.get_env_for_b(), self.binary_b, self.get_args_for_b()));
+        try!(write!(f, "{}:\n", self.deployment));
+        Ok(())
+    }
+}
+
 
 pub fn pair(output_path: &Path) {
     let mut out_dir = output_path.to_path_buf();
@@ -550,6 +577,13 @@ pub fn pair(output_path: &Path) {
         .map(|s| s.as_str().unwrap())
         .collect();
 
+    let breakpoints: Vec<&str> = doc["program1"]["breakpoints"]
+        .as_vec()
+        .unwrap()
+        .iter()
+        .map(|s| s.as_str().unwrap())
+        .collect();
+
     let mut deployments: Vec<Deployment> = Vec::with_capacity(4);
     for config in configs {
         if config == "Caches" {
@@ -570,7 +604,13 @@ pub fn pair(output_path: &Path) {
     }
 
     for d in deployments.iter() {
-        let mut run = Run::new(out_dir.as_path(), binary1, &args1, binary2, &args2, d);
+        let mut run = Run::new(out_dir.as_path(),
+                               binary1,
+                               &args1,
+                               &breakpoints,
+                               binary2,
+                               &args2,
+                               d);
         run.profile();
     }
 }

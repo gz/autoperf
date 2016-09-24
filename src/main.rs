@@ -56,14 +56,18 @@ fn main() {
         let record: bool = matches.is_present("record");
         let cmd: Vec<&str> = matches.values_of("COMMAND").unwrap().collect();
 
-        profile(output_path, cmd, Default::default(), record);
+        profile(output_path,
+                cmd,
+                Default::default(),
+                Default::default(),
+                record);
     }
     if let Some(matches) = matches.subcommand_matches("extract") {
         let output_path = Path::new(matches.value_of("input").unwrap_or("out"));
         extract(output_path);
     }
     if let Some(matches) = matches.subcommand_matches("pair") {
-        let output_path = Path::new(matches.value_of("output").unwrap_or("out"));
+        let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
         pair(output_path);
     }
     if let Some(matches) = matches.subcommand_matches("stats") {

@@ -566,7 +566,11 @@ fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>)
     groups
 }
 
-pub fn profile(output_path: &Path, cmd: Vec<&str>, env: Vec<(String, String)>, record: bool) {
+pub fn profile(output_path: &Path,
+               cmd: Vec<&str>,
+               env: Vec<(String, String)>,
+               breakpoints: Vec<String>,
+               record: bool) {
     create_out_directory(output_path);
     check_for_perf();
     let ret = check_for_perf_permissions() || check_for_disabled_nmi_watchdog() ||
@@ -623,6 +627,9 @@ pub fn profile(output_path: &Path, cmd: Vec<&str>, env: Vec<(String, String)>, r
         for &(ref key, ref value) in env.iter() {
             perf.env(key, value);
         }
+        let breakpoint_args: Vec<String> =
+            breakpoints.iter().map(|s| format!("-e \\{}", s)).collect();
+        perf.args(breakpoint_args.as_slice());
 
         let executed_cmd = execute_perf(&mut perf, &cmd, &counters, record_path.as_path());
         let r = wtr.encode(vec![cmd.join(" "),

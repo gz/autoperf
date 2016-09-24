@@ -45,12 +45,9 @@ subcommands:
                 short: d
                 long: debug
                 help: Print verbose debug information.
-            - output:
-                short: o
-                long: output
-                help: Set output directory.
-                value_name: DIRECTORY
-                takes_value: true
+            - directory:
+                help: Path of manifest directory.
+                required: true
     - extract:
         about: Merge counter measurements generated with the `profile` command in a single CSV file.
         args:
