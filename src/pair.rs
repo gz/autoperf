@@ -469,10 +469,10 @@ impl<'a> Run<'a> {
             .collect()
     }
 
-    fn profile_a(&self) -> io::Result<()> {
+    fn profile_a(&self, run: &str) -> io::Result<()> {
         debug!("Starting profiling and running A: {}", self.binary_a);
         let mut perf_data_path_buf = self.output_path.clone();
-        perf_data_path_buf.push("stat");
+        perf_data_path_buf.push(run);
         mkdir(&perf_data_path_buf);
         let perf_path = perf_data_path_buf.as_path();
 
@@ -515,10 +515,12 @@ impl<'a> Run<'a> {
         let mut f = try!(File::create(deployment_path.as_path()));
         try!(f.write_all(format!("{}", self).as_bytes()));
 
+        // Profile alone
+        try!(self.profile_a("alone"));
+
+        // Profile together with B
         let mut app_b = try!(self.start_b());
-
-        try!(self.profile_a());
-
+        try!(self.profile_a("paired"));
         // Done, do clean-up:
         try!(app_b.kill());
         app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
