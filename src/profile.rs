@@ -1,5 +1,6 @@
 use std;
-
+use std::collections::HashMap;
+use std::iter;
 use std::io::prelude::*;
 use std::fs;
 use std::fs::File;
@@ -24,9 +25,27 @@ lazy_static! {
         })
     };
 
-    static ref PMU_COUNTERS: usize = {
+    static ref PMU_COUNTERS: HashMap<MonitoringUnit, usize> = {
         let cpuid = cpuid::CpuId::new();
-        cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters()) as usize
+        let cpu_counter = cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters()) as usize;
+        let mut res = HashMap::with_capacity(11);
+        res.insert(MonitoringUnit::CPU, cpu_counter);
+        cpuid.get_feature_info().map(|fi| {
+            // IvyBridge and IvyBridge-EP?
+            if fi.family_id() == 0x6 && fi.extended_model_id() == 0x3 {
+                res.insert(MonitoringUnit::UBox, 2);
+                res.insert(MonitoringUnit::CBox, 4);
+                res.insert(MonitoringUnit::HA, 4);
+                res.insert(MonitoringUnit::IMC, 4);
+                res.insert(MonitoringUnit::IRP, 4);
+                res.insert(MonitoringUnit::PCU, 4);
+                res.insert(MonitoringUnit::QPI_LL, 4);
+                res.insert(MonitoringUnit::R2PCIe, 4);
+                res.insert(MonitoringUnit::R3QPI, 3);
+                res.insert(MonitoringUnit::QPI, 4); // Not in the manual?
+            }
+        });
+        res
     };
 
     static ref PMU_DEVICES: Vec<String> = {
@@ -49,9 +68,8 @@ lazy_static! {
         cpuid.get_feature_info().map_or(
             vec![],
             |fi| {
-                let (family, extended_model, model) = (fi.family_id(), fi.extended_model_id(), fi.model_id());
-                // IvyBridge
-                if family == 0x6 && extended_model == 0x3 && model == 0xa {
+                // IvyBridge and IvyBridge-EP, is it correct to check only extended model and not model?
+                if fi.family_id() == 0x6 && fi.extended_model_id() == 0x3 {
                     vec![   "MEM_UOPS_RETIRED.ALL_STORES",
                             "MEM_LOAD_UOPS_RETIRED.L1_MISS",
                             "MEM_LOAD_UOPS_RETIRED.HIT_LFB",
@@ -70,7 +88,11 @@ lazy_static! {
                             "MEM_UOPS_RETIRED.STLB_MISS_LOADS",
                             "MEM_UOPS_RETIRED.LOCK_LOADS",
                             "MEM_LOAD_UOPS_RETIRED.LLC_HIT",
-                            "MEM_UOPS_RETIRED.SPLIT_STORES" ]
+                            "MEM_UOPS_RETIRED.SPLIT_STORES",
+                            // Those are IvyBridge-EP events:
+                            "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_DRAM",
+                            "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_HITM",
+                            "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_FWD"]
                 }
                 else {
                     vec![]
@@ -130,7 +152,10 @@ fn get_events() -> Vec<&'static IntelPerformanceCounterDescription> {
     events
 }
 
-pub enum UncoreType {
+#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
+pub enum MonitoringUnit {
+    /// Devices
+    CPU,
     /// Memory stuff
     Arb,
     /// The CBox manages the interface between the core and the LLC, so
@@ -138,21 +163,47 @@ pub enum UncoreType {
     CBox,
     /// ???
     SBox,
+    /// ???
+    UBox,
     /// QPI Stuff
     QPI,
+    /// Ring to QPI
+    R3QPI,
+    /// QPI Link Layer
+    QPI_LL,
+    /// IIO Coherency
+    IRP,
+    /// Ring to PCIe
+    R2PCIe,
+    /// Memory Controller
+    IMC,
+    /// Home Agent
+    HA,
+    /// Power Control Unit
+    PCU,
     /// Types we don't know how to handle...
     Unknown(&'static str),
 }
 
-impl UncoreType {
-    fn new(unit: &'static str) -> UncoreType {
+impl MonitoringUnit {
+    fn new(unit: &'static str) -> MonitoringUnit {
         match unit.to_lowercase().as_str() {
-            "cbo" => UncoreType::CBox,
-            "qpi_ll" => UncoreType::QPI,
-            "sbo" => UncoreType::SBox,
-            "imph-u" => UncoreType::Arb,
-            "arb" => UncoreType::Arb,
-            _ => UncoreType::Unknown(unit),
+            "cpu" => MonitoringUnit::CPU,
+            "cbo" => MonitoringUnit::CBox,
+            "qpi_ll" => MonitoringUnit::QPI,
+            "sbo" => MonitoringUnit::SBox,
+            "imph-u" => MonitoringUnit::Arb,
+            "arb" => MonitoringUnit::Arb,
+
+            "r3qpi" => MonitoringUnit::R3QPI,
+            "qpi ll" => MonitoringUnit::QPI_LL,
+            "irp" => MonitoringUnit::IRP,
+            "r2pcie" => MonitoringUnit::R2PCIe,
+            "imc" => MonitoringUnit::IMC,
+            "ha" => MonitoringUnit::HA,
+            "pcu" => MonitoringUnit::PCU,
+            "ubox" => MonitoringUnit::UBox,
+            _ => MonitoringUnit::Unknown(unit),
         }
     }
 
@@ -160,15 +211,25 @@ impl UncoreType {
     fn to_perf_prefix(&self) -> Option<&'static str> {
 
         let res = match *self {
-            UncoreType::CBox => Some("uncore_cbox"),
-            UncoreType::QPI => Some("uncore_qpi"),
-            UncoreType::SBox => Some("uncore_sbox"),
-            UncoreType::Arb => Some("uncore_arb"),
-            UncoreType::Unknown(_) => None,
+            MonitoringUnit::CPU => Some("cpu"),
+            MonitoringUnit::CBox => Some("uncore_cbox"),
+            MonitoringUnit::QPI => Some("uncore_qpi"),
+            MonitoringUnit::SBox => Some("uncore_sbox"),
+            MonitoringUnit::Arb => Some("uncore_arb"),
+
+            MonitoringUnit::R3QPI => Some("uncore_r3qpi"), // Adds postfix value
+            MonitoringUnit::QPI_LL => Some("uncore_qpi"), // Adds postfix value
+            MonitoringUnit::IRP => Some("uncore_irp"), // According to libpfm4 (lib/pfmlib_intel_ivbep_unc_irp.c)
+            MonitoringUnit::R2PCIe => Some("uncore_r2pcie"),
+            MonitoringUnit::IMC => Some("uncore_imc"), // Adds postfix value
+            MonitoringUnit::HA => Some("uncore_ha"), // Adds postfix value
+            MonitoringUnit::PCU => Some("uncore_pcu"),
+            MonitoringUnit::UBox => Some("uncore_ubox"),
+            MonitoringUnit::Unknown(_) => None,
         };
 
         // Note: If anything here does not return uncore_ as a prefix, you need to update extract.rs!
-        res.map(|string| assert!(string.starts_with("uncore_")));
+        res.map(|string| assert!(string.starts_with("uncore_") || string.starts_with("cpu")));
 
         res
     }
@@ -195,21 +256,19 @@ impl PerfEvent {
         let mut devices = Vec::with_capacity(1);
         let mut configs = Vec::with_capacity(2);
 
-        if self.is_uncore() {
-            let typ = self.uncore_type().expect("is_uncore() implies uncore type");
+        let typ = self.unit();
 
-            // XXX: Horrible vector transformation:
-            let matched_devices: Vec<String> = PMU_DEVICES.iter()
-                .filter(|d| typ.to_perf_prefix().map_or(false, |t| d.starts_with(t)))
-                .map(|d| d.clone())
-                .collect();
-            devices.extend(matched_devices);
-            if devices.len() == 0 {
-                debug!("Got no device to measure this event:\n{:?}", self.0);
-            }
-        } else {
-            // Offcore or regular event
-            devices.push(String::from("cpu"));
+        // XXX: Horrible vector transformation:
+        let matched_devices: Vec<String> = PMU_DEVICES.iter()
+            .filter(|d| typ.to_perf_prefix().map_or(false, |t| d.starts_with(t)))
+            .map(|d| d.clone())
+            .collect();
+        devices.extend(matched_devices);
+
+        // We can have no devices if we don't understand how to match the unit name to perf names:
+        if devices.len() == 0 {
+            info!("Event '{}' in unit {:?} currently not supported, ignored.",
+                   self.0.event_name, self.unit());
         }
 
         for args in self.perf_args() {
@@ -224,8 +283,8 @@ impl PerfEvent {
         self.0.unit.is_some()
     }
 
-    fn uncore_type(&self) -> Option<UncoreType> {
-        self.0.unit.map(|u| UncoreType::new(u))
+    fn unit(&self) -> MonitoringUnit {
+        self.0.unit.map_or(MonitoringUnit::CPU, |u| MonitoringUnit::new(u))
     }
 
     /// Is this event an offcore event?
@@ -282,23 +341,42 @@ impl PerfEvent {
             ret[1].push(format!("name={}", self.0.event_name));
         }
 
+        let is_pcu = self.0.unit.map_or(false, |u| {
+            return MonitoringUnit::new(u) == MonitoringUnit::PCU;
+        });
+
         match self.0.event_code {
-            Tuple::One(ev) => ret[0].push(format!("event=0x{:x}", ev)),
+            Tuple::One(ev) => {
+                let pcu_umask = if is_pcu {
+                    match self.0.umask {
+                       Tuple::One(mask) => mask,
+                       Tuple::Two(m1, m2) => unreachable!()
+                   }
+               } else {
+                   0x0
+               };
+
+               ret[0].push(format!("event=0x{:x}", ev | pcu_umask));
+            },
             Tuple::Two(e1, e2) => {
                 assert!(two_configs);
+                assert!(!is_pcu);
                 ret[0].push(format!("event=0x{:x}", e1));
                 ret[1].push(format!("event=0x{:x}", e2));
             }
         };
 
-        match self.0.umask {
-            Tuple::One(mask) => ret[0].push(format!("umask=0x{:x}", mask)),
-            Tuple::Two(m1, m2) => {
-                assert!(two_configs);
-                ret[0].push(format!("umask=0x{:x}", m1));
-                ret[1].push(format!("umask=0x{:x}", m2));
-            }
-        };
+
+         if !is_pcu { // PCU event have umasks defined but they're OR'd with event (wtf)
+             match self.0.umask {
+                Tuple::One(mask) => ret[0].push(format!("umask=0x{:x}", mask)),
+                Tuple::Two(m1, m2) => {
+                    assert!(two_configs);
+                    ret[0].push(format!("umask=0x{:x}", m1));
+                    ret[1].push(format!("umask=0x{:x}", m2));
+                }
+            };
+        }
 
         if self.0.counter_mask != 0 {
             ret[0].push(format!("cmask=0x{:x}", self.0.counter_mask));
@@ -351,17 +429,15 @@ impl PerfEvent {
 #[derive(Debug)]
 struct PerfEventGroup {
     events: Vec<PerfEvent>,
-    size: usize,
+    limits: &'static HashMap<MonitoringUnit, usize>,
 }
 
 impl PerfEventGroup {
     /// Make a new performance event group.
-    ///
-    /// Group size should not exceed amount of available counters.
-    pub fn new(group_size: usize) -> PerfEventGroup {
+    pub fn new(unit_sizes: &'static HashMap<MonitoringUnit, usize>) -> PerfEventGroup {
         PerfEventGroup {
-            size: group_size,
-            events: Vec::with_capacity(group_size),
+            events: Default::default(),
+            limits: unit_sizes,
         }
     }
 
@@ -373,12 +449,12 @@ impl PerfEventGroup {
             .count()
     }
 
-    /// Returns how many uncore events are in the group.
-    fn uncore_events(&self) -> usize {
+    /// Returns how many uncore events are in the group for a given unit.
+    fn events_by_unit(&self, unit: MonitoringUnit) -> Vec<&PerfEvent> {
         self.events
             .iter()
-            .filter(|e| e.is_uncore())
-            .count()
+            .filter(|e| e.unit() == unit)
+            .collect()
     }
 
     /// Try to add an event to an event group.
@@ -396,76 +472,69 @@ impl PerfEventGroup {
     /// * Uncore limitations (just not more than two at once)
     ///
     pub fn add_event(&mut self, event: PerfEvent) -> bool {
-        if self.events.len() >= self.size {
-            false
-        } else {
-            // 1. Can't measure more than two offcore events:
-            if event.is_offcore() && self.offcore_events() == 2 {
-                return false;
-            }
+        let unit = event.unit();
+        if self.events_by_unit(unit).len() >= *self.limits.get(&unit).unwrap_or(&0) {
+            return false;
+        }
+        // 1. Can't measure more than two offcore events:
+        if event.is_offcore() && self.offcore_events() == 2 {
+            return false;
+        }
 
-            // Don't measure more than two uncore events:
-            // (I don't know how to get the exact limits for every uncore piece in the system
-            // but two seems like a sane limit where we don't have multi-plexing)
-            if event.is_uncore() && self.uncore_events() == 2 {
-                return false;
-            }
-
-            // 2. Now, consider the counter <-> event mapping constraints:
-            // Try to see if there is any event already in the group
-            // that would conflicts when running together with the new `event`:
-            let conflicts = self.events.iter().any(|cur| {
-                match cur.counter() {
-                    Counter::Programmable(cmask) => {
-                        match event.counter() {
-                            Counter::Programmable(emask) => (cmask | emask).count_ones() < 2,
-                            _ => false, // No conflict
-                        }
-                    }
-                    Counter::Fixed(cmask) => {
-                        match event.counter() {
-                            Counter::Fixed(emask) => (cmask | emask).count_ones() < 2,
-                            _ => false, // No conflict
-                        }
+        // 2. Now, consider the counter <-> event mapping constraints:
+        // Try to see if there is any event already in the group
+        // that would conflicts when running together with the new `event`:
+        let conflicts = self.events_by_unit(unit).iter().any(|cur| {
+            match cur.counter() {
+                Counter::Programmable(cmask) => {
+                    match event.counter() {
+                        Counter::Programmable(emask) => (cmask | emask).count_ones() < 2,
+                        _ => false, // No conflict
                     }
                 }
-            });
-            if conflicts {
-                return false;
+                Counter::Fixed(cmask) => {
+                    match event.counter() {
+                        Counter::Fixed(emask) => (cmask | emask).count_ones() < 2,
+                        _ => false, // No conflict
+                    }
+                }
             }
-
-            // 3. Isolate things that have erratas to not screw other events (see HSW30)
-            let errata = self.events.iter().any(|cur| cur.0.errata.is_some());
-            if errata || event.0.errata.is_some() && self.events.len() != 0 {
-                return false;
-            }
-
-            // 4. If an event has the taken alone attribute set it needs to be measured alone
-            let have_taken_alone_event = self.events.iter().any(|cur| cur.0.taken_alone);
-            if have_taken_alone_event || event.0.taken_alone && self.events.len() != 0 {
-                return false;
-            }
-
-            // 5. If our own isolate event list contains the name we also run them alone:
-            let have_isolated_event = self.events.get(0).map_or(false, |e| {
-                ISOLATE_EVENTS.iter().any(|cur| *cur == e.0.event_name)
-            });
-            if have_isolated_event ||
-               ISOLATE_EVENTS.iter().any(|cur| *cur == event.0.event_name) &&
-               self.events.len() != 0 {
-                return false;
-            }
-
-            self.events.push(event);
-            true
+        });
+        if conflicts {
+            return false;
         }
+
+        // 3. Isolate things that have erratas to not screw other events (see HSW30)
+        let errata = self.events.iter().any(|cur| cur.0.errata.is_some());
+        if errata || event.0.errata.is_some() && self.events.len() != 0 {
+            return false;
+        }
+
+        // 4. If an event has the taken alone attribute set it needs to be measured alone
+        let have_taken_alone_event = self.events.iter().any(|cur| cur.0.taken_alone);
+        if have_taken_alone_event || event.0.taken_alone && self.events.len() != 0 {
+            return false;
+        }
+
+        // 5. If our own isolate event list contains the name we also run them alone:
+        let have_isolated_event = self.events.get(0).map_or(false, |e| {
+            ISOLATE_EVENTS.iter().any(|cur| *cur == e.0.event_name)
+        });
+        if have_isolated_event ||
+           ISOLATE_EVENTS.iter().any(|cur| *cur == event.0.event_name) &&
+           self.events.len() != 0 {
+            return false;
+        }
+
+        self.events.push(event);
+        true
     }
 
     /// Find the right config to use for every event in the group.
     ///
     /// * We need to make sure we use the correct config if we have two offcore events in the same group.
     pub fn get_perf_config(&self) -> Vec<String> {
-        let mut event_strings: Vec<String> = Vec::with_capacity(self.size);
+        let mut event_strings: Vec<String> = Vec::with_capacity(2);
         let mut have_one_offcore = false; // Have we already added one offcore event?
 
         for event in self.events.iter() {
@@ -488,12 +557,6 @@ impl PerfEventGroup {
             // Adding uncore event:
             else if event.is_uncore() {
                 assert!(configs.len() == 1);
-
-                // We can have no devices if we don't understand how to match the unit name to perf names:
-                if devices.len() == 0 {
-                    debug!("Event '{}' currently not supported, ignored.",
-                           event.0.event_name);
-                }
 
                 // If we have an uncore event we just go ahead and measure it on all possible devices:
                 for device in devices {
@@ -534,11 +597,11 @@ impl PerfEventGroup {
 /// Given a list of events, create a list of event groups that can be measured together.
 fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>)
                    -> Vec<PerfEventGroup> {
-    if *PMU_COUNTERS == 0 {
+    if PMU_COUNTERS.len() == 0 {
         error!("No PMU counters? Can't measure anything.");
         return Vec::default();
     }
-    let expected_groups = events.len() / *PMU_COUNTERS;
+    let expected_groups = events.len() / (PMU_COUNTERS.len()*4);
     let mut groups: Vec<PerfEventGroup> = Vec::with_capacity(expected_groups);
 
     for event in events {
@@ -554,7 +617,7 @@ fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>)
 
         // Unable to add event to any existing group, make a new group instead:
         if !added {
-            let mut pg = PerfEventGroup::new(*PMU_COUNTERS);
+            let mut pg = PerfEventGroup::new(&*PMU_COUNTERS);
             let perf_event: PerfEvent = PerfEvent(event);
             let ret = pg.add_event(perf_event);
             assert!(ret == true); // Should always be able to add an event to an empty group
