@@ -664,6 +664,31 @@ fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>)
     groups
 }
 
+struct PerfRun<'a> {
+    cmd: Vec<&'a str>,
+    env: Vec<(String, String)>,
+    breakpoints: Vec<String>,
+}
+
+struct Profile<'a> {
+    output_path: &'a Path,
+    cmd: Vec<&'a str>,
+    env: Vec<(String, String)>,
+    breakpoints: Vec<String>,
+    record: bool,
+}
+
+impl<'a> Profile<'a> {
+
+    pub fn new(output_path: &'a Path, cmd: Vec<&'a str>, env: Vec<(String, String)>, breakpoints: Vec<String>, record: bool) -> Profile<'a> {
+        Profile { output_path: output_path, cmd: cmd, env: env, breakpoints: breakpoints, record: record }
+    }
+
+    pub fn get_runs(&self) -> Vec<PerfRun> {
+        Vec::new()
+    }
+}
+
 pub fn profile(output_path: &Path,
                cmd: Vec<&str>,
                env: Vec<(String, String)>,
@@ -745,7 +770,6 @@ pub fn profile(output_path: &Path,
         let r = wtr.flush();
         assert!(r.is_ok());
     }
-
 }
 
 fn check_for_perf() {
