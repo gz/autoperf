@@ -26,7 +26,7 @@ lazy_static! {
     };
 
     static ref PMU_COUNTERS: HashMap<MonitoringUnit, usize> = {
-// TODO: How can I get this info from /sys/bus/event_source?
+        // TODO: How can I get this info from /sys/bus/event_source?
         let cpuid = cpuid::CpuId::new();
         let cpu_counter = cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters()) as usize;
         let mut res = HashMap::with_capacity(11);
@@ -72,7 +72,7 @@ lazy_static! {
     };
 
     static ref PMU_DEVICES: Vec<String> = {
-// TODO: Return empty Vec in case of error
+        // TODO: Return empty Vec in case of error
         let paths = fs::read_dir("/sys/bus/event_source/devices/").expect("Can't read devices directory.");
         let mut devices = Vec::with_capacity(15);
         for p in paths {
@@ -84,8 +84,8 @@ lazy_static! {
         devices
     };
 
-// Sometimes the perfmon data is missing the errata information (as is the case with the IvyBridge file).\
-// We provide a list of IvyBridge events instead here.
+    // Sometimes the perfmon data is missing the errata information (as is the case with the IvyBridge file).\
+    // We provide a list of IvyBridge events instead here.
     static ref ISOLATE_EVENTS: Vec<&'static str> = {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_feature_info().map_or(
@@ -125,7 +125,7 @@ lazy_static! {
 }
 
 fn execute_perf(perf: &mut Command,
-                cmd: &Vec<&str>,
+                cmd: &Vec<String>,
                 counters: &Vec<String>,
                 datafile: &Path)
                 -> (String, String, String) {
@@ -676,21 +676,40 @@ struct Profile<'a> {
     env: Vec<(String, String)>,
     breakpoints: Vec<String>,
     record: bool,
+    csv_logfile: csv::Writer<File>,
 }
 
 impl<'a> Profile<'a> {
 
-    pub fn new(output_path: &'a Path, cmd: Vec<&'a str>, env: Vec<(String, String)>, breakpoints: Vec<String>, record: bool) -> Profile<'a> {
-        Profile { output_path: output_path, cmd: cmd, env: env, breakpoints: breakpoints, record: record }
+    pub fn new(output_path: &'a Path, cmd: Vec<&'a str>, env: Vec<(String, String)>, breakpoints: Vec<String>, record: bool)
+        -> csv::Result<Profile<'a>> {
+        assert!(cmd.len() >= 1);
+        create_out_directory(output_path);
+
+        let mut perf_log = PathBuf::new();
+        perf_log.push(output_path);
+        perf_log.push("perf.csv");
+
+        let mut wrtr = csv::Writer::from_file(perf_log).unwrap();
+        try!(wrtr.encode(("command",
+                          "event_names",
+                          "perf_events",
+                          "breakpoints",
+                          "datafile",
+                          "perf_command",
+                          "stdout",
+                          "stdin")));
+        Ok(Profile { output_path: output_path, cmd: cmd, env: env, breakpoints: breakpoints, record: record, csv_logfile: wrtr })
     }
 
     pub fn get_runs(&self) -> Vec<PerfRun> {
         Vec::new()
     }
+
 }
 
 pub fn profile(output_path: &Path,
-               cmd: Vec<&str>,
+               cmd: Vec<String>,
                env: Vec<(String, String)>,
                breakpoints: Vec<String>,
                record: bool) {

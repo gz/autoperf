@@ -387,26 +387,25 @@ impl<'a> fmt::Display for Deployment<'a> {
 
 struct Run<'a> {
     output_path: PathBuf,
-    binary_a: &'a str,
-    args_a: &'a Vec<&'a str>,
-    breakpoints: &'a Vec<&'a str>,
+    binary_a: &'a String,
+    args_a: &'a Vec<String>,
+    breakpoints: &'a Vec<String>,
     is_openmp_a: bool,
 
-    child_b: Option<Child>,
-    binary_b: &'a str,
-    args_b: &'a Vec<&'a str>,
-    is_openmp_b: bool,
+    binary_b: &'a String,
+    args_b: &'a Vec<String>,
 
+    is_openmp_b: bool,
     deployment: &'a Deployment<'a>,
 }
 
 impl<'a> Run<'a> {
     fn new(output_path: &Path,
-           a: &'a str,
-           args_a: &'a Vec<&str>,
-           breakpoints: &'a Vec<&str>,
-           b: &'a str,
-           args_b: &'a Vec<&str>,
+           a: &'a String,
+           args_a: &'a Vec<String>,
+           breakpoints: &'a Vec<String>,
+           b: &'a String,
+           args_b: &'a Vec<String>,
            deployment: &'a Deployment)
            -> Run<'a> {
         let mut out_dir = output_path.to_path_buf();
@@ -423,7 +422,6 @@ impl<'a> Run<'a> {
             args_b: args_b,
             is_openmp_b: true,
             deployment: deployment,
-            child_b: None,
         }
     }
 
@@ -449,37 +447,36 @@ impl<'a> Run<'a> {
         env
     }
 
-    fn get_args_for_a(&self) -> Vec<String> {
+    fn get_cmd_a(&self) -> Vec<String> {
         let nthreads = self.deployment.a.len();
+        let mut cmd = vec![ self.binary_a ];
 
-        self.args_a
-            .iter()
-            .map(|s| s.to_string())
-            .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str()))
+        cmd.extend( self.args_a.iter() );
+        cmd.iter()
+            .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str() ))
+            .map(|s| s.replace("$TARGET_DIR", format!("{}", self.output_path.to_str().unwrap()).as_str()))
             .collect()
     }
 
-    fn get_args_for_b(&self) -> Vec<String> {
-        let nthreads = self.deployment.b.len();
+    fn get_cmd_b(&self) -> Vec<String> {
+        let nthreads = self.deployment.a.len();
+        let mut cmd = vec![ self.binary_b ];
 
-        self.args_b
-            .iter()
-            .map(|s| s.to_string())
-            .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str()))
+        cmd.extend( self.args_b.iter() );
+        cmd.iter()
+            .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str() ))
+            .map(|s| s.replace("$TARGET_DIR", format!("{}", self.output_path.to_str().unwrap()).as_str()))
             .collect()
     }
 
     fn profile_a(&self, run: &str) -> io::Result<()> {
-        debug!("Starting profiling and running A: {}", self.binary_a);
+        debug!("Starting profiling and running A: {:?}", self.get_cmd_a());
         let mut perf_data_path_buf = self.output_path.clone();
         perf_data_path_buf.push(run);
         mkdir(&perf_data_path_buf);
         let perf_path = perf_data_path_buf.as_path();
 
-        let args = self.get_args_for_a();
-        let mut cmd: Vec<&str> = vec![ self.binary_a ];
-        cmd.extend(args.iter().map(|c| c.as_str()));
-
+        let mut cmd: Vec<String> = self.get_cmd_a();
         debug!("Spawning {:?} with environment {:?}", cmd, self.get_env_for_a());
         profile::profile(&perf_path,
                          cmd,
@@ -490,11 +487,13 @@ impl<'a> Run<'a> {
     }
 
     fn start_b(&mut self) -> io::Result<Child> {
-        debug!("Starting B: {} {:?}", self.binary_b, self.get_args_for_b());
-        Command::new(self.binary_b)
+        let cmd = self.get_cmd_b();
+        let ref name = cmd[0];
+        debug!("Spawning {:?} with environment {:?}", cmd, self.get_env_for_b());
+        Command::new(name)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .args(self.get_args_for_b().as_slice())
+            .args(&cmd[1..])
             .spawn()
     }
 
@@ -532,9 +531,9 @@ impl<'a> Run<'a> {
 
 impl<'a> fmt::Display for Run<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write!(f, "A: {:?} {} {:?}\n", self.get_env_for_a(), self.binary_a, self.get_args_for_a()));
+        try!(write!(f, "A: {:?} {:?}\n", self.get_env_for_a(), self.get_cmd_a()));
         try!(write!(f, "A Breakpoints: {:?}\n", self.breakpoints));
-        try!(write!(f, "B: {:?} {} {:?}\n", self.get_env_for_b(), self.binary_b, self.get_args_for_b()));
+        try!(write!(f, "B: {:?} {:?}\n", self.get_env_for_b(), self.get_cmd_b()));
         try!(write!(f, "{}:\n", self.deployment));
         Ok(())
     }
@@ -561,29 +560,29 @@ pub fn pair(output_path: &Path) {
     let docs = YamlLoader::load_from_str(s.as_str()).unwrap();
 
     let doc = &docs[0];
-    let configs: Vec<&str> =
-        doc["configurations"].as_vec().unwrap().iter().map(|s| s.as_str().unwrap()).collect();
+    let configs: Vec<String> =
+        doc["configurations"].as_vec().unwrap().iter().map(|s| s.as_str().unwrap().to_string()).collect();
 
-    let binary1: &str = doc["program1"]["binary"].as_str().unwrap();
-    let args1: Vec<&str> = doc["program1"]["arguments"]
+    let binary1: String = doc["program1"]["binary"].as_str().unwrap().to_string();
+    let args1: Vec<String> = doc["program1"]["arguments"]
         .as_vec()
         .unwrap()
         .iter()
-        .map(|s| s.as_str().unwrap())
+        .map(|s| s.as_str().unwrap().to_string())
         .collect();
-    let binary2: &str = doc["program2"]["binary"].as_str().unwrap();
-    let args2: Vec<&str> = doc["program2"]["arguments"]
+    let binary2: String = doc["program2"]["binary"].as_str().unwrap().to_string();
+    let args2: Vec<String> = doc["program2"]["arguments"]
         .as_vec()
         .unwrap()
         .iter()
-        .map(|s| s.as_str().unwrap())
+        .map(|s| s.as_str().unwrap().to_string())
         .collect();
 
-    let breakpoints: Vec<&str> = doc["program1"]["breakpoints"]
+    let breakpoints: Vec<String> = doc["program1"]["breakpoints"]
         .as_vec()
         .unwrap()
         .iter()
-        .map(|s| s.as_str().unwrap())
+        .map(|s| s.as_str().unwrap().to_string())
         .collect();
 
     let mut deployments: Vec<Deployment> = Vec::with_capacity(4);
@@ -607,10 +606,10 @@ pub fn pair(output_path: &Path) {
 
     for d in deployments.iter() {
         let mut run = Run::new(out_dir.as_path(),
-                               binary1,
+                               &binary1,
                                &args1,
                                &breakpoints,
-                               binary2,
+                               &binary2,
                                &args2,
                                d);
         run.profile();
