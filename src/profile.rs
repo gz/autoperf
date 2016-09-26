@@ -33,7 +33,7 @@ lazy_static! {
         res.insert(MonitoringUnit::CPU, cpu_counter);
         cpuid.get_feature_info().map(|fi| {
             if fi.family_id() == 0x6 && fi.model_id() == 0xe {
-// IvyBridge EP
+                // IvyBridge EP
                 res.insert(MonitoringUnit::UBox, 2);
                 res.insert(MonitoringUnit::CBox, 4);
                 res.insert(MonitoringUnit::HA, 4);
@@ -46,7 +46,7 @@ lazy_static! {
                 res.insert(MonitoringUnit::QPI, 4); // Not in the manual?
             }
             else if fi.family_id() == 0x6 && fi.model_id() == 0xa {
-// IvyBridge
+                // IvyBridge
                 res.insert(MonitoringUnit::CBox, 2);
                 res.insert(MonitoringUnit::IMC, 2);
                 res.insert(MonitoringUnit::Arb, 4);
@@ -128,7 +128,7 @@ fn execute_perf(perf: &mut Command,
                 cmd: &Vec<&str>,
                 counters: &Vec<String>,
                 datafile: &Path)
-                -> String {
+                -> (String, String, String) {
     assert!(cmd.len() >= 1);
     let mut perf = perf.arg("-o").arg(datafile.as_os_str());
     let events: Vec<String> = counters.iter().map(|c| format!("-e {}", c)).collect();
@@ -137,30 +137,38 @@ fn execute_perf(perf: &mut Command,
     let mut perf = perf.args(cmd.as_slice());
     let perf_cmd_str: String = format!("{:?}", perf).replace("\"", "");
 
-    match perf.output() {
+    let (stdout, stderr) = match perf.output() {
         Ok(out) => {
+            let stdout = String::from_utf8(out.stdout).unwrap_or(String::from("Unable to read stdout!"));
+            let stderr = String::from_utf8(out.stderr).unwrap_or(String::from("Unable to read stderr!"));
+
             if out.status.success() {
-                // TODO: Save to file:
-                println!("stdout: {:?}", String::from_utf8(out.stdout).unwrap());
-                println!("stderr: {:?}", String::from_utf8(out.stderr).unwrap());
+                //debug!("stdout:\n{:?}", stdout);
+                //debug!("stderr:\n{:?}", stderr);
             } else if !out.status.success() {
                 error!("perf command: {} got unknown exit status was: {}",
                        perf_cmd_str,
                        out.status);
-                debug!("stderr:\n{}",
-                       String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
+                debug!("stdout:\n{}", stdout);
+                debug!("stderr:\n{}", stderr);
             }
+
             if !datafile.exists() {
                 error!("perf command: {} succeeded but did not produce the required file {:?} \
                         (you should file a bug report!)",
                        perf_cmd_str,
                        datafile);
             }
-        }
-        Err(err) => error!("Executing {} failed : {}", perf_cmd_str, err),
-    }
 
-    perf_cmd_str
+            (stdout, stderr)
+        }
+        Err(err) => {
+            error!("Executing {} failed : {}", perf_cmd_str, err);
+            (String::new(), String::new())
+        },
+    };
+
+    (perf_cmd_str, stdout, stderr)
 }
 
 fn create_out_directory(out_dir: &Path) {
@@ -680,7 +688,9 @@ pub fn profile(output_path: &Path,
                         "perf_events",
                         "breakpoints",
                         "datafile",
-                        "perf_command"));
+                        "perf_command",
+                        "stdout",
+                        "stdin"));
     assert!(r.is_ok());
 
     let event_groups = schedule_events(get_events());
@@ -721,13 +731,15 @@ pub fn profile(output_path: &Path,
             breakpoints.iter().map(|s| format!("-e \\{}", s)).collect();
         perf.args(breakpoint_args.as_slice());
 
-        let executed_cmd = execute_perf(&mut perf, &cmd, &counters, record_path.as_path());
+        let (executed_cmd, stdout, stdin) = execute_perf(&mut perf, &cmd, &counters, record_path.as_path());
         let r = wtr.encode(vec![cmd.join(" "),
                                 event_names.join(","),
                                 counters.join(","),
                                 String::new(),
                                 filename,
-                                executed_cmd]);
+                                executed_cmd,
+                                stdout,
+                                stdin]);
         assert!(r.is_ok());
 
         let r = wtr.flush();
