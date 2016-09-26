@@ -22,7 +22,6 @@ Python:
 $ sudo pip install pandas numpy ascii_graph
 ```
 
-
 Related projects:
 
 git clone git://git.code.sf.net/p/perfmon2/perfmon2 perfmon2-perfmon2
@@ -32,4 +31,4 @@ git clone git://git.code.sf.net/p/perfmon2/libpfm4 perfmon2-libpfm4
 # Stuff not documented in perf
  * PCU has umask which is supposed to be and'ed with event= attribute (from pmu-tools ucevent.py)
  * Intel Unit to perf device translation (libpfm4 source code and ucevent.py)
- * 
+ * /sys/bus does not expose how many counters a device has

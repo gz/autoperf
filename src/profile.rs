@@ -26,13 +26,14 @@ lazy_static! {
     };
 
     static ref PMU_COUNTERS: HashMap<MonitoringUnit, usize> = {
+// TODO: How can I get this info from /sys/bus/event_source?
         let cpuid = cpuid::CpuId::new();
         let cpu_counter = cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters()) as usize;
         let mut res = HashMap::with_capacity(11);
         res.insert(MonitoringUnit::CPU, cpu_counter);
         cpuid.get_feature_info().map(|fi| {
-            // IvyBridge and IvyBridge-EP?
-            if fi.family_id() == 0x6 && fi.extended_model_id() == 0x3 {
+            if fi.family_id() == 0x6 && fi.model_id() == 0xe {
+// IvyBridge EP
                 res.insert(MonitoringUnit::UBox, 2);
                 res.insert(MonitoringUnit::CBox, 4);
                 res.insert(MonitoringUnit::HA, 4);
@@ -44,7 +45,29 @@ lazy_static! {
                 res.insert(MonitoringUnit::R3QPI, 3);
                 res.insert(MonitoringUnit::QPI, 4); // Not in the manual?
             }
+            else if fi.family_id() == 0x6 && fi.model_id() == 0xa {
+// IvyBridge
+                res.insert(MonitoringUnit::CBox, 2);
+                res.insert(MonitoringUnit::IMC, 2);
+                res.insert(MonitoringUnit::Arb, 4);
+            }
+            else {
+                error!("Don't know this CPU, can't infer #counters for offcore stuff. Assume conservative defaults...");
+                res.insert(MonitoringUnit::UBox, 2);
+                res.insert(MonitoringUnit::HA, 2);
+                res.insert(MonitoringUnit::IRP, 2);
+                res.insert(MonitoringUnit::PCU, 2);
+                res.insert(MonitoringUnit::QPI_LL, 2);
+                res.insert(MonitoringUnit::R2PCIe, 2);
+                res.insert(MonitoringUnit::R3QPI, 2);
+                res.insert(MonitoringUnit::QPI, 2);
+                res.insert(MonitoringUnit::CBox, 2);
+                res.insert(MonitoringUnit::IMC, 2);
+                res.insert(MonitoringUnit::Arb, 2);
+            }
         });
+
+
         res
     };
 
@@ -116,7 +139,11 @@ fn execute_perf(perf: &mut Command,
 
     match perf.output() {
         Ok(out) => {
-            if !out.status.success() {
+            if out.status.success() {
+                // TODO: Save to file:
+                println!("stdout: {:?}", String::from_utf8(out.stdout).unwrap());
+                println!("stderr: {:?}", String::from_utf8(out.stderr).unwrap());
+            } else if !out.status.success() {
                 error!("perf command: {} got unknown exit status was: {}",
                        perf_cmd_str,
                        out.status);
@@ -268,7 +295,8 @@ impl PerfEvent {
         // We can have no devices if we don't understand how to match the unit name to perf names:
         if devices.len() == 0 {
             info!("Event '{}' in unit {:?} currently not supported, ignored.",
-                   self.0.event_name, self.unit());
+                  self.0.event_name,
+                  self.unit());
         }
 
         for args in self.perf_args() {
@@ -349,15 +377,15 @@ impl PerfEvent {
             Tuple::One(ev) => {
                 let pcu_umask = if is_pcu {
                     match self.0.umask {
-                       Tuple::One(mask) => mask,
-                       Tuple::Two(m1, m2) => unreachable!()
-                   }
-               } else {
-                   0x0
-               };
+                        Tuple::One(mask) => mask,
+                        Tuple::Two(m1, m2) => unreachable!(),
+                    }
+                } else {
+                    0x0
+                };
 
-               ret[0].push(format!("event=0x{:x}", ev | pcu_umask));
-            },
+                ret[0].push(format!("event=0x{:x}", ev | pcu_umask));
+            }
             Tuple::Two(e1, e2) => {
                 assert!(two_configs);
                 assert!(!is_pcu);
@@ -367,8 +395,9 @@ impl PerfEvent {
         };
 
 
-         if !is_pcu { // PCU event have umasks defined but they're OR'd with event (wtf)
-             match self.0.umask {
+        if !is_pcu {
+            // PCU event have umasks defined but they're OR'd with event (wtf)
+            match self.0.umask {
                 Tuple::One(mask) => ret[0].push(format!("umask=0x{:x}", mask)),
                 Tuple::Two(m1, m2) => {
                     assert!(two_configs);
@@ -463,13 +492,12 @@ impl PerfEventGroup {
     /// to measure the event in the same group (given the PMU limitations).
     ///
     /// Things we consider (correctly) right now:
-    /// * Can't have more than two offcore events because we only have two MSRs to measure them.
+    /// * Fixed amount of counters per monitoring unit (so we don't multiplex).
     /// * Some events can only use some counters.
-    /// * Taken alone attribute of the events
+    /// * Taken alone attribute of the events.
     ///
     /// Things we consider (not entirely correct) right now:
-    /// * Event Erratas (not really detailed, just run them in isolation)
-    /// * Uncore limitations (just not more than two at once)
+    /// * Event Erratas this is not complete in the JSON files, and we just run them in isolation
     ///
     pub fn add_event(&mut self, event: PerfEvent) -> bool {
         let unit = event.unit();
@@ -511,18 +539,17 @@ impl PerfEventGroup {
         }
 
         // 4. If an event has the taken alone attribute set it needs to be measured alone
-        let have_taken_alone_event = self.events.iter().any(|cur| cur.0.taken_alone);
-        if have_taken_alone_event || event.0.taken_alone && self.events.len() != 0 {
+        let already_have_taken_alone_event = self.events.iter().any(|cur| cur.0.taken_alone);
+        if already_have_taken_alone_event || event.0.taken_alone && self.events.len() != 0 {
             return false;
         }
 
         // 5. If our own isolate event list contains the name we also run them alone:
-        let have_isolated_event = self.events.get(0).map_or(false, |e| {
+        let already_have_isolated_event = self.events.get(0).map_or(false, |e| {
             ISOLATE_EVENTS.iter().any(|cur| *cur == e.0.event_name)
         });
-        if have_isolated_event ||
-           ISOLATE_EVENTS.iter().any(|cur| *cur == event.0.event_name) &&
-           self.events.len() != 0 {
+        if already_have_isolated_event ||
+           ISOLATE_EVENTS.iter().any(|cur| *cur == event.0.event_name) && self.events.len() != 0 {
             return false;
         }
 
@@ -601,7 +628,7 @@ fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>)
         error!("No PMU counters? Can't measure anything.");
         return Vec::default();
     }
-    let expected_groups = events.len() / (PMU_COUNTERS.len()*4);
+    let expected_groups = events.len() / (PMU_COUNTERS.len() * 4);
     let mut groups: Vec<PerfEventGroup> = Vec::with_capacity(expected_groups);
 
     for event in events {
