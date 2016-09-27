@@ -500,8 +500,8 @@ impl PerfEventGroup {
     ///
     /// Returns a possible placement or None if no assignment was possible.
     fn find_counter_assignment<'a>(level: usize, max_level: usize,
-                           events: Vec<&'a PerfEvent>,
-                           assignment: Vec<&'a PerfEvent>) -> Option<Vec<&'a PerfEvent>> {
+                                   events: Vec<&'a PerfEvent>,
+                                   assignment: Vec<&'a PerfEvent>) -> Option<Vec<&'a PerfEvent>> {
         // Are we done yet?
         if events.len() == 0 {
            return Some(assignment);
@@ -568,12 +568,12 @@ impl PerfEventGroup {
     /// Returns true if the event can be added to the group, false if we would be Unable
     /// to measure the event in the same group (given the PMU limitations).
     ///
-    /// Things we consider (correctly) right now:
+    /// Things we consider correctly right now:
     /// * Fixed amount of counters per monitoring unit (so we don't multiplex).
     /// * Some events can only use some counters.
     /// * Taken alone attribute of the events.
     ///
-    /// Things we consider (not entirely correct) right now:
+    /// Things we consider not entirely correct right now:
     /// * Event Erratas this is not complete in the JSON files, and we just run them in isolation
     ///
     pub fn add_event(&mut self, event: PerfEvent) -> bool {
