@@ -8,11 +8,11 @@ use phf::Map;
 use csv;
 
 use x86::shared::perfcnt;
-use x86::shared::perfcnt::intel::description::IntelPerformanceCounterDescription;
+use x86::shared::perfcnt::intel::EventDescription;
 
 use super::util::*;
 
-type EventMap = Map<&'static str, IntelPerformanceCounterDescription>;
+type EventMap = Map<&'static str, EventDescription>;
 type ArchitectureMap = HashMap<&'static str, (&'static str, &'static str, &'static str)>;
 
 /// Saves the event count for all architectures to a file.
@@ -174,8 +174,8 @@ fn common_event_desc_distance(writer: &mut csv::Writer<File>,
 /// Does a pairwise comparison of all architectures by computing edit distances of shared events.
 fn save_edit_distances(key_to_name: &ArchitectureMap, output_dir: &Path) {
 
-    for (key1, &(name1, year1, _)) in key_to_name.iter() {
-        for (key2, &(name2, year2, _)) in key_to_name.iter() {
+    for (key1, &(name1, _, _)) in key_to_name.iter() {
+        for (key2, &(name2, _, _)) in key_to_name.iter() {
 
             let mut csv_result = output_dir.to_path_buf();
             csv_result.push(format!("editdist_{}-vs-{}.csv", name1, name2));

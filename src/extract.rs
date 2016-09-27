@@ -58,10 +58,10 @@ fn parse_perf_csv_file(path: &Path, writer: &mut csv::Writer<File>) -> io::Resul
             let value = u64::from_str(value_string.trim()).expect("Should be a value now...");
 
             if percent < 91.0 {
-                warn!("Multiplexed counters: {}", event.trim());
+                warn!("{:?} has multiplexed counters: {}", path.as_os_str(), event.trim());
             }
             if percent == 0.0 {
-                error!("Event {} was not measured at all?", event.trim());
+                error!("Event {} was not measured at all in {:?}?", event.trim(), path.as_os_str());
                 process::exit(2);
             }
 

@@ -12,9 +12,8 @@ use std::str::FromStr;
 use csv;
 
 use pbr::ProgressBar;
-use x86::shared::perfcnt::{core_counters, uncore_counters};
-use x86::shared::perfcnt::intel::description::{IntelPerformanceCounterDescription, Tuple,
-                                               MSRIndex, Counter};
+use x86::shared::perfcnt::intel::{core_counters, uncore_counters};
+use x86::shared::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter};
 use x86::shared::cpuid;
 
 lazy_static! {
@@ -42,7 +41,7 @@ lazy_static! {
                 res.insert(MonitoringUnit::PCU, 4);
                 res.insert(MonitoringUnit::QPI_LL, 4);
                 res.insert(MonitoringUnit::R2PCIe, 4);
-                res.insert(MonitoringUnit::R3QPI, 3);
+                res.insert(MonitoringUnit::R3QPI, 2); // According to the manual this is 3 but then it multiplexes...
                 res.insert(MonitoringUnit::QPI, 4); // Not in the manual?
             }
             else if fi.family_id() == 0x6 && fi.model_id() == 0xa {
@@ -177,10 +176,10 @@ fn create_out_directory(out_dir: &Path) {
     }
 }
 
-fn get_events() -> Vec<&'static IntelPerformanceCounterDescription> {
-    let mut events: Vec<&IntelPerformanceCounterDescription> =
+fn get_events() -> Vec<&'static EventDescription> {
+    let mut events: Vec<&EventDescription> =
         core_counters().unwrap().values().collect();
-    let mut uncore_events: Vec<&IntelPerformanceCounterDescription> =
+    let mut uncore_events: Vec<&EventDescription> =
         uncore_counters().unwrap().values().collect();
     events.append(&mut uncore_events);
 
@@ -272,7 +271,7 @@ impl MonitoringUnit {
 
 
 #[derive(Debug)]
-struct PerfEvent(&'static IntelPerformanceCounterDescription);
+struct PerfEvent(&'static EventDescription);
 
 impl PerfEvent {
     /// Returns all possible configurations of the event.
@@ -342,10 +341,10 @@ impl PerfEvent {
 
     /// Get the correct counter mask
     pub fn counter(&self) -> Counter {
-        if *HT_AVAILABLE {
+        if *HT_AVAILABLE || self.is_uncore() {
             self.0.counter
         } else {
-            self.0.counter_ht_off
+            self.0.counter_ht_off.expect("A bug in JSON?") // Ideally, all CPU events should have this attribute
         }
     }
 
@@ -494,6 +493,75 @@ impl PerfEventGroup {
             .collect()
     }
 
+    /// Backtracking algorithm to find assigment of events to available counters
+    /// while respecting the counter constraints every event has.
+    /// The events passed here should all have the same counter type
+    /// (i.e., either all programmable or all fixed) and the same unit.
+    ///
+    /// Returns a possible placement or None if no assignment was possible.
+    fn find_counter_assignment<'a>(level: usize, max_level: usize,
+                           events: Vec<&'a PerfEvent>,
+                           assignment: Vec<&'a PerfEvent>) -> Option<Vec<&'a PerfEvent>> {
+        // Are we done yet?
+        if events.len() == 0 {
+           return Some(assignment);
+        }
+        // Are we too deep?
+        if level >= max_level {
+            return None;
+        }
+
+        for (idx, event) in events.iter().enumerate() {
+            let mask: usize = match event.counter() {
+                Counter::Programmable(mask) => mask as usize,
+                Counter::Fixed(mask) => mask as usize
+            };
+
+            let mut assignment = assignment.clone();
+            let mut events = events.clone();
+
+            // If event supports counter, let's assign it to this counter and go deeper
+            if (mask & (1 << level)) > 0 {
+                assignment.push(event);
+                events.remove(idx);
+                let ret = PerfEventGroup::find_counter_assignment(level+1, events, assignment, max_level);
+                if ret.is_some() {
+                    return ret;
+                }
+            }
+            // Otherwise let's assign no event at this level and go deeper (for groups that
+            // don't use all counters)
+            else {
+                let ret = PerfEventGroup::find_counter_assignment(level+1, events, assignment, max_level);
+                if ret.is_some() {
+                    return ret;
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Check if this event conflicts with the counter requirements
+    /// of events already in this group
+    fn has_counter_constraints_conflicts(&self, new_event: &PerfEvent) -> bool {
+        let unit = new_event.unit();
+        let unit_limit = *self.limits.get(&unit).unwrap_or(&0);
+
+        // Get all the events that share the same counters as new_event:
+        let mut events: Vec<&PerfEvent> = self.events_by_unit(unit).into_iter().filter(|c| {
+            match (c.counter(), new_event.counter()) {
+                (Counter::Programmable(_), Counter::Programmable(_)) => true,
+                (Counter::Fixed(_), Counter::Fixed(_)) => true,
+                _ => false
+            }
+        }).collect();
+
+        events.push(new_event);
+
+        PerfEventGroup::find_counter_assignment(0, events, Vec::new(), unit_limit).is_none()
+    }
+
     /// Try to add an event to an event group.
     ///
     /// Returns true if the event can be added to the group, false if we would be Unable
@@ -508,35 +576,21 @@ impl PerfEventGroup {
     /// * Event Erratas this is not complete in the JSON files, and we just run them in isolation
     ///
     pub fn add_event(&mut self, event: PerfEvent) -> bool {
-        let unit = event.unit();
-        if self.events_by_unit(unit).len() >= *self.limits.get(&unit).unwrap_or(&0) {
-            return false;
-        }
         // 1. Can't measure more than two offcore events:
         if event.is_offcore() && self.offcore_events() == 2 {
+            return false;
+        }
+
+        let unit = event.unit();
+        let unit_limit = *self.limits.get(&unit).unwrap_or(&0);
+        if self.events_by_unit(unit).len() >= unit_limit {
             return false;
         }
 
         // 2. Now, consider the counter <-> event mapping constraints:
         // Try to see if there is any event already in the group
         // that would conflicts when running together with the new `event`:
-        let conflicts = self.events_by_unit(unit).iter().any(|cur| {
-            match cur.counter() {
-                Counter::Programmable(cmask) => {
-                    match event.counter() {
-                        Counter::Programmable(emask) => (cmask | emask).count_ones() < 2,
-                        _ => false, // No conflict
-                    }
-                }
-                Counter::Fixed(cmask) => {
-                    match event.counter() {
-                        Counter::Fixed(emask) => (cmask | emask).count_ones() < 2,
-                        _ => false, // No conflict
-                    }
-                }
-            }
-        });
-        if conflicts {
+        if self.has_counter_constraints_conflicts(&event) {
             return false;
         }
 
@@ -630,7 +684,7 @@ impl PerfEventGroup {
 }
 
 /// Given a list of events, create a list of event groups that can be measured together.
-fn schedule_events(events: Vec<&'static IntelPerformanceCounterDescription>)
+fn schedule_events(events: Vec<&'static EventDescription>)
                    -> Vec<PerfEventGroup> {
     if PMU_COUNTERS.len() == 0 {
         error!("No PMU counters? Can't measure anything.");
