@@ -11,7 +11,7 @@ subcommands:
     - stats:
         about: Generates statistics about performance events.
         args:
-            - output:
+            - directory:
                 help: Output folder.
                 required: true
     - profile:
@@ -55,9 +55,6 @@ subcommands:
                 short: d
                 long: debug
                 help: Print verbose debug information.
-            - input:
-                short: i
-                long: input
+            - directory:
                 help: Set input directory.
-                value_name: DIRECTORY
-                takes_value: true
+                required: true

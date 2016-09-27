@@ -1,3 +1,4 @@
 target
 Cargo.lock
 *.pyc
+.sync-config.cson

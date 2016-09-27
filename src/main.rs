@@ -63,7 +63,7 @@ fn main() {
                 record);
     }
     if let Some(matches) = matches.subcommand_matches("extract") {
-        let output_path = Path::new(matches.value_of("input").unwrap_or("out"));
+        let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
         extract(output_path);
     }
     if let Some(matches) = matches.subcommand_matches("pair") {
@@ -71,7 +71,7 @@ fn main() {
         pair(output_path);
     }
     if let Some(matches) = matches.subcommand_matches("stats") {
-        let output_path = Path::new(matches.value_of("output").unwrap_or("out"));
+        let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
         stats(output_path);
     }
 

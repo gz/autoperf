@@ -336,10 +336,10 @@ impl<'a> Deployment<'a> {
 
             // Pick a CpuInfo for every core:
             let mut to_remove: Vec<usize> = Vec::with_capacity(cores.len());
-            for core in cores.into_iter() {
+            for (idx, core) in cores.into_iter().enumerate() {
                 for cpu in cpus.iter() {
                     if cpu.core == core {
-                        to_remove.push(core as usize);
+                        to_remove.push(idx);
                         break;
                     }
                 }
@@ -386,6 +386,7 @@ impl<'a> fmt::Display for Deployment<'a> {
 }
 
 struct Run<'a> {
+    manifest_path: &'a Path,
     output_path: PathBuf,
     binary_a: &'a String,
     args_a: &'a Vec<String>,
@@ -400,7 +401,8 @@ struct Run<'a> {
 }
 
 impl<'a> Run<'a> {
-    fn new(output_path: &Path,
+    fn new(manifest_path: &'a Path,
+           output_path: &'a Path,
            a: &'a String,
            args_a: &'a Vec<String>,
            breakpoints: &'a Vec<String>,
@@ -413,6 +415,7 @@ impl<'a> Run<'a> {
         mkdir(&out_dir);
 
         Run {
+            manifest_path: manifest_path,
             output_path: out_dir,
             binary_a: a,
             args_a: args_a,
@@ -454,7 +457,7 @@ impl<'a> Run<'a> {
         cmd.extend( self.args_a.iter() );
         cmd.iter()
             .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str() ))
-            .map(|s| s.replace("$TARGET_DIR", format!("{}", self.output_path.to_str().unwrap()).as_str()))
+            .map(|s| s.replace("$MANIFEST_DIR", format!("{}", self.manifest_path.to_str().unwrap()).as_str()))
             .collect()
     }
 
@@ -465,7 +468,7 @@ impl<'a> Run<'a> {
         cmd.extend( self.args_b.iter() );
         cmd.iter()
             .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str() ))
-            .map(|s| s.replace("$TARGET_DIR", format!("{}", self.output_path.to_str().unwrap()).as_str()))
+            .map(|s| s.replace("$MANIFEST_DIR", format!("{}", self.manifest_path.to_str().unwrap()).as_str()))
             .collect()
     }
 
@@ -515,7 +518,7 @@ impl<'a> Run<'a> {
         try!(f.write_all(format!("{}", self).as_bytes()));
 
         // Profile alone
-        // try!(self.profile_a("alone"));
+        try!(self.profile_a("alone"));
 
         // Profile together with B
         let mut app_b = try!(self.start_b());
@@ -538,7 +541,6 @@ impl<'a> fmt::Display for Run<'a> {
         Ok(())
     }
 }
-
 
 pub fn pair(output_path: &Path) {
     let mut out_dir = output_path.to_path_buf();
@@ -587,25 +589,32 @@ pub fn pair(output_path: &Path) {
 
     let mut deployments: Vec<Deployment> = Vec::with_capacity(4);
     for config in configs {
-        if config == "Caches" {
-            // Cache interference on HW threads
-            deployments.push(Deployment::split("L1-SMT", mt.same_l1(), mt.l1_size().unwrap_or(0), false));
-            deployments.push(Deployment::split("L2-SMT", mt.same_l2(), mt.l2_size().unwrap_or(0), false));
 
-            // LLC
+        // Cache interference on HW threads
+        if config == "L1-SMT" {
+            deployments.push(Deployment::split("L1-SMT", mt.same_l1(), mt.l1_size().unwrap_or(0), false));
+        }
+        if config == "L2-SMT" {
+            deployments.push(Deployment::split("L2-SMT", mt.same_l2(), mt.l2_size().unwrap_or(0), false));
+        }
+
+        // LLC
+        if config == "L3-SMT" {
             deployments.push(Deployment::split("L3-SMT", mt.same_l3(), mt.l3_size().unwrap_or(0), false));
+        }
+        if config == "L3-no-SMT" {
             deployments.push(Deployment::split("L3-no-SMT",
                                                mt.same_l3(),
                                                mt.l3_size().unwrap_or(0),
                                                true));
         }
-        if config == "Memory" {
-            warn!("Memory configuration not yet supported");
-        }
+
     }
 
     for d in deployments.iter() {
-        let mut run = Run::new(out_dir.as_path(),
+        //println!("{}", d);
+        let mut run = Run::new(output_path,
+                               out_dir.as_path(),
                                &binary1,
                                &args1,
                                &breakpoints,
