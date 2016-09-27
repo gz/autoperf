@@ -524,19 +524,20 @@ impl PerfEventGroup {
             if (mask & (1 << level)) > 0 {
                 assignment.push(event);
                 events.remove(idx);
-                let ret = PerfEventGroup::find_counter_assignment(level+1, events, assignment, max_level);
+                let ret = PerfEventGroup::find_counter_assignment(level+1, max_level, events, assignment);
                 if ret.is_some() {
                     return ret;
                 }
             }
-            // Otherwise let's assign no event at this level and go deeper (for groups that
+            // Otherwise let's not assign the event at this level and go deeper (for groups that
             // don't use all counters)
             else {
-                let ret = PerfEventGroup::find_counter_assignment(level+1, events, assignment, max_level);
+                let ret = PerfEventGroup::find_counter_assignment(level+1, max_level, events, assignment);
                 if ret.is_some() {
                     return ret;
                 }
             }
+            // And finally, just try with the next event in the list
         }
 
         None
@@ -544,7 +545,7 @@ impl PerfEventGroup {
 
     /// Check if this event conflicts with the counter requirements
     /// of events already in this group
-    fn has_counter_constraints_conflicts(&self, new_event: &PerfEvent) -> bool {
+    fn has_counter_constraint_conflicts(&self, new_event: &PerfEvent) -> bool {
         let unit = new_event.unit();
         let unit_limit = *self.limits.get(&unit).unwrap_or(&0);
 
@@ -559,7 +560,7 @@ impl PerfEventGroup {
 
         events.push(new_event);
 
-        PerfEventGroup::find_counter_assignment(0, events, Vec::new(), unit_limit).is_none()
+        PerfEventGroup::find_counter_assignment(0, unit_limit, events, Vec::new()).is_none()
     }
 
     /// Try to add an event to an event group.
@@ -581,32 +582,34 @@ impl PerfEventGroup {
             return false;
         }
 
+        // 2. Check we don't measure more events than we have counters
+        // for on the repspective units
         let unit = event.unit();
         let unit_limit = *self.limits.get(&unit).unwrap_or(&0);
         if self.events_by_unit(unit).len() >= unit_limit {
             return false;
         }
 
-        // 2. Now, consider the counter <-> event mapping constraints:
+        // 3. Now, consider the counter <-> event mapping constraints:
         // Try to see if there is any event already in the group
-        // that would conflicts when running together with the new `event`:
-        if self.has_counter_constraints_conflicts(&event) {
+        // that would conflict when running together with the new `event`:
+        if self.has_counter_constraint_conflicts(&event) {
             return false;
         }
 
-        // 3. Isolate things that have erratas to not screw other events (see HSW30)
+        // 4. Isolate things that have erratas to not screw other events (see HSW30)
         let errata = self.events.iter().any(|cur| cur.0.errata.is_some());
         if errata || event.0.errata.is_some() && self.events.len() != 0 {
             return false;
         }
 
-        // 4. If an event has the taken alone attribute set it needs to be measured alone
+        // 5. If an event has the taken alone attribute set it needs to be measured alone
         let already_have_taken_alone_event = self.events.iter().any(|cur| cur.0.taken_alone);
         if already_have_taken_alone_event || event.0.taken_alone && self.events.len() != 0 {
             return false;
         }
 
-        // 5. If our own isolate event list contains the name we also run them alone:
+        // 6. If our own isolate event list contains the name we also run them alone:
         let already_have_isolated_event = self.events.get(0).map_or(false, |e| {
             ISOLATE_EVENTS.iter().any(|cur| *cur == e.0.event_name)
         });
