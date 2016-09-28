@@ -568,7 +568,6 @@ pub fn pair(output_path: &Path) {
     let mut s = String::new();
 
     let _ = file.read_to_string(&mut s).unwrap();
-    println!("{:?}", s);
     let mut parser = toml::Parser::new(s.as_str());
 
     let doc = match parser.parse() {
@@ -624,7 +623,6 @@ pub fn pair(output_path: &Path) {
     }
 
     for d in deployments.iter() {
-        //println!("{}", d);
         let mut run = Run::new(output_path,
                                out_dir.as_path(),
                                run_alone,
