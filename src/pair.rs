@@ -389,6 +389,8 @@ impl<'a> fmt::Display for Deployment<'a> {
 struct Run<'a> {
     manifest_path: &'a Path,
     output_path: PathBuf,
+    run_alone: bool,
+
     binary_a: &'a String,
     args_a: &'a Vec<String>,
     breakpoints: &'a Vec<String>,
@@ -404,11 +406,14 @@ struct Run<'a> {
 impl<'a> Run<'a> {
     fn new(manifest_path: &'a Path,
            output_path: &'a Path,
+           run_alone: bool,
            a: &'a String,
            args_a: &'a Vec<String>,
+           a_openmp: bool,
            breakpoints: &'a Vec<String>,
            b: &'a String,
            args_b: &'a Vec<String>,
+           b_openmp: bool,
            deployment: &'a Deployment)
            -> Run<'a> {
         let mut out_dir = output_path.to_path_buf();
@@ -418,13 +423,14 @@ impl<'a> Run<'a> {
         Run {
             manifest_path: manifest_path,
             output_path: out_dir,
+            run_alone: run_alone,
             binary_a: a,
             args_a: args_a,
             breakpoints: breakpoints,
-            is_openmp_a: true,
+            is_openmp_a: a_openmp,
             binary_b: b,
             args_b: args_b,
-            is_openmp_b: true,
+            is_openmp_b: b_openmp,
             deployment: deployment,
         }
     }
@@ -519,7 +525,9 @@ impl<'a> Run<'a> {
         try!(f.write_all(format!("{}", self).as_bytes()));
 
         // Profile alone
-        try!(self.profile_a("alone"));
+        if self.run_alone {
+            try!(self.profile_a("alone"));
+        }
 
         // Profile together with B
         let mut app_b = try!(self.start_b());
@@ -572,21 +580,24 @@ pub fn pair(output_path: &Path) {
             process::exit(1);
         }
     };
-    println!("{:?}", doc);
     let experiment: &toml::Table = doc["experiment"].as_table().expect("Error in manifest.toml: 'experiment' should be a table.");
     let configuration: &[toml::Value] = experiment["configurations"].as_slice().expect("Error in manifest.toml: 'configuration' attribute should be an array.");
     let configs: Vec<String> = configuration.iter().map(|s| s.as_str().expect("configuration elements should be strings").to_string()).collect();
-    let is_openmp: bool = experiment["alone"].as_bool().expect("'alone' should be boolean");
+
+    let run_alone: bool = experiment["alone"].as_bool().expect("'alone' should be boolean");
 
     let program1: &toml::Table = doc["program1"].as_table().expect("Error in manifest.toml: 'program1' should be a table.");
     let program2: &toml::Table = doc["program2"].as_table().expect("Error in manifest.toml: 'program2' should be a table.");
 
+
     let binary1: String = program1["binary"].as_str().expect("program1.binary not a string").to_string();
+    let binary1_openmp: bool = program1["openmp"].as_bool().expect("'program1.openmp' should be boolean");
     let args1: Vec<String> = program1["arguments"].as_slice().expect("program1.arguments not an array?")
                                                   .iter().map(|s| s.as_str().expect("program1 argument not a string?").to_string()).collect();
     let breakpoints: Vec<String> = program1["breakpoints"].as_slice().expect("program2.breakpoints not an array?")
                                                 .iter().map(|s| s.as_str().expect("program2 breakpoint not a string?").to_string()).collect();
     let binary2: String = program2["binary"].as_str().expect("program2.binary not a string").to_string();
+    let binary2_openmp: bool = program2["openmp"].as_bool().expect("'program2.openmp' should be boolean");
     let args2: Vec<String> = program2["arguments"].as_slice().expect("program2.arguments not an array?")
                                                   .iter().map(|s| s.as_str().expect("program2 argument not a string?").to_string()).collect();
 
@@ -616,11 +627,14 @@ pub fn pair(output_path: &Path) {
         //println!("{}", d);
         let mut run = Run::new(output_path,
                                out_dir.as_path(),
+                               run_alone,
                                &binary1,
                                &args1,
+                               binary1_openmp,
                                &breakpoints,
                                &binary2,
                                &args2,
+                               binary2_openmp,
                                d);
         run.profile();
     }
