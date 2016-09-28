@@ -13,7 +13,7 @@ env_logger = "0.3"
 csv = "0.*"
 lazy_static = "0.1.*"
 perfcnt = "0.3.*"
-yaml-rust = "0.3.*"
+toml = "0.2"
 nom = "^1.2.3"
 libc = "0.2.16"
 clap = { version = "2", features = ["yaml"] }

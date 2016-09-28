@@ -12,7 +12,7 @@ extern crate pbr;
 extern crate csv;
 extern crate x86;
 extern crate perfcnt;
-extern crate yaml_rust;
+extern crate toml;
 extern crate phf;
 
 use clap::App;

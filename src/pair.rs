@@ -1,3 +1,4 @@
+use std::process;
 use std::io;
 use std::io::prelude::*;
 use std::fs;
@@ -11,7 +12,7 @@ use std::fmt;
 use x86::shared::cpuid;
 use nom::*;
 use csv;
-use yaml_rust::YamlLoader;
+use toml;
 
 use profile;
 use super::util::*;
@@ -525,8 +526,8 @@ impl<'a> Run<'a> {
         try!(self.profile_a("paired"));
         // Done, do clean-up:
         try!(app_b.kill());
-        app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
-        app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
+        app_b.stdout.map(|mut c| self.save_output("paired/B_stdout.txt", &mut c));
+        app_b.stderr.map(|mut c| self.save_output("paired/B_stderr.txt", &mut c));
 
         Ok(())
     }
@@ -553,43 +554,44 @@ pub fn pair(output_path: &Path) {
     let mt = MachineTopology::new(lscpu_string, numactl_string);
 
     let mut manifest: PathBuf = output_path.to_path_buf();
-    manifest.push("manifest.yml");
+    manifest.push("manifest.toml");
 
-    let mut file = File::open(manifest.as_path()).expect("manifest file does not exist?");
+    let mut file = File::open(manifest.as_path()).expect("manifest.toml file does not exist?");
     let mut s = String::new();
 
     let _ = file.read_to_string(&mut s).unwrap();
-    let docs = YamlLoader::load_from_str(s.as_str()).unwrap();
+    println!("{:?}", s);
+    let mut parser = toml::Parser::new(s.as_str());
 
-    let doc = &docs[0];
-    let configs: Vec<String> =
-        doc["configurations"].as_vec().unwrap().iter().map(|s| s.as_str().unwrap().to_string()).collect();
+    let doc = match parser.parse() {
+        Some(doc) => {
+            doc
+        }
+        None => {
+            error!("Can't parse the manifest file:\n{:?}", parser.errors);
+            process::exit(1);
+        }
+    };
+    println!("{:?}", doc);
+    let experiment: &toml::Table = doc["experiment"].as_table().expect("Error in manifest.toml: 'experiment' should be a table.");
+    let configuration: &[toml::Value] = experiment["configurations"].as_slice().expect("Error in manifest.toml: 'configuration' attribute should be an array.");
+    let configs: Vec<String> = configuration.iter().map(|s| s.as_str().expect("configuration elements should be strings").to_string()).collect();
+    let is_openmp: bool = experiment["alone"].as_bool().expect("'alone' should be boolean");
 
-    let binary1: String = doc["program1"]["binary"].as_str().unwrap().to_string();
-    let args1: Vec<String> = doc["program1"]["arguments"]
-        .as_vec()
-        .unwrap()
-        .iter()
-        .map(|s| s.as_str().unwrap().to_string())
-        .collect();
-    let binary2: String = doc["program2"]["binary"].as_str().unwrap().to_string();
-    let args2: Vec<String> = doc["program2"]["arguments"]
-        .as_vec()
-        .unwrap()
-        .iter()
-        .map(|s| s.as_str().unwrap().to_string())
-        .collect();
+    let program1: &toml::Table = doc["program1"].as_table().expect("Error in manifest.toml: 'program1' should be a table.");
+    let program2: &toml::Table = doc["program2"].as_table().expect("Error in manifest.toml: 'program2' should be a table.");
 
-    let breakpoints: Vec<String> = doc["program1"]["breakpoints"]
-        .as_vec()
-        .unwrap()
-        .iter()
-        .map(|s| s.as_str().unwrap().to_string())
-        .collect();
+    let binary1: String = program1["binary"].as_str().expect("program1.binary not a string").to_string();
+    let args1: Vec<String> = program1["arguments"].as_slice().expect("program1.arguments not an array?")
+                                                  .iter().map(|s| s.as_str().expect("program1 argument not a string?").to_string()).collect();
+    let breakpoints: Vec<String> = program1["breakpoints"].as_slice().expect("program2.breakpoints not an array?")
+                                                .iter().map(|s| s.as_str().expect("program2 breakpoint not a string?").to_string()).collect();
+    let binary2: String = program2["binary"].as_str().expect("program2.binary not a string").to_string();
+    let args2: Vec<String> = program2["arguments"].as_slice().expect("program2.arguments not an array?")
+                                                  .iter().map(|s| s.as_str().expect("program2 argument not a string?").to_string()).collect();
 
     let mut deployments: Vec<Deployment> = Vec::with_capacity(4);
     for config in configs {
-
         // Cache interference on HW threads
         if config == "L1-SMT" {
             deployments.push(Deployment::split("L1-SMT", mt.same_l1(), mt.l1_size().unwrap_or(0), false));
@@ -608,7 +610,6 @@ pub fn pair(output_path: &Path) {
                                                mt.l3_size().unwrap_or(0),
                                                true));
         }
-
     }
 
     for d in deployments.iter() {
