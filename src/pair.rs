@@ -441,7 +441,7 @@ impl<'a> Run<'a> {
             let cpus: Vec<String> =
                 self.deployment.a.iter().map(|c| format!("{}", c.cpu)).collect();
             env.push((String::from("OMP_PROC_BIND"), String::from("true")));
-            env.push((String::from("OMP_PLACES"), format!(r#""{{{}}}""#, cpus.join(","))));
+            env.push((String::from("OMP_PLACES"), format!("{{{}}}", cpus.join(","))));
         }
 
         env
@@ -453,7 +453,7 @@ impl<'a> Run<'a> {
             let cpus: Vec<String> =
                 self.deployment.b.iter().map(|c| format!("{}", c.cpu)).collect();
             env.push((String::from("OMP_PROC_BIND"), String::from("true")));
-            env.push((String::from("OMP_PLACES"), format!(r#""{{{}}}""#, cpus.join(","))));
+            env.push((String::from("OMP_PLACES"), format!("{{{}}}", cpus.join(","))));
         }
 
         env
