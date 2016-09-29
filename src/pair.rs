@@ -440,6 +440,7 @@ impl<'a> Run<'a> {
         if self.is_openmp_a {
             let cpus: Vec<String> =
                 self.deployment.a.iter().map(|c| format!("{}", c.cpu)).collect();
+            env.push((String::from("OMP_PROC_BIND"), String::from("true")));
             env.push((String::from("OMP_PLACES"), format!("\"{{{}}}\"", cpus.join(","))));
         }
 
@@ -451,6 +452,7 @@ impl<'a> Run<'a> {
         if self.is_openmp_a {
             let cpus: Vec<String> =
                 self.deployment.b.iter().map(|c| format!("{}", c.cpu)).collect();
+            env.push((String::from("OMP_PROC_BIND"), String::from("true")));
             env.push((String::from("OMP_PLACES"), format!("\"{{{}}}\"", cpus.join(","))));
         }
 
