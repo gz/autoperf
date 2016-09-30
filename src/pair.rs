@@ -388,6 +388,7 @@ impl<'a> fmt::Display for Deployment<'a> {
 
 #[derive(Debug)]
 struct Program<'a> {
+    name: String,
     manifest_path: &'a Path,
     binary: String,
     args: Vec<String>,
@@ -399,6 +400,8 @@ struct Program<'a> {
 impl<'a> Program<'a> {
 
     fn from_toml(manifest_path: &'a Path, config: &toml::Table) -> Program<'a> {
+        let name: String = config["name"].as_str()
+                .expect("program.binary not a string").to_string();
         let binary: String = config["binary"].as_str()
                 .expect("program.binary not a string").to_string();
         let openmp: bool = config["openmp"]
@@ -416,7 +419,7 @@ impl<'a> Program<'a> {
                 .iter().map(|s| s.as_str().expect("program breakpoint not a string?").to_string())
                 .collect();
 
-        Program { manifest_path: manifest_path, binary: binary, is_openmp: openmp,
+        Program { name: name, manifest_path: manifest_path, binary: binary, is_openmp: openmp,
                   args: args, antagonist_args: antagonist_args, breakpoints: breakpoints }
     }
 
@@ -454,7 +457,7 @@ struct Run<'a> {
     output_path: PathBuf,
     run_alone: bool,
     a: &'a Program<'a>,
-    b: &'a Program<'a>,
+    b: Option<&'a Program<'a>>,
     deployment: &'a Deployment<'a>,
 }
 
@@ -463,11 +466,15 @@ impl<'a> Run<'a> {
            output_path: &'a Path,
            run_alone: bool,
            a: &'a Program<'a>,
-           b: &'a Program<'a>,
+           b: Option<&'a Program<'a>>,
            deployment: &'a Deployment)
            -> Run<'a> {
         let mut out_dir = output_path.to_path_buf();
         out_dir.push(deployment.description);
+        match b {
+            Some(p) => out_dir.push(format!("{}_vs_{}", a.name, p.name)),
+            None => out_dir.push(a.name.as_str()),
+        }
         mkdir(&out_dir);
 
         Run {
@@ -494,22 +501,28 @@ impl<'a> Run<'a> {
         Ok(())
     }
 
-    fn start_b(&mut self) -> io::Result<Child> {
-        let command_args = self.b.get_cmd(true, &self.deployment.b);
-        let env = self.b.get_env(true, &self.deployment.b);
-        let ref name = command_args[0];
-        debug!("Spawning {:?} with environment {:?}", command_args, env);
-        let mut cmd = Command::new(name);
-        let mut cmd = cmd.stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .args(&command_args[1..]);
+    fn start_b(&mut self) -> Option<Child> {
+        self.b.map(|b| {
+            let command_args = b.get_cmd(true, &self.deployment.b);
+            let env = b.get_env(true, &self.deployment.b);
 
-        // Add the environment:
-        for (key, value) in env{
-            cmd.env(key, value);
-        }
+            let ref name = command_args[0];
+            debug!("Spawning {:?} with environment {:?}", command_args, env);
+            let mut cmd = Command::new(name);
+            let mut cmd = cmd.stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .args(&command_args[1..]);
 
-        cmd.spawn()
+            // Add the environment:
+            for (key, value) in env{
+                cmd.env(key, value);
+            }
+
+            match cmd.spawn() {
+                Ok(child) => child,
+                Err(_) => panic!("Can't spawn program B")
+            }
+        })
     }
 
     fn save_output<T: io::Read>(&self, filename: &str, what: &mut T) -> io::Result<()> {
@@ -529,18 +542,21 @@ impl<'a> Run<'a> {
         let mut f = try!(File::create(deployment_path.as_path()));
         try!(f.write_all(format!("{}", self).as_bytes()));
 
-        // Profile alone
-        if self.run_alone {
-            try!(self.profile_a("alone"));
-        }
 
         // Profile together with B
-        let mut app_b = try!(self.start_b());
+        let mut maybe_app_b = self.start_b();
+
         try!(self.profile_a("paired"));
-        // Done, do clean-up:
-        try!(app_b.kill());
-        app_b.stdout.map(|mut c| self.save_output("paired/B_stdout.txt", &mut c));
-        app_b.stderr.map(|mut c| self.save_output("paired/B_stderr.txt", &mut c));
+
+        match maybe_app_b {
+            Some(mut app_b) => {
+                // Done, do clean-up:
+                try!(app_b.kill());
+                app_b.stdout.map(|mut c| self.save_output("paired/B_stdout.txt", &mut c));
+                app_b.stderr.map(|mut c| self.save_output("paired/B_stderr.txt", &mut c));
+            },
+            None => ()
+        };
 
         Ok(())
     }
@@ -550,8 +566,15 @@ impl<'a> fmt::Display for Run<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(write!(f, "A: {:?} {:?}\n", self.a.get_env(false, &self.deployment.a), self.a.get_cmd(false, &self.deployment.a)));
         try!(write!(f, "A Breakpoints: {:?}\n", self.a.breakpoints));
-        try!(write!(f, "B: {:?} {:?}\n", self.b.get_env(true, &self.deployment.b), self.b.get_cmd(true, &self.deployment.b)));
-        try!(write!(f, "{}:\n", &self.deployment));
+        match self.b {
+            Some(b) => {
+                try!(write!(f, "B: {:?} {:?}\n", b.get_env(true, &self.deployment.b), b.get_cmd(true, &self.deployment.b)));
+                try!(write!(f, "{}:\n", &self.deployment));
+            }
+            None => {
+                try!(write!(f, "No other program running."));
+            }
+        }
         Ok(())
     }
 }
@@ -586,11 +609,11 @@ pub fn pair(manifest_folder: &Path) {
     let configuration: &[toml::Value] = experiment["configurations"].as_slice().expect("Error in manifest.toml: 'configuration' attribute should be an array.");
     let configs: Vec<String> = configuration.iter().map(|s| s.as_str().expect("configuration elements should be strings").to_string()).collect();
     let run_alone: bool = experiment["alone"].as_bool().expect("'alone' should be boolean");
-    let mut programs: Vec<Program> = Vec::with_capacity(2);
 
+    let mut programs: Vec<Program> = Vec::with_capacity(2);
     for (key, value) in &doc {
         if key.starts_with("program") {
-            let program_desc: &toml::Table = doc["program1"].as_table().expect("Error in manifest.toml: 'program' should be a table.");
+            let program_desc: &toml::Table = doc[key].as_table().expect("Error in manifest.toml: 'program' should be a table.");
             programs.push(Program::from_toml(manifest_folder, program_desc));
         }
     }
@@ -616,11 +639,22 @@ pub fn pair(manifest_folder: &Path) {
         }
     }
 
+    // Run programs alone
+    for a in programs.iter() {
+        for d in deployments.iter() {
+            let mut run = Run::new(manifest_folder,
+                                   out_dir.as_path(),
+                                   run_alone, a, None, d);
+            run.profile();
+        }
+    }
+
+    // Run programs pairwise together
     for (a, b) in iproduct!(programs.iter(), programs.iter()) {
         for d in deployments.iter() {
             let mut run = Run::new(manifest_folder,
                                    out_dir.as_path(),
-                                   run_alone, a, b, d);
+                                   run_alone, a, Some(b), d);
             run.profile();
         }
     }

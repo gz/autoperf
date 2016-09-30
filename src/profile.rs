@@ -62,7 +62,7 @@ lazy_static! {
                 res.insert(MonitoringUnit::QPI, 2);
                 res.insert(MonitoringUnit::CBox, 2);
                 res.insert(MonitoringUnit::IMC, 2);
-                res.insert(MonitoringUnit::Arb, 2);
+                res.insert(MonitoringUnit::Arb, 4);
             }
         });
 
@@ -689,15 +689,19 @@ impl PerfEventGroup {
 /// Given a list of events, create a list of event groups that can be measured together.
 fn schedule_events(events: Vec<&'static EventDescription>)
                    -> Vec<PerfEventGroup> {
-    if PMU_COUNTERS.len() == 0 {
-        error!("No PMU counters? Can't measure anything.");
-        return Vec::default();
-    }
-    let expected_groups = events.len() / (PMU_COUNTERS.len() * 4);
-    let mut groups: Vec<PerfEventGroup> = Vec::with_capacity(expected_groups);
+    let mut groups: Vec<PerfEventGroup> = Vec::with_capacity(42);
 
     for event in events {
         let mut added: bool = false;
+        let perf_event: PerfEvent = PerfEvent(event);
+        match perf_event.unit() {
+            MonitoringUnit::Unknown(s) => {
+                info!("Ignoring event {} with unknown unit '{}'", event, s);
+                continue;
+            },
+            _ => ()
+        };
+
         // Try to add the event to an existing group:
         for group in groups.iter_mut() {
             let perf_event: PerfEvent = PerfEvent(event);
