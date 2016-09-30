@@ -386,20 +386,75 @@ impl<'a> fmt::Display for Deployment<'a> {
     }
 }
 
+#[derive(Debug)]
+struct Program<'a> {
+    manifest_path: &'a Path,
+    binary: String,
+    args: Vec<String>,
+    antagonist_args: Vec<String>,
+    breakpoints: Vec<String>,
+    is_openmp: bool,
+}
+
+impl<'a> Program<'a> {
+
+    fn from_toml(manifest_path: &'a Path, config: &toml::Table) -> Program<'a> {
+        let binary: String = config["binary"].as_str()
+                .expect("program.binary not a string").to_string();
+        let openmp: bool = config["openmp"]
+                .as_bool().expect("'program.openmp' should be boolean");
+        let args: Vec<String> = config["arguments"]
+                .as_slice().expect("program.arguments not an array?")
+                .iter().map(|s| s.as_str().expect("program1 argument not a string?").to_string())
+                .collect();
+        let antagonist_args: Vec<String> = config["antagonist_arguments"]
+                .as_slice().expect("program.antagonist_arguments not an array?")
+                .iter().map(|s| s.as_str().expect("program1 argument not a string?").to_string())
+                .collect();
+        let breakpoints: Vec<String> = config["breakpoints"]
+                .as_slice().expect("program.breakpoints not an array?")
+                .iter().map(|s| s.as_str().expect("program breakpoint not a string?").to_string())
+                .collect();
+
+        Program { manifest_path: manifest_path, binary: binary, is_openmp: openmp,
+                  args: args, antagonist_args: antagonist_args, breakpoints: breakpoints }
+    }
+
+    fn get_cmd(&self, antagonist: bool, cores: &Vec<&CpuInfo>) -> Vec<String> {
+        let nthreads = cores.len();
+        let mut cmd = vec![ &self.binary ];
+
+        if !antagonist {
+            cmd.extend(self.args.iter());
+        }
+        else {
+            cmd.extend(self.antagonist_args.iter());
+        }
+
+        cmd.iter()
+            .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str() ))
+            .map(|s| s.replace("$MANIFEST_DIR", format!("{}", self.manifest_path.to_str().unwrap()).as_str()))
+            .collect()
+    }
+
+    fn get_env(&self, antagonist: bool, cores: &Vec<&CpuInfo>) -> Vec<(String, String)> {
+        let mut env: Vec<(String, String)> = Vec::with_capacity(2);
+        if self.is_openmp {
+            let cpus: Vec<String> = cores.iter().map(|c| format!("{}", c.cpu)).collect();
+            env.push((String::from("OMP_PROC_BIND"), String::from("true")));
+            env.push((String::from("OMP_PLACES"), format!("{{{}}}", cpus.join(","))));
+        }
+
+        env
+    }
+}
+
 struct Run<'a> {
     manifest_path: &'a Path,
     output_path: PathBuf,
     run_alone: bool,
-
-    binary_a: &'a String,
-    args_a: &'a Vec<String>,
-    breakpoints: &'a Vec<String>,
-    is_openmp_a: bool,
-
-    binary_b: &'a String,
-    args_b: &'a Vec<String>,
-
-    is_openmp_b: bool,
+    a: &'a Program<'a>,
+    b: &'a Program<'a>,
     deployment: &'a Deployment<'a>,
 }
 
@@ -407,13 +462,8 @@ impl<'a> Run<'a> {
     fn new(manifest_path: &'a Path,
            output_path: &'a Path,
            run_alone: bool,
-           a: &'a String,
-           args_a: &'a Vec<String>,
-           a_openmp: bool,
-           breakpoints: &'a Vec<String>,
-           b: &'a String,
-           args_b: &'a Vec<String>,
-           b_openmp: bool,
+           a: &'a Program<'a>,
+           b: &'a Program<'a>,
            deployment: &'a Deployment)
            -> Run<'a> {
         let mut out_dir = output_path.to_path_buf();
@@ -424,89 +474,42 @@ impl<'a> Run<'a> {
             manifest_path: manifest_path,
             output_path: out_dir,
             run_alone: run_alone,
-            binary_a: a,
-            args_a: args_a,
-            breakpoints: breakpoints,
-            is_openmp_a: a_openmp,
-            binary_b: b,
-            args_b: args_b,
-            is_openmp_b: b_openmp,
-            deployment: deployment,
+            a: a, b: b,
+            deployment: deployment
         }
-    }
-
-    fn get_env_for_a(&self) -> Vec<(String, String)> {
-        let mut env: Vec<(String, String)> = Vec::with_capacity(2);
-        if self.is_openmp_a {
-            let cpus: Vec<String> =
-                self.deployment.a.iter().map(|c| format!("{}", c.cpu)).collect();
-            env.push((String::from("OMP_PROC_BIND"), String::from("true")));
-            env.push((String::from("OMP_PLACES"), format!("{{{}}}", cpus.join(","))));
-        }
-
-        env
-    }
-
-    fn get_env_for_b(&self) -> Vec<(String, String)> {
-        let mut env: Vec<(String, String)> = Vec::with_capacity(2);
-        if self.is_openmp_a {
-            let cpus: Vec<String> =
-                self.deployment.b.iter().map(|c| format!("{}", c.cpu)).collect();
-            env.push((String::from("OMP_PROC_BIND"), String::from("true")));
-            env.push((String::from("OMP_PLACES"), format!("{{{}}}", cpus.join(","))));
-        }
-
-        env
-    }
-
-    fn get_cmd_a(&self) -> Vec<String> {
-        let nthreads = self.deployment.a.len();
-        let mut cmd = vec![ self.binary_a ];
-
-        cmd.extend( self.args_a.iter() );
-        cmd.iter()
-            .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str() ))
-            .map(|s| s.replace("$MANIFEST_DIR", format!("{}", self.manifest_path.to_str().unwrap()).as_str()))
-            .collect()
-    }
-
-    fn get_cmd_b(&self) -> Vec<String> {
-        let nthreads = self.deployment.a.len();
-        let mut cmd = vec![ self.binary_b ];
-
-        cmd.extend( self.args_b.iter() );
-        cmd.iter()
-            .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str() ))
-            .map(|s| s.replace("$MANIFEST_DIR", format!("{}", self.manifest_path.to_str().unwrap()).as_str()))
-            .collect()
     }
 
     fn profile_a(&self, run: &str) -> io::Result<()> {
-        debug!("Starting profiling and running A: {:?}", self.get_cmd_a());
+        let cmd = self.a.get_cmd(false, &self.deployment.a);
+        let env = self.a.get_env(false, &self.deployment.a);
+        let bps = self.a.breakpoints.iter().map(|s| s.to_string()).collect();
+
         let mut perf_data_path_buf = self.output_path.clone();
         perf_data_path_buf.push(run);
         mkdir(&perf_data_path_buf);
         let perf_path = perf_data_path_buf.as_path();
 
-        let mut cmd: Vec<String> = self.get_cmd_a();
-        debug!("Spawning {:?} with environment {:?}", cmd, self.get_env_for_a());
-        profile::profile(&perf_path,
-                         cmd,
-                         self.get_env_for_a(),
-                         self.breakpoints.iter().map(|s| s.to_string()).collect(),
-                         false);
+        debug!("Spawning {:?} with environment {:?}", cmd, env);
+        profile::profile(&perf_path, cmd, env, bps, false);
         Ok(())
     }
 
     fn start_b(&mut self) -> io::Result<Child> {
-        let cmd = self.get_cmd_b();
-        let ref name = cmd[0];
-        debug!("Spawning {:?} with environment {:?}", cmd, self.get_env_for_b());
-        Command::new(name)
-            .stdout(Stdio::piped())
+        let command_args = self.b.get_cmd(true, &self.deployment.b);
+        let env = self.b.get_env(true, &self.deployment.b);
+        let ref name = command_args[0];
+        debug!("Spawning {:?} with environment {:?}", command_args, env);
+        let mut cmd = Command::new(name);
+        let mut cmd = cmd.stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .args(&cmd[1..])
-            .spawn()
+            .args(&command_args[1..]);
+
+        // Add the environment:
+        for (key, value) in env{
+            cmd.env(key, value);
+        }
+
+        cmd.spawn()
     }
 
     fn save_output<T: io::Read>(&self, filename: &str, what: &mut T) -> io::Result<()> {
@@ -545,16 +548,16 @@ impl<'a> Run<'a> {
 
 impl<'a> fmt::Display for Run<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write!(f, "A: {:?} {:?}\n", self.get_env_for_a(), self.get_cmd_a()));
-        try!(write!(f, "A Breakpoints: {:?}\n", self.breakpoints));
-        try!(write!(f, "B: {:?} {:?}\n", self.get_env_for_b(), self.get_cmd_b()));
-        try!(write!(f, "{}:\n", self.deployment));
+        try!(write!(f, "A: {:?} {:?}\n", self.a.get_env(false, &self.deployment.a), self.a.get_cmd(false, &self.deployment.a)));
+        try!(write!(f, "A Breakpoints: {:?}\n", self.a.breakpoints));
+        try!(write!(f, "B: {:?} {:?}\n", self.b.get_env(true, &self.deployment.b), self.b.get_cmd(true, &self.deployment.b)));
+        try!(write!(f, "{}:\n", &self.deployment));
         Ok(())
     }
 }
 
-pub fn pair(output_path: &Path) {
-    let mut out_dir = output_path.to_path_buf();
+pub fn pair(manifest_folder: &Path) {
+    let mut out_dir = manifest_folder.to_path_buf();
     let hostname = get_hostname().unwrap_or(String::from("unknown"));
     out_dir.push(hostname);
     mkdir(&out_dir);
@@ -563,15 +566,13 @@ pub fn pair(output_path: &Path) {
     let numactl_string = save_numa_topology(&out_dir).expect("Can't save NUMA topology");
     let mt = MachineTopology::new(lscpu_string, numactl_string);
 
-    let mut manifest: PathBuf = output_path.to_path_buf();
+    let mut manifest: PathBuf = manifest_folder.to_path_buf();
     manifest.push("manifest.toml");
-
     let mut file = File::open(manifest.as_path()).expect("manifest.toml file does not exist?");
-    let mut s = String::new();
+    let mut manifest_string = String::new();
 
-    let _ = file.read_to_string(&mut s).unwrap();
-    let mut parser = toml::Parser::new(s.as_str());
-
+    let _ = file.read_to_string(&mut manifest_string).unwrap();
+    let mut parser = toml::Parser::new(manifest_string.as_str());
     let doc = match parser.parse() {
         Some(doc) => {
             doc
@@ -584,23 +585,15 @@ pub fn pair(output_path: &Path) {
     let experiment: &toml::Table = doc["experiment"].as_table().expect("Error in manifest.toml: 'experiment' should be a table.");
     let configuration: &[toml::Value] = experiment["configurations"].as_slice().expect("Error in manifest.toml: 'configuration' attribute should be an array.");
     let configs: Vec<String> = configuration.iter().map(|s| s.as_str().expect("configuration elements should be strings").to_string()).collect();
-
     let run_alone: bool = experiment["alone"].as_bool().expect("'alone' should be boolean");
+    let mut programs: Vec<Program> = Vec::with_capacity(2);
 
-    let program1: &toml::Table = doc["program1"].as_table().expect("Error in manifest.toml: 'program1' should be a table.");
-    let program2: &toml::Table = doc["program2"].as_table().expect("Error in manifest.toml: 'program2' should be a table.");
-
-
-    let binary1: String = program1["binary"].as_str().expect("program1.binary not a string").to_string();
-    let binary1_openmp: bool = program1["openmp"].as_bool().expect("'program1.openmp' should be boolean");
-    let args1: Vec<String> = program1["arguments"].as_slice().expect("program1.arguments not an array?")
-                                                  .iter().map(|s| s.as_str().expect("program1 argument not a string?").to_string()).collect();
-    let breakpoints: Vec<String> = program1["breakpoints"].as_slice().expect("program2.breakpoints not an array?")
-                                                .iter().map(|s| s.as_str().expect("program2 breakpoint not a string?").to_string()).collect();
-    let binary2: String = program2["binary"].as_str().expect("program2.binary not a string").to_string();
-    let binary2_openmp: bool = program2["openmp"].as_bool().expect("'program2.openmp' should be boolean");
-    let args2: Vec<String> = program2["arguments"].as_slice().expect("program2.arguments not an array?")
-                                                  .iter().map(|s| s.as_str().expect("program2 argument not a string?").to_string()).collect();
+    for (key, value) in &doc {
+        if key.starts_with("program") {
+            let program_desc: &toml::Table = doc["program1"].as_table().expect("Error in manifest.toml: 'program' should be a table.");
+            programs.push(Program::from_toml(manifest_folder, program_desc));
+        }
+    }
 
     let mut deployments: Vec<Deployment> = Vec::with_capacity(4);
     for config in configs {
@@ -611,7 +604,6 @@ pub fn pair(output_path: &Path) {
         if config == "L2-SMT" {
             deployments.push(Deployment::split("L2-SMT", mt.same_l2(), mt.l2_size().unwrap_or(0), false));
         }
-
         // LLC
         if config == "L3-SMT" {
             deployments.push(Deployment::split("L3-SMT", mt.same_l3(), mt.l3_size().unwrap_or(0), false));
@@ -624,18 +616,12 @@ pub fn pair(output_path: &Path) {
         }
     }
 
-    for d in deployments.iter() {
-        let mut run = Run::new(output_path,
-                               out_dir.as_path(),
-                               run_alone,
-                               &binary1,
-                               &args1,
-                               binary1_openmp,
-                               &breakpoints,
-                               &binary2,
-                               &args2,
-                               binary2_openmp,
-                               d);
-        run.profile();
+    for (a, b) in iproduct!(programs.iter(), programs.iter()) {
+        for d in deployments.iter() {
+            let mut run = Run::new(manifest_folder,
+                                   out_dir.as_path(),
+                                   run_alone, a, b, d);
+            run.profile();
+        }
     }
 }

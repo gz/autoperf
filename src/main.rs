@@ -14,6 +14,8 @@ extern crate x86;
 extern crate perfcnt;
 extern crate toml;
 extern crate phf;
+#[macro_use]
+extern crate itertools;
 
 use clap::App;
 use std::path::Path;
