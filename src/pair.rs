@@ -395,6 +395,7 @@ struct Program<'a> {
     antagonist_args: Vec<String>,
     breakpoints: Vec<String>,
     is_openmp: bool,
+    alone: bool,
 }
 
 impl<'a> Program<'a> {
@@ -406,6 +407,8 @@ impl<'a> Program<'a> {
                 .expect("program.binary not a string").to_string();
         let openmp: bool = config["openmp"]
                 .as_bool().expect("'program.openmp' should be boolean");
+        let alone: bool = config["alone"]
+                .as_bool().expect("'program.alone' should be boolean");
         let args: Vec<String> = config["arguments"]
                 .as_slice().expect("program.arguments not an array?")
                 .iter().map(|s| s.as_str().expect("program1 argument not a string?").to_string())
@@ -419,7 +422,7 @@ impl<'a> Program<'a> {
                 .iter().map(|s| s.as_str().expect("program breakpoint not a string?").to_string())
                 .collect();
 
-        Program { name: name, manifest_path: manifest_path, binary: binary, is_openmp: openmp,
+        Program { name: name, manifest_path: manifest_path, binary: binary, is_openmp: openmp, alone: alone,
                   args: args, antagonist_args: antagonist_args, breakpoints: breakpoints }
     }
 
@@ -455,7 +458,6 @@ impl<'a> Program<'a> {
 struct Run<'a> {
     manifest_path: &'a Path,
     output_path: PathBuf,
-    run_alone: bool,
     a: &'a Program<'a>,
     b: Option<&'a Program<'a>>,
     deployment: &'a Deployment<'a>,
@@ -464,7 +466,6 @@ struct Run<'a> {
 impl<'a> Run<'a> {
     fn new(manifest_path: &'a Path,
            output_path: &'a Path,
-           run_alone: bool,
            a: &'a Program<'a>,
            b: Option<&'a Program<'a>>,
            deployment: &'a Deployment)
@@ -480,7 +481,6 @@ impl<'a> Run<'a> {
         Run {
             manifest_path: manifest_path,
             output_path: out_dir,
-            run_alone: run_alone,
             a: a, b: b,
             deployment: deployment
         }
@@ -632,20 +632,25 @@ pub fn pair(manifest_folder: &Path) {
             deployments.push(Deployment::split("L3-SMT", mt.same_l3(), mt.l3_size().unwrap_or(0), false));
         }
         if config == "L3-no-SMT" {
-            deployments.push(Deployment::split("L3-no-SMT",
-                                               mt.same_l3(),
+            deployments.push(Deployment::split("L3-no-SMT", mt.same_l3(),
                                                mt.l3_size().unwrap_or(0),
                                                true));
         }
     }
 
     // Run programs alone
-    for a in programs.iter() {
-        for d in deployments.iter() {
-            let mut run = Run::new(manifest_folder,
-                                   out_dir.as_path(),
-                                   run_alone, a, None, d);
-            run.profile();
+    if run_alone {
+        for a in programs.iter() {
+            if !a.alone {
+                continue;
+            }
+
+            for d in deployments.iter() {
+                let mut run = Run::new(manifest_folder,
+                                       out_dir.as_path(),
+                                       a, None, d);
+                run.profile();
+            }
         }
     }
 
@@ -654,7 +659,7 @@ pub fn pair(manifest_folder: &Path) {
         for d in deployments.iter() {
             let mut run = Run::new(manifest_folder,
                                    out_dir.as_path(),
-                                   run_alone, a, Some(b), d);
+                                   a, Some(b), d);
             run.profile();
         }
     }
