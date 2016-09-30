@@ -472,6 +472,7 @@ impl<'a> Run<'a> {
            -> Run<'a> {
         let mut out_dir = output_path.to_path_buf();
         out_dir.push(deployment.description);
+        mkdir(&out_dir);
         match b {
             Some(p) => out_dir.push(format!("{}_vs_{}", a.name, p.name)),
             None => out_dir.push(a.name.as_str()),
