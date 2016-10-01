@@ -32,3 +32,4 @@ git clone git://git.code.sf.net/p/perfmon2/libpfm4 perfmon2-libpfm4
  * PCU has umask which is supposed to be and'ed with event= attribute (from pmu-tools ucevent.py)
  * Intel Unit to perf device translation (libpfm4 source code and ucevent.py)
  * /sys/bus does not expose how many counters a device has
+ * cbox to core mapping is not readable from /sys

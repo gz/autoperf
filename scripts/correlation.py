@@ -51,7 +51,6 @@ def minimum_nan_index(df):
     """
     print df.isnull().any(axis=1)
     for idx, has_null in df.isnull().any(axis=1).iteritems():
-        print idx, has_null
         if has_null:
             return idx
 
@@ -123,7 +122,7 @@ def main(argv):
 
     data_directory = argv[1]
     # Parsed results.csv:
-    raw_data = pd.read_csv(get_results_file(data_directory), skipinitialspace=True)
+    raw_data = pd.read_csv(get_results_file(data_directory), sep=',', skipinitialspace=True)
     raw_data.sortlevel(inplace=True)
     time_to_ms(raw_data)
     grouped_df = raw_data.groupby(['EVENT_NAME', 'TIME']).sum()
@@ -148,7 +147,9 @@ def main(argv):
     # Ensure all values in correlation matrix are valid
     for i in events:
         for j in events:
-            assert not np.isnan(correlation_matrix.ix[i, j])
+            if np.isnan(correlation_matrix.ix[i, j]):
+                print i, j, correlation_matrix.ix[i, j]
+                assert False
 
     # Write correlation matrix
     correlation_file = os.path.join(data_directory, 'event_correlation.dat')
