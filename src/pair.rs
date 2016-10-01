@@ -487,18 +487,13 @@ impl<'a> Run<'a> {
         }
     }
 
-    fn profile_a(&self, run: &str) -> io::Result<()> {
+    fn profile_a(&self) -> io::Result<()> {
         let cmd = self.a.get_cmd(false, &self.deployment.a);
         let env = self.a.get_env(false, &self.deployment.a);
         let bps = self.a.breakpoints.iter().map(|s| s.to_string()).collect();
 
-        let mut perf_data_path_buf = self.output_path.clone();
-        perf_data_path_buf.push(run);
-        mkdir(&perf_data_path_buf);
-        let perf_path = perf_data_path_buf.as_path();
-
         debug!("Spawning {:?} with environment {:?}", cmd, env);
-        profile::profile(&perf_path, cmd, env, bps, false);
+        profile::profile(&self.output_path, cmd, env, bps, false);
         Ok(())
     }
 
@@ -547,14 +542,14 @@ impl<'a> Run<'a> {
         // Profile together with B
         let mut maybe_app_b = self.start_b();
 
-        try!(self.profile_a("paired"));
+        try!(self.profile_a());
 
         match maybe_app_b {
             Some(mut app_b) => {
                 // Done, do clean-up:
                 try!(app_b.kill());
-                app_b.stdout.map(|mut c| self.save_output("paired/B_stdout.txt", &mut c));
-                app_b.stderr.map(|mut c| self.save_output("paired/B_stderr.txt", &mut c));
+                app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
+                app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
             },
             None => ()
         };
