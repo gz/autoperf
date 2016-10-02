@@ -779,9 +779,7 @@ fn schedule_events(events: Vec<&'static EventDescription>)
         // Unable to add event to any existing group, make a new group instead:
         if !added.is_ok() {
             let mut pg = PerfEventGroup::new(&*PMU_COUNTERS);
-
             let perf_event: PerfEvent = PerfEvent(event);
-            println!("{:?}", perf_event);
 
             let added = pg.add_event(perf_event);
             match added {

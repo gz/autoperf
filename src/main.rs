@@ -12,6 +12,7 @@ extern crate pbr;
 extern crate csv;
 extern crate x86;
 extern crate perfcnt;
+extern crate rustc_serialize;
 extern crate toml;
 extern crate phf;
 #[macro_use]

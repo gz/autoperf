@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::process::{Command, Child, Stdio};
 use std::str::{FromStr, from_utf8_unchecked};
 use std::fmt;
+use rustc_serialize::Encodable;
 
 use x86::shared::cpuid;
 use csv;
@@ -35,6 +36,7 @@ fn get_hostname() -> Option<String> {
     Some(String::from_utf8(c_str).unwrap())
 }
 
+#[derive(Debug, RustcEncodable)]
 struct Deployment<'a> {
     description: &'static str,
     a: Vec<&'a CpuInfo>,
@@ -108,7 +110,7 @@ impl<'a> fmt::Display for Deployment<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, RustcEncodable)]
 struct Program<'a> {
     name: String,
     manifest_path: &'a Path,
@@ -177,6 +179,7 @@ impl<'a> Program<'a> {
     }
 }
 
+#[derive(RustcEncodable)]
 struct Run<'a> {
     manifest_path: &'a Path,
     output_path: PathBuf,
@@ -256,10 +259,13 @@ impl<'a> Run<'a> {
 
     fn profile(&mut self) -> io::Result<()> {
         let mut deployment_path = self.output_path.clone();
-        deployment_path.push("run.txt");
+        deployment_path.push("run.toml");
         let mut f = try!(File::create(deployment_path.as_path()));
-        try!(f.write_all(format!("{}", self).as_bytes()));
 
+        let mut e = toml::Encoder::new();
+        self.encode(&mut e).unwrap();
+        println!("{:?}", e);
+        try!(f.write_all(toml::encode_str(&e.toml).as_bytes()));
 
         // Profile together with B
         let mut maybe_app_b = self.start_b();

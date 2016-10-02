@@ -65,7 +65,7 @@ fn get_node_info(node: Node, numactl_output: &String) -> Option<NodeInfo> {
     None
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, RustcEncodable)]
 pub struct CpuInfo {
     pub node: NodeInfo,
     pub socket: Socket,
@@ -76,7 +76,7 @@ pub struct CpuInfo {
     pub l3: L3,
 }
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone, RustcEncodable)]
 pub struct NodeInfo {
     pub node: Node,
     pub memory: u64,

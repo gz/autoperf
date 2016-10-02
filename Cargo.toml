@@ -20,3 +20,4 @@ clap = { version = "2", features = ["yaml"] }
 x86 = { version = "0.9.*", git = 'https://github.com/gz/rust-x86' }
 phf = "0.7.*"
 itertools = "0.5"
+rustc-serialize = "0.3"
