@@ -5,7 +5,7 @@ use std::fs::{File};
 use std::path::PathBuf;
 use std::path::Path;
 use std::str::{FromStr, from_utf8_unchecked};
-use std::process::{Command};
+use std::process::{Command, Output};
 use nom::*;
 use x86::shared::cpuid;
 use csv;
@@ -87,47 +87,58 @@ pub struct MachineTopology {
     data: Vec<CpuInfo>
 }
 
-pub fn save_numa_topology(output_path: &Path) -> io::Result<String> {
-    let out = try!(Command::new("numactl").arg("--hardware").output());
+fn save_file(cmd: &'static str, output_path: &Path, file: &'static str, out: Output) -> io::Result<String> {
     if out.status.success() {
         // Save to result directory:
-        let mut numactl_file: PathBuf = output_path.to_path_buf();
-        numactl_file.push("numactl.dat");
-        let mut f = try!(File::create(numactl_file.as_path()));
+        let mut out_file: PathBuf = output_path.to_path_buf();
+        out_file.push(file);
+        let mut f = try!(File::create(out_file.as_path()));
         let content = String::from_utf8(out.stdout).unwrap_or(String::new());
         try!(f.write(content.as_bytes()));
         Ok(content)
     } else {
-        error!("numactl command: got unknown exit status was: {}", out.status);
+        error!("{} command: got unknown exit status was: {}", cmd, out.status);
         debug!("stderr:\n{}", String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
         unreachable!()
     }
+}
+
+pub fn save_lstopo(output_path: &Path) -> io::Result<String> {
+    let out = try!(Command::new("lstopo").arg("--of console").arg("--taskset").output());
+    save_file("lstopo", output_path, "lstopo.txt", out)
+}
+
+pub fn save_cpuid(output_path: &Path) -> io::Result<String> {
+    let out = try!(Command::new("cpuid").output());
+    save_file("cpuid", output_path, "cpuid.txt", out)
+}
+
+pub fn save_likwid_topology(output_path: &Path) -> io::Result<String> {
+    let out = try!(Command::new("likwid-topology").arg("-gc").output());
+    save_file("likwid-topology", output_path, "likwid_topology.txt", out)
+}
+
+pub fn save_numa_topology(output_path: &Path) -> io::Result<String> {
+    let out = try!(Command::new("numactl").arg("--hardware").output());
+    save_file("numactl", output_path, "numactl.dat", out)
 }
 
 pub fn save_cpu_topology(output_path: &Path) -> io::Result<String> {
     let out = try!(Command::new("lscpu").arg("--parse=NODE,SOCKET,CORE,CPU,CACHE").output());
-    if out.status.success() {
-        // Save to result directory:
-        let mut lscpu_file: PathBuf = output_path.to_path_buf();
-        lscpu_file.push("lscpu.csv");
-        let mut f = try!(File::create(lscpu_file.as_path()));
-        let content = String::from_utf8(out.stdout).unwrap_or(String::new());
-        {
-            let no_comments: Vec<&str> = content.split('\n')
-                .filter(|s| s.trim().len() > 0 && !s.trim().starts_with("#"))
-                .collect();
-            try!(f.write(no_comments.join("\n").as_bytes()));
-        }
-
-        Ok(content)
-    } else {
-        error!("lscpu command: got unknown exit status was: {}", out.status);
-        debug!("stderr:\n{}", String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
-        unreachable!()
-    }
+    save_file("lscpu", output_path, "lscpu.csv", out)
 }
 
 impl MachineTopology {
+
+    pub fn new() -> MachineTopology {
+        let lscpu_out = Command::new("lscpu").arg("--parse=NODE,SOCKET,CORE,CPU,CACHE").output().unwrap();
+        let lscpu_string = String::from_utf8(lscpu_out.stdout).unwrap_or(String::new());
+
+        let numactl_out = Command::new("numactl").arg("--hardware").output().unwrap();
+        let numactl_string = String::from_utf8(numactl_out.stdout).unwrap_or(String::new());
+
+        MachineTopology::from_strings(lscpu_string, numactl_string)
+    }
 
     pub fn from_files(lcpu_path: &Path, numactl_path: &Path) -> MachineTopology {
         let mut file = File::open(lcpu_path).expect("lscpu.csv file does not exist?");
@@ -143,10 +154,9 @@ impl MachineTopology {
 
     pub fn from_strings(lscpu_output: String, numactl_output: String) -> MachineTopology {
         let no_comments: Vec<&str> = lscpu_output.split('\n')
-            .filter(|s| s.trim().len() > 0 && !s.trim().starts_with("#"))
-            .collect();
-        type Row = (Node, Socket, Core, Cpu, String); // Online MHz
+            .filter(|s| s.trim().len() > 0 && !s.trim().starts_with("#")).collect();
 
+        type Row = (Node, Socket, Core, Cpu, String); // Online MHz
         let mut rdr = csv::Reader::from_string(no_comments.join("\n")).has_headers(false);
         let rows = rdr.decode().collect::<csv::Result<Vec<Row>>>().unwrap();
 

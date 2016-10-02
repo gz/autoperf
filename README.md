@@ -13,6 +13,11 @@ TODO: explain manifest
 
 # Install dependencies
 
+Dependencies:
+```
+$ sudo apt-get install likwid cpuid hwloc numactl util-linux
+```
+
 Rust:
 ```
 $ curl https://sh.rustup.rs -sSf | sh
@@ -33,12 +38,15 @@ $ sudo pip install pandas numpy ascii_graph scipy
 
 
 # TODO
- * Write run.toml
+Today:
+ * Write run.toml, lscpu, numa, likwid in results directory.
+ * Don't re-run if a folder with results already exists
  * Generate better (the no-SMT stuff is not no SMT) and whole machine deployments
- * Integrate more apps
+Not today:
+ * Integrate more apps (parsec, green marl breakpoints!)
  * Filter out offcore stuff
  * Scale out analysis
- * Don't re-run if a folder with results already exists
+
 
 # Related projects
  git clone git://git.code.sf.net/p/perfmon2/perfmon2 perfmon2-perfmon2

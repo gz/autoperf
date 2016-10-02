@@ -12,11 +12,12 @@ use std::str::FromStr;
 use std::error;
 use std::fmt;
 use csv;
-
 use pbr::ProgressBar;
 use x86::shared::perfcnt::intel::{core_counters, uncore_counters};
 use x86::shared::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter};
 use x86::shared::cpuid;
+
+use super::util::*;
 
 lazy_static! {
     static ref HT_AVAILABLE: bool = {
@@ -852,6 +853,12 @@ pub fn profile(output_path: &Path,
     if !ret {
         std::process::exit(3);
     }
+
+    let _ = save_numa_topology(&output_path).expect("Can't save NUMA topology");
+    let _ = save_cpu_topology(&output_path).expect("Can't save CPU topology");
+    let _ = save_lstopo(&output_path).expect("Can't save lstopo information");
+    let _ = save_cpuid(&output_path).expect("Can't save CPUID information");
+    let _ = save_likwid_topology(&output_path).expect("Can't save likwid information");
 
     assert!(cmd.len() >= 1);
     let mut perf_log = PathBuf::new();

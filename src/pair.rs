@@ -303,15 +303,12 @@ pub fn pair(manifest_folder: &Path, dryrun: bool) {
     out_dir.push(hostname);
     mkdir(&out_dir);
 
-    let lscpu_string = save_cpu_topology(&out_dir).expect("Can't save CPU topology");
-    let numactl_string = save_numa_topology(&out_dir).expect("Can't save NUMA topology");
-    let mt = MachineTopology::from_strings(lscpu_string, numactl_string);
+    let mt = MachineTopology::new();
 
     let mut manifest: PathBuf = manifest_folder.to_path_buf();
     manifest.push("manifest.toml");
     let mut file = File::open(manifest.as_path()).expect("manifest.toml file does not exist?");
     let mut manifest_string = String::new();
-
     let _ = file.read_to_string(&mut manifest_string).unwrap();
     let mut parser = toml::Parser::new(manifest_string.as_str());
     let doc = match parser.parse() {
