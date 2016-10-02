@@ -70,7 +70,8 @@ fn main() {
     }
     if let Some(matches) = matches.subcommand_matches("pair") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
-        pair(output_path);
+        let dryrun: bool = matches.is_present("dryrun");
+        pair(output_path, dryrun);
     }
     if let Some(matches) = matches.subcommand_matches("stats") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));

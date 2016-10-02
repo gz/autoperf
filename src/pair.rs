@@ -297,7 +297,7 @@ impl<'a> fmt::Display for Run<'a> {
     }
 }
 
-pub fn pair(manifest_folder: &Path) {
+pub fn pair(manifest_folder: &Path, dryrun: bool) {
     let mut out_dir = manifest_folder.to_path_buf();
     let hostname = get_hostname().unwrap_or(String::from("unknown"));
     out_dir.push(hostname);
@@ -338,14 +338,16 @@ pub fn pair(manifest_folder: &Path) {
 
     let mut deployments: Vec<Deployment> = Vec::with_capacity(4);
     for config in configs {
-        // Cache interference on HW threads
+
+        // L1/L2 interference
         if config == "L1-SMT" {
             deployments.push(Deployment::split("L1-SMT", mt.same_l1(), mt.l1_size().unwrap_or(0), false));
         }
         if config == "L2-SMT" {
             deployments.push(Deployment::split("L2-SMT", mt.same_l2(), mt.l2_size().unwrap_or(0), false));
         }
-        // LLC
+
+        // LLC interference
         if config == "L3-SMT" {
             deployments.push(Deployment::split("L3-SMT", mt.same_l3(), mt.l3_size().unwrap_or(0), false));
         }
@@ -354,6 +356,8 @@ pub fn pair(manifest_folder: &Path) {
                                                mt.l3_size().unwrap_or(0),
                                                true));
         }
+
+        // Whole machine good/bad placements
     }
 
     // Run programs alone
@@ -367,7 +371,12 @@ pub fn pair(manifest_folder: &Path) {
                 let mut run = Run::new(manifest_folder,
                                        out_dir.as_path(),
                                        a, None, d);
-                run.profile();
+                if !dryrun {
+                    run.profile();
+                }
+                else {
+                    println!("{}", run);
+                }
             }
         }
     }
@@ -378,7 +387,12 @@ pub fn pair(manifest_folder: &Path) {
             let mut run = Run::new(manifest_folder,
                                    out_dir.as_path(),
                                    a, Some(b), d);
-            run.profile();
+            if !dryrun {
+                run.profile();
+            }
+            else {
+                println!("{}", run);
+            }
         }
     }
 }

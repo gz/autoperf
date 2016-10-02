@@ -56,18 +56,19 @@ def correlation_matrix(data_directory):
 
     correlation_matrix = df.corr()
     # Ensure all values in correlation matrix are valid
-    for i in events:
-        for j in events:
-            assert not np.isnan(correlation_matrix.ix[i, j])
+    assert not correlation_matrix.isnull().values.any()
 
     correlation_file = os.path.join(data_directory, 'correlation_matrix.csv')
     correlation_matrix.to_csv(correlation_file)
 
-    # Write correlation matrix
-    correlation_file = os.path.join(data_directory, 'event_correlation.csv')
-    correlation_matrix.to_csv(correlation_file)
+    #from information_gain import ig
+    #y = pd.DataFrame( [1 for _ in range(0, df.shape[0])] )
+    #print (df.sum(axis=1).reshape(1, -1)) * y
+    #print y.shape
+    #print df.shape
+    #print ig(df, y)
+
     sys.exit(1)
-    persist_correlation(correlation_file, events, correlation_matrix)
 
     # Get event names
     """

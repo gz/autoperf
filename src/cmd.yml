@@ -45,6 +45,10 @@ subcommands:
                 short: d
                 long: debug
                 help: Print verbose debug information.
+            - dryrun:
+                short: r
+                long: dryrun
+                help: Don't run anything, just print what it would do.
             - directory:
                 help: Path of manifest directory.
                 required: true

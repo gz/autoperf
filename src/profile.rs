@@ -9,6 +9,8 @@ use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::error;
+use std::fmt;
 use csv;
 
 use pbr::ProgressBar;
@@ -30,6 +32,7 @@ lazy_static! {
         let cpu_counter = cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters()) as usize;
         let mut res = HashMap::with_capacity(11);
         res.insert(MonitoringUnit::CPU, cpu_counter);
+
         cpuid.get_feature_info().map(|fi| {
             if fi.family_id() == 0x6 && fi.model_id() == 0xe {
                 // IvyBridge EP
@@ -43,12 +46,6 @@ lazy_static! {
                 res.insert(MonitoringUnit::R2PCIe, 4);
                 res.insert(MonitoringUnit::R3QPI, 2); // According to the manual this is 3 but then it multiplexes...
                 res.insert(MonitoringUnit::QPI, 4); // Not in the manual?
-            }
-            else if fi.family_id() == 0x6 && fi.model_id() == 0xa {
-                // IvyBridge
-                res.insert(MonitoringUnit::CBox, 2);
-                res.insert(MonitoringUnit::IMC, 2);
-                res.insert(MonitoringUnit::Arb, 4);
             }
             else {
                 error!("Don't know this CPU, can't infer #counters for offcore stuff. Assume conservative defaults...");
@@ -81,6 +78,13 @@ lazy_static! {
         }
 
         devices
+    };
+
+    // Bogus events that have some weird description
+    static ref IGNORE_EVENTS: HashMap<&'static str, bool> = {
+        let mut ignored = HashMap::with_capacity(1);
+        ignored.insert("UNC_CLOCK.SOCKET", true); // Just says fixed and does not name which counter :/
+        ignored
     };
 
     // Sometimes the perfmon data is missing the errata information (as is the case with the IvyBridge file).\
@@ -217,6 +221,27 @@ pub enum MonitoringUnit {
     PCU,
     /// Types we don't know how to handle...
     Unknown(&'static str),
+}
+
+impl fmt::Display for MonitoringUnit {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            MonitoringUnit::CPU => write!(f, "MonitoringUnit::CPU"),
+            MonitoringUnit::Arb => write!(f, "MonitoringUnit::Arb"),
+            MonitoringUnit::CBox => write!(f, "MonitoringUnit::CBox"),
+            MonitoringUnit::SBox => write!(f, "MonitoringUnit::SBox"),
+            MonitoringUnit::UBox => write!(f, "MonitoringUnit::UBox"),
+            MonitoringUnit::QPI => write!(f, "MonitoringUnit::QPI"),
+            MonitoringUnit::R3QPI => write!(f, "MonitoringUnit::R3QPI"),
+            MonitoringUnit::QPI_LL => write!(f, "MonitoringUnit::QPI_LL"),
+            MonitoringUnit::IRP => write!(f, "MonitoringUnit::IRP"),
+            MonitoringUnit::R2PCIe => write!(f, "MonitoringUnit::R2PCIe"),
+            MonitoringUnit::IMC => write!(f, "MonitoringUnit::IMC"),
+            MonitoringUnit::HA => write!(f, "MonitoringUnit::HA"),
+            MonitoringUnit::PCU => write!(f, "MonitoringUnit::PCU"),
+            MonitoringUnit::Unknown(s) => write!(f, "MonitoringUnit::Unknown({})", s),
+        }
+    }
 }
 
 impl MonitoringUnit {
@@ -463,6 +488,42 @@ impl PerfEvent {
 }
 
 #[derive(Debug)]
+enum AddEventError {
+    OffcoreCapacityReached,
+    UnitCapacityReached(MonitoringUnit),
+    CounterConstraintConflict,
+    ErrataConflict,
+    TakenAloneConflict,
+    IsolatedEventConflict,
+}
+
+impl fmt::Display for AddEventError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            AddEventError::OffcoreCapacityReached => write!(f, "Offcore event limit reached."),
+            AddEventError::UnitCapacityReached(u) => write!(f, "Unit '{}' capacity for reached.", u),
+            AddEventError::CounterConstraintConflict => write!(f, "Counter constraints conflict."),
+            AddEventError::ErrataConflict => write!(f, "Errata conflict."),
+            AddEventError::TakenAloneConflict => write!(f, "Group contains a taken alone counter."),
+            AddEventError::IsolatedEventConflict => write!(f, "Group contains an isolated event."),
+        }
+    }
+}
+
+impl error::Error for AddEventError {
+    fn description(&self) -> &str {
+        match *self {
+            AddEventError::OffcoreCapacityReached => "Offcore event limit reached.",
+            AddEventError::UnitCapacityReached(_) => "Unit capacity reached.",
+            AddEventError::CounterConstraintConflict => "Counter constraints conflict.",
+            AddEventError::ErrataConflict => "Errata conflict.",
+            AddEventError::TakenAloneConflict => "Group contains a taken alone counter.",
+            AddEventError::IsolatedEventConflict => "Group contains an isolated event.",
+        }
+    }
+}
+
+#[derive(Debug)]
 struct PerfEventGroup {
     events: Vec<PerfEvent>,
     limits: &'static HashMap<MonitoringUnit, usize>,
@@ -559,7 +620,6 @@ impl PerfEventGroup {
         }).collect();
 
         events.push(new_event);
-
         PerfEventGroup::find_counter_assignment(0, unit_limit, events, Vec::new()).is_none()
     }
 
@@ -576,10 +636,10 @@ impl PerfEventGroup {
     /// Things we consider not entirely correct right now:
     /// * Event Erratas this is not complete in the JSON files, and we just run them in isolation
     ///
-    pub fn add_event(&mut self, event: PerfEvent) -> bool {
+    pub fn add_event(&mut self, event: PerfEvent) -> Result<(), AddEventError> {
         // 1. Can't measure more than two offcore events:
         if event.is_offcore() && self.offcore_events() == 2 {
-            return false;
+            return Err(AddEventError::OffcoreCapacityReached);
         }
 
         // 2. Check we don't measure more events than we have counters
@@ -587,26 +647,26 @@ impl PerfEventGroup {
         let unit = event.unit();
         let unit_limit = *self.limits.get(&unit).unwrap_or(&0);
         if self.events_by_unit(unit).len() >= unit_limit {
-            return false;
+            return Err(AddEventError::UnitCapacityReached(unit));
         }
 
         // 3. Now, consider the counter <-> event mapping constraints:
         // Try to see if there is any event already in the group
         // that would conflict when running together with the new `event`:
         if self.has_counter_constraint_conflicts(&event) {
-            return false;
+            return Err(AddEventError::CounterConstraintConflict);
         }
 
         // 4. Isolate things that have erratas to not screw other events (see HSW30)
         let errata = self.events.iter().any(|cur| cur.0.errata.is_some());
         if errata || event.0.errata.is_some() && self.events.len() != 0 {
-            return false;
+            return Err(AddEventError::ErrataConflict);
         }
 
         // 5. If an event has the taken alone attribute set it needs to be measured alone
         let already_have_taken_alone_event = self.events.iter().any(|cur| cur.0.taken_alone);
         if already_have_taken_alone_event || event.0.taken_alone && self.events.len() != 0 {
-            return false;
+            return Err(AddEventError::TakenAloneConflict);
         }
 
         // 6. If our own isolate event list contains the name we also run them alone:
@@ -615,11 +675,11 @@ impl PerfEventGroup {
         });
         if already_have_isolated_event ||
            ISOLATE_EVENTS.iter().any(|cur| *cur == event.0.event_name) && self.events.len() != 0 {
-            return false;
+            return Err(AddEventError::IsolatedEventConflict);
         }
 
         self.events.push(event);
-        true
+        Ok(())
     }
 
     /// Find the right config to use for every event in the group.
@@ -692,8 +752,12 @@ fn schedule_events(events: Vec<&'static EventDescription>)
     let mut groups: Vec<PerfEventGroup> = Vec::with_capacity(42);
 
     for event in events {
-        let mut added: bool = false;
+        if IGNORE_EVENTS.contains_key(event.event_name) {
+            continue;
+        }
+
         let perf_event: PerfEvent = PerfEvent(event);
+        let mut added: Result<(), AddEventError> = Err(AddEventError::ErrataConflict);
         match perf_event.unit() {
             MonitoringUnit::Unknown(s) => {
                 info!("Ignoring event {} with unknown unit '{}'", event, s);
@@ -706,17 +770,24 @@ fn schedule_events(events: Vec<&'static EventDescription>)
         for group in groups.iter_mut() {
             let perf_event: PerfEvent = PerfEvent(event);
             added = group.add_event(perf_event);
-            if added {
+            if added.is_ok() {
                 break;
             }
         }
 
         // Unable to add event to any existing group, make a new group instead:
-        if !added {
+        if !added.is_ok() {
             let mut pg = PerfEventGroup::new(&*PMU_COUNTERS);
+
             let perf_event: PerfEvent = PerfEvent(event);
-            let ret = pg.add_event(perf_event);
-            assert!(ret == true); // Should always be able to add an event to an empty group
+            println!("{:?}", perf_event);
+
+            let added = pg.add_event(perf_event);
+            match added {
+                Err(e) => panic!("Can't add a new event to an empty group: {}", e.description()),
+                Ok(_) => (),
+            };
+
             groups.push(pg);
         }
     }
