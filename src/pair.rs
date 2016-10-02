@@ -257,15 +257,22 @@ impl<'a> Run<'a> {
         Ok(())
     }
 
-    fn profile(&mut self) -> io::Result<()> {
-        let mut deployment_path = self.output_path.clone();
-        deployment_path.push("run.toml");
-        let mut f = try!(File::create(deployment_path.as_path()));
-
+    fn save_run_information(&self) -> io::Result<()> {
+        let mut run_toml_path = self.output_path.clone();
+        run_toml_path.push("run.toml");
+        let mut f = try!(File::create(run_toml_path.as_path()));
         let mut e = toml::Encoder::new();
         self.encode(&mut e).unwrap();
-        println!("{:?}", e);
         try!(f.write_all(toml::encode_str(&e.toml).as_bytes()));
+
+        let mut run_txt_path = self.output_path.clone();
+        run_txt_path.push("run.txt");
+        let mut f = try!(File::create(run_txt_path.as_path()));
+        f.write_all(format!("{}", self).as_bytes())
+    }
+
+    fn profile(&mut self) -> io::Result<()> {
+        self.save_run_information();
 
         // Profile together with B
         let mut maybe_app_b = self.start_b();
