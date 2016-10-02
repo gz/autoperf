@@ -38,8 +38,6 @@ $ sudo pip install pandas numpy ascii_graph scipy toml
 
 
 # TODO
-Today:
- * Write run.toml, lscpu, numa, likwid in results directory.
  * Don't re-run if a folder with results already exists
  * Generate better (the no-SMT stuff is not no SMT) and whole machine deployments
 Not today:
