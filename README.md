@@ -38,10 +38,9 @@ $ sudo pip install pandas numpy ascii_graph scipy toml
 
 
 # TODO
- * Don't re-run if a folder with results already exists
  * Generate better (the no-SMT stuff is not no SMT) and whole machine deployments
 Not today:
- * Integrate more apps (parsec, green marl breakpoints!)
+ * Integrate more apps (parsec, green marl breakpoints!, taskset cpumasks)
  * Filter out offcore stuff
  * Scale out analysis
 

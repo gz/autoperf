@@ -844,6 +844,14 @@ pub fn profile(output_path: &Path,
                env: Vec<(String, String)>,
                breakpoints: Vec<String>,
                record: bool) {
+    // Is this run already done (in case we restart):
+    let mut completed_file: PathBuf = output_path.to_path_buf();
+    completed_file.push("completed");
+    if completed_file.exists() {
+        info!("Run {} already completed, skipping.", output_path.to_string_lossy());
+        return;
+    }
+
     create_out_directory(output_path);
     check_for_perf();
     let ret = check_for_perf_permissions() || check_for_disabled_nmi_watchdog() ||
@@ -926,6 +934,9 @@ pub fn profile(output_path: &Path,
         let r = wtr.flush();
         assert!(r.is_ok());
     }
+
+    // Mark this run as completed:
+    let _ = File::create(completed_file.as_path()).unwrap();
 }
 
 fn check_for_perf() {

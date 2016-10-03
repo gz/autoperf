@@ -9,6 +9,9 @@ rustup override set nightly
 cargo run --release -- stats
 cargo run --release -- extract -i out
 
+sudo sh -c 'echo 0 >> /proc/sys/kernel/kptr_restrict'
+sudo sh -c 'echo 0 > /proc/sys/kernel/nmi_watchdog'
+sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'
 
 route add default gw 10.110.4.4 eno1
 
