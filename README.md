@@ -31,10 +31,10 @@ $ sudo pip install pandas numpy ascii_graph scipy toml
 ```
 
 # Stuff not documented in perf
- * PCU has umask which is supposed to be and'ed with event= attribute (from pmu-tools ucevent.py)
- * Intel Unit to perf device translation (libpfm4 source code and ucevent.py)
- * /sys/bus does not expose how many counters a device has
- * cbox to core mapping is not readable from /sys
+  * PCU has umask which is supposed to be and'ed with event= attribute (from pmu-tools ucevent.py)
+  * Intel Unit to perf device translation (libpfm4 source code and ucevent.py)
+  * /sys/bus does not expose how many counters a device has
+  * cbox to core mapping is not readable from /sys
 
 # Deployments
   * L1-SMT: Programs are placed on a single core, each gets one hyper-thread.
@@ -47,13 +47,13 @@ $ sudo pip install pandas numpy ascii_graph scipy toml
   * Full-SMT-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are used).
 
 # TODO
- * green marl breakpoints
- * Integrate more apps (parsec, taskset cpumasks)
+  * green marl breakpoints
+  * Integrate more apps (parsec, taskset cpumasks)
 Not today:
- * Filter out offcore stuff
- * Scale out analysis
+  * Filter out offcore stuff
+  * Scale out analysis
 
 
 # Related projects
- git clone git://git.code.sf.net/p/perfmon2/perfmon2 perfmon2-perfmon2
- git clone git://git.code.sf.net/p/perfmon2/libpfm4 perfmon2-libpfm4
+  * git clone git://git.code.sf.net/p/perfmon2/perfmon2 perfmon2-perfmon2
+  * git clone git://git.code.sf.net/p/perfmon2/libpfm4 perfmon2-libpfm4
