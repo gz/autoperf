@@ -36,6 +36,14 @@ $ sudo pip install pandas numpy ascii_graph scipy toml
  * /sys/bus does not expose how many counters a device has
  * cbox to core mapping is not readable from /sys
 
+# Deployments
+  * L1-SMT: Programs are placed on one core, each gets one hyper-thread.
+  * L3-SMT: Programs are placed on one socket, applications each gets one hyper-thread (i.e., cores are shared between apps).
+  * L3-SMT-cores: Programs are placed on one socket, applications get a full core (i.e., hyper-threads are not shared between apps).
+  * L3-cores: Programs are placed on one socket, use one core per app (the corresponding hyper-thread is left idle).
+  * Full-sockets: Use the whole machine, programs allocate an entire socket.
+  * Full-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are left idle).
+  * Full-SMT: Use the whole machine, programs use a hyper-thread from every core (interleaved, shared hyper-threads).
 
 # TODO
  * Generate better (the no-SMT stuff is not no SMT) and whole machine deployments
