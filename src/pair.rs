@@ -45,36 +45,24 @@ struct Deployment<'a> {
 }
 
 impl<'a> Deployment<'a> {
-    pub fn split(desc: &'static str,
+
+    pub fn new(desc: &'static str, halfA: Vec<&'a CpuInfo>,
+               halfB: Vec<&'a CpuInfo>, mem: Vec<NodeInfo>) -> Deployment<'a> {
+        Deployment {
+            description: desc,
+            a: halfA,
+            b: halfB,
+            mem: mem,
+        }
+    }
+
+    /// Split by just simply interleaving everything
+    /// TODO: this only works because we make assumption on how CpuInfo is ordered..
+    pub fn split_interleaved(desc: &'static str,
                  possible_groupings: Vec<Vec<&'a CpuInfo>>,
-                 size: u64,
-                 avoid_smt: bool)
+                 size: u64)
                  -> Deployment<'a> {
         let mut cpus = possible_groupings.into_iter().last().unwrap();
-
-        if avoid_smt {
-            // Find all the cores:
-            let mut cores: Vec<Cpu> = cpus.iter().map(|t| t.core).collect();
-            cores.sort();
-            cores.dedup();
-            assert!(cores.len() == cpus.len() / 2); // Assume we have 2 SMT per core
-
-            // Pick a CpuInfo for every core:
-            let mut to_remove: Vec<usize> = Vec::with_capacity(cores.len());
-            for (idx, core) in cores.into_iter().enumerate() {
-                for cpu in cpus.iter() {
-                    if cpu.core == core {
-                        to_remove.push(idx);
-                        break;
-                    }
-                }
-            }
-
-            // Remove one of the hyper-thread pairs:
-            for idx in to_remove {
-                cpus.remove(idx);
-            }
-        }
 
         let cpus_len = cpus.len();
         assert!(cpus_len % 2 == 0);
@@ -83,15 +71,78 @@ impl<'a> Deployment<'a> {
         let lower_half = cpus;
 
         let mut node: NodeInfo = lower_half[0].node;
-        node.memory = size; //as f64 * 0.95;
+        node.memory = size;
 
-        Deployment {
-            description: desc,
-            a: lower_half,
-            b: upper_half,
-            mem: vec![node],
-        }
+        Deployment::new(desc, lower_half, upper_half, vec![node])
     }
+
+    /// Split but makes sure a group shares the SMT threads
+    pub fn split_smt_aware(desc: &'static str,
+                 possible_groupings: Vec<Vec<&'a CpuInfo>>,
+                 size: u64)
+                 -> Deployment<'a> {
+         let mut cpus = possible_groupings.into_iter().last().unwrap();
+         let cpus_len = cpus.len();
+         assert!(cpus_len % 2 == 0);
+
+         let mut cores: Vec<Core> = cpus.iter().map(|c| c.core).collect();
+         assert!(cores.len() % 2 == 0);
+         cores.sort();
+         cores.dedup();
+
+         let mut upper_half: Vec<&CpuInfo> = Vec::with_capacity(cpus_len / 2);
+         let mut lower_half: Vec<&CpuInfo> = Vec::with_capacity(cpus_len / 2);
+
+         for (i, core) in cores.into_iter().enumerate() {
+             let cpus_on_core: Vec<&&CpuInfo> = cpus.iter().filter(|c| c.core == core).collect();
+             if i % 2 == 0 {
+                 upper_half.extend(cpus_on_core.into_iter());
+             }
+             else {
+                 lower_half.extend(cpus_on_core.into_iter());
+             }
+         }
+
+         let mut node: NodeInfo = lower_half[0].node;
+         node.memory = size;
+
+         Deployment::new(desc, lower_half, upper_half, vec![node])
+    }
+
+    /// Split but makes sure a group shares the SMT threads
+    pub fn split_l3_aware(desc: &'static str,
+                 possible_groupings: Vec<Vec<&'a CpuInfo>>,
+                 size: u64)
+                 -> Deployment<'a> {
+         let mut cpus = possible_groupings.into_iter().last().unwrap();
+         let cpus_len = cpus.len();
+         assert!(cpus_len % 2 == 0);
+
+         let mut l3s: Vec<L3> = cpus.iter().map(|c| c.l3).collect();
+         assert!(l3s.len() % 2 == 0);
+         l3s.sort();
+         l3s.dedup();
+
+         let mut upper_half: Vec<&CpuInfo> = Vec::with_capacity(cpus_len / 2);
+         let mut lower_half: Vec<&CpuInfo> = Vec::with_capacity(cpus_len / 2);
+
+         for (i, l3) in l3s.into_iter().enumerate() {
+             let cpus_on_l3: Vec<&&CpuInfo> = cpus.iter().filter(|c| c.l3 == l3).collect();
+             if i % 2 == 0 {
+                 upper_half.extend(cpus_on_l3.into_iter());
+             }
+             else {
+                 lower_half.extend(cpus_on_l3.into_iter());
+             }
+         }
+
+         let mut node: NodeInfo = lower_half[0].node;
+         node.memory = size;
+
+         Deployment::new(desc, lower_half, upper_half, vec![node])
+    }
+
+
 }
 
 impl<'a> fmt::Display for Deployment<'a> {
@@ -348,26 +399,26 @@ pub fn pair(manifest_folder: &Path, dryrun: bool) {
 
     let mut deployments: Vec<Deployment> = Vec::with_capacity(4);
     for config in configs {
+        match config.as_str() {
+            "L1-SMT" =>
+                deployments.push(Deployment::split_interleaved("L1-SMT", mt.same_l1(), mt.l1_size().unwrap_or(0))),
+            "L3-SMT" =>
+                deployments.push(Deployment::split_interleaved("L3-SMT", mt.same_l3(), mt.l3_size().unwrap_or(0))),
+            "L3-SMT-cores" =>
+                deployments.push(Deployment::split_smt_aware("L3-SMT-cores", mt.same_l3(), mt.l3_size().unwrap_or(0))),
+            "L3-cores" =>
+                deployments.push(Deployment::split_smt_aware("L3-cores", mt.same_l3_cores(), mt.l3_size().unwrap_or(0))),
+            "Full-L3" =>
+                deployments.push(Deployment::split_l3_aware("Full-L3", mt.whole_machine_cores(), mt.l3_size().unwrap_or(0))),
+            "Full-SMT-L3" =>
+                deployments.push(Deployment::split_l3_aware("Full-SMT-L3", mt.whole_machine(), mt.l3_size().unwrap_or(0))),
+            "Full-cores" =>
+                deployments.push(Deployment::split_interleaved("Full-cores", mt.whole_machine_cores(), mt.l3_size().unwrap_or(0))),
+            "Full-SMT-cores" =>
+                deployments.push(Deployment::split_smt_aware("Full-SMT-cores", mt.whole_machine(), mt.l3_size().unwrap_or(0))),
 
-        // L1/L2 interference
-        if config == "L1-SMT" {
-            deployments.push(Deployment::split("L1-SMT", mt.same_l1(), mt.l1_size().unwrap_or(0), false));
-        }
-        if config == "L2-SMT" {
-            deployments.push(Deployment::split("L2-SMT", mt.same_l2(), mt.l2_size().unwrap_or(0), false));
-        }
-
-        // LLC interference
-        if config == "L3-SMT" {
-            deployments.push(Deployment::split("L3-SMT", mt.same_l3(), mt.l3_size().unwrap_or(0), false));
-        }
-        if config == "L3-no-SMT" {
-            deployments.push(Deployment::split("L3-no-SMT", mt.same_l3(),
-                                               mt.l3_size().unwrap_or(0),
-                                               true));
-        }
-
-        // Whole machine good/bad placements
+            _ => error!("Ignored unknown deployment config '{}'.", config)
+        };
     }
 
     // Run programs alone

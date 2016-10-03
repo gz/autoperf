@@ -9,6 +9,8 @@ use std::process::{Command, Output};
 use nom::*;
 use x86::shared::cpuid;
 use csv;
+use itertools::*;
+
 
 pub type Node = u64;
 pub type Socket = u64;
@@ -294,6 +296,13 @@ impl MachineTopology {
         self.data.iter().filter(|t| t.socket == socket).collect()
     }
 
+    fn cores_on_l3(&self, l3: L3) -> Vec<&CpuInfo> {
+        let mut cpus: Vec<&CpuInfo> = self.data.iter().filter(|t| t.l3 == l3).collect();
+        cpus.sort_by_key(|c| c.core);
+        // TODO: implicit assumption that we have two HTs
+        cpus.into_iter().step(2).collect()
+    }
+
     pub fn same_socket(&self) -> Vec<Vec<&CpuInfo>> {
         self.sockets().into_iter().map(|s| self.cpus_on_socket(s)).collect()
     }
@@ -316,5 +325,20 @@ impl MachineTopology {
 
     pub fn same_l3(&self) -> Vec<Vec<&CpuInfo>> {
         self.l3().into_iter().map(|c| self.cpus_on_l3(c)).collect()
+    }
+
+    pub fn same_l3_cores(&self) -> Vec<Vec<&CpuInfo>> {
+        self.l3().into_iter().map(|l3| self.cores_on_l3(l3)).collect()
+    }
+
+    pub fn whole_machine(&self) -> Vec<Vec<&CpuInfo>> {
+        vec![self.data.iter().collect()]
+    }
+
+    pub fn whole_machine_cores(&self) -> Vec<Vec<&CpuInfo>> {
+        let mut cpus: Vec<&CpuInfo> = self.data.iter().collect();
+        cpus.sort_by_key(|c| c.core);
+        // TODO: implicit assumption that we have two HTs
+        vec![cpus.into_iter().step(2).collect()]
     }
 }
