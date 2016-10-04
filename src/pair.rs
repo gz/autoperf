@@ -172,6 +172,7 @@ struct Program<'a> {
     breakpoints: Vec<String>,
     is_openmp: bool,
     is_parsec: bool,
+    use_watch_repeat: bool,
     alone: bool,
 }
 
@@ -186,12 +187,15 @@ impl<'a> Program<'a> {
         let default_working_dir = String::from(manifest_path.to_str().unwrap());
         let working_dir: String = config.get("working_dir")
             .map_or(default_working_dir.clone(), |v| v.as_str().expect("program.working_dir not a string").to_string())
-            .replace("$MANIFEST_PATH", default_working_dir.as_str());
+            .replace("$MANIFEST_DIR", default_working_dir.as_str());
 
         let openmp: bool = config.get("openmp").map_or(false, |v|
             v.as_bool().expect("'program.openmp' should be boolean"));
         let parsec: bool = config.get("parsec").map_or(false, |v|
             v.as_bool().expect("'program.parsec' should be boolean"));
+        let watch_repeat: bool = config.get("use_watch_repeat").map_or(false, |v|
+            v.as_bool().expect("'program.use_watch_repeat' should be boolean"));
+
         let alone: bool = config.get("alone").map_or(true, |v|
                 v.as_bool().expect("'program.alone' should be boolean"));
         let args: Vec<String> = config["arguments"]
@@ -209,7 +213,7 @@ impl<'a> Program<'a> {
                                .collect());
 
         Program { name: name, manifest_path: manifest_path, binary: binary, is_openmp: openmp,
-                  is_parsec: parsec, alone: alone, working_dir: working_dir,
+                  is_parsec: parsec, alone: alone, working_dir: working_dir, use_watch_repeat: watch_repeat,
                   args: args, antagonist_args: antagonist_args, breakpoints: breakpoints }
     }
 
@@ -293,12 +297,18 @@ impl<'a> Run<'a> {
 
     fn start_b(&mut self) -> Option<Child> {
         self.b.map(|b| {
-            let command_args = b.get_cmd(true, &self.deployment.b);
+            let mut command_args = b.get_cmd(true, &self.deployment.b);
             let env = b.get_env(true, &self.deployment.b);
+            if b.use_watch_repeat {
+                command_args.insert(0, String::from("-t"));
+                command_args.insert(0, String::from("-n0"));
+                command_args.insert(0, String::from("watch"));
+            }
 
-            let ref name = command_args[0];
             debug!("Spawning {:?} with environment {:?}", command_args, env);
-            let mut cmd = Command::new(name);
+            debug!("Working dir for B is: {}", b.working_dir.as_str());
+
+            let mut cmd = Command::new(&command_args[0]);
             let mut cmd = cmd.stdout(Stdio::piped())
                 .current_dir(b.working_dir.as_str())
                 .stderr(Stdio::piped())
@@ -381,14 +391,16 @@ impl<'a> fmt::Display for Run<'a> {
 }
 
 pub fn pair(manifest_folder: &Path, dryrun: bool) {
-    let mut out_dir = manifest_folder.to_path_buf();
+    let canonical_manifest_path = fs::canonicalize(&manifest_folder).expect("canonicalize manifest path does not work");
+
+    let mut out_dir = canonical_manifest_path.to_path_buf();
     let hostname = get_hostname().unwrap_or(String::from("unknown"));
     out_dir.push(hostname);
     mkdir(&out_dir);
 
     let mt = MachineTopology::new();
 
-    let mut manifest: PathBuf = manifest_folder.to_path_buf();
+    let mut manifest: PathBuf = canonical_manifest_path.to_path_buf();
     manifest.push("manifest.toml");
     let mut file = File::open(manifest.as_path()).expect("manifest.toml file does not exist?");
     let mut manifest_string = String::new();
@@ -412,7 +424,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool) {
     for (key, value) in &doc {
         if key.starts_with("program") {
             let program_desc: &toml::Table = doc[key].as_table().expect("Error in manifest.toml: 'program' should be a table.");
-            programs.push(Program::from_toml(manifest_folder, program_desc));
+            programs.push(Program::from_toml(&canonical_manifest_path, program_desc));
         }
     }
 
@@ -449,7 +461,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool) {
             }
 
             for d in deployments.iter() {
-                let mut run = Run::new(manifest_folder,
+                let mut run = Run::new(&canonical_manifest_path,
                                        out_dir.as_path(),
                                        a, None, d);
                 if !dryrun {
@@ -466,7 +478,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool) {
     // Run programs pairwise together
     for (a, b) in iproduct!(programs.iter(), programs.iter()) {
         for d in deployments.iter() {
-            let mut run = Run::new(manifest_folder,
+            let mut run = Run::new(&canonical_manifest_path,
                                    out_dir.as_path(),
                                    a, Some(b), d);
             if !dryrun {

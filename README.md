@@ -47,11 +47,11 @@ $ sudo pip install pandas numpy ascii_graph scipy toml
   * Full-SMT-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are used).
 
 # TODO
-  * green marl breakpoints
-  * Integrate more apps (parsec, taskset cpumasks)
 Not today:
+  * The breakpoints need to be aware on which CPU it triggers (one of program A)!
   * Filter out offcore stuff
   * Scale out analysis
+  * Wait a bit before A starts (to warm-up b)
 
 
 # Related projects
