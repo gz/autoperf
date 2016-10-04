@@ -840,6 +840,7 @@ impl<'a> Profile<'a> {
 }
 
 pub fn profile(output_path: &Path,
+               cmd_working_dir: &str,
                cmd: Vec<String>,
                env: Vec<(String, String)>,
                breakpoints: Vec<String>,
@@ -892,6 +893,7 @@ pub fn profile(output_path: &Path,
         let counters: Vec<String> = group.get_perf_config_strings();
 
         let mut perf = Command::new("perf");
+        perf.current_dir(cmd_working_dir);
         let mut record_path = PathBuf::new();
         let filename: String;
         if !record {

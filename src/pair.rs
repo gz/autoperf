@@ -166,10 +166,12 @@ struct Program<'a> {
     name: String,
     manifest_path: &'a Path,
     binary: String,
+    working_dir: String,
     args: Vec<String>,
     antagonist_args: Vec<String>,
     breakpoints: Vec<String>,
     is_openmp: bool,
+    is_parsec: bool,
     alone: bool,
 }
 
@@ -180,24 +182,34 @@ impl<'a> Program<'a> {
                 .expect("program.binary not a string").to_string();
         let binary: String = config["binary"].as_str()
                 .expect("program.binary not a string").to_string();
-        let openmp: bool = config["openmp"]
-                .as_bool().expect("'program.openmp' should be boolean");
-        let alone: bool = config["alone"]
-                .as_bool().expect("'program.alone' should be boolean");
+
+        let default_working_dir = String::from(manifest_path.to_str().unwrap());
+        let working_dir: String = config.get("working_dir")
+            .map_or(default_working_dir.clone(), |v| v.as_str().expect("program.working_dir not a string").to_string())
+            .replace("$MANIFEST_PATH", default_working_dir.as_str());
+
+        let openmp: bool = config.get("openmp").map_or(false, |v|
+            v.as_bool().expect("'program.openmp' should be boolean"));
+        let parsec: bool = config.get("parsec").map_or(false, |v|
+            v.as_bool().expect("'program.parsec' should be boolean"));
+        let alone: bool = config.get("alone").map_or(true, |v|
+                v.as_bool().expect("'program.alone' should be boolean"));
         let args: Vec<String> = config["arguments"]
                 .as_slice().expect("program.arguments not an array?")
                 .iter().map(|s| s.as_str().expect("program1 argument not a string?").to_string())
                 .collect();
-        let antagonist_args: Vec<String> = config["antagonist_arguments"]
-                .as_slice().expect("program.antagonist_arguments not an array?")
-                .iter().map(|s| s.as_str().expect("program1 argument not a string?").to_string())
-                .collect();
-        let breakpoints: Vec<String> = config["breakpoints"]
-                .as_slice().expect("program.breakpoints not an array?")
-                .iter().map(|s| s.as_str().expect("program breakpoint not a string?").to_string())
-                .collect();
+        let antagonist_args: Vec<String> = config.get("antagonist_arguments")
+                .map_or(args.clone(), |v| v.as_slice().expect("program.antagonist_arguments not an array?")
+                                                      .iter()
+                                                      .map(|s| s.as_str().expect("program1 argument not a string?").to_string())
+                                                      .collect());
+        let breakpoints: Vec<String> = config.get("breakpoints").map_or(Vec::new(),
+                                |bs| bs.as_slice().expect("program.breakpoints not an array?")
+                               .iter().map(|s| s.as_str().expect("program breakpoint not a string?").to_string())
+                               .collect());
 
-        Program { name: name, manifest_path: manifest_path, binary: binary, is_openmp: openmp, alone: alone,
+        Program { name: name, manifest_path: manifest_path, binary: binary, is_openmp: openmp,
+                  is_parsec: parsec, alone: alone, working_dir: working_dir,
                   args: args, antagonist_args: antagonist_args, breakpoints: breakpoints }
     }
 
@@ -213,17 +225,23 @@ impl<'a> Program<'a> {
         }
 
         cmd.iter()
-            .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str() ))
+            .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str()))
             .map(|s| s.replace("$MANIFEST_DIR", format!("{}", self.manifest_path.to_str().unwrap()).as_str()))
             .collect()
     }
 
     fn get_env(&self, antagonist: bool, cores: &Vec<&CpuInfo>) -> Vec<(String, String)> {
         let mut env: Vec<(String, String)> = Vec::with_capacity(2);
+        let cpus: Vec<String> = cores.iter().map(|c| format!("{}", c.cpu)).collect();
         if self.is_openmp {
-            let cpus: Vec<String> = cores.iter().map(|c| format!("{}", c.cpu)).collect();
             env.push((String::from("OMP_PROC_BIND"), String::from("true")));
             env.push((String::from("OMP_PLACES"), format!("{{{}}}", cpus.join(","))));
+        }
+        if self.is_parsec {
+            assert!(!self.is_openmp);
+            env.push((String::from("LD_PRELOAD"), format!("{}/bin/libhooks.so.0.0.0", self.manifest_path.to_str().unwrap())));
+            env.push((String::from("PARSEC_CPU_NUM"), format!("{}", cpus.len())));
+            env.push((String::from("PARSEC_CPU_BASE"), format!("{}", cpus.join(","))));
         }
 
         env
@@ -269,7 +287,7 @@ impl<'a> Run<'a> {
         let bps = self.a.breakpoints.iter().map(|s| s.to_string()).collect();
 
         debug!("Spawning {:?} with environment {:?}", cmd, env);
-        profile::profile(&self.output_path, cmd, env, bps, false);
+        profile::profile(&self.output_path, self.a.working_dir.as_str(), cmd, env, bps, false);
         Ok(())
     }
 
@@ -282,6 +300,7 @@ impl<'a> Run<'a> {
             debug!("Spawning {:?} with environment {:?}", command_args, env);
             let mut cmd = Command::new(name);
             let mut cmd = cmd.stdout(Stdio::piped())
+                .current_dir(b.working_dir.as_str())
                 .stderr(Stdio::piped())
                 .args(&command_args[1..]);
 
@@ -387,7 +406,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool) {
     let experiment: &toml::Table = doc["experiment"].as_table().expect("Error in manifest.toml: 'experiment' should be a table.");
     let configuration: &[toml::Value] = experiment["configurations"].as_slice().expect("Error in manifest.toml: 'configuration' attribute should be an array.");
     let configs: Vec<String> = configuration.iter().map(|s| s.as_str().expect("configuration elements should be strings").to_string()).collect();
-    let run_alone: bool = experiment["alone"].as_bool().expect("'alone' should be boolean");
+    let run_alone: bool = experiment.get("alone").map_or(true, |v| v.as_bool().expect("'alone' should be boolean"));
 
     let mut programs: Vec<Program> = Vec::with_capacity(2);
     for (key, value) in &doc {
@@ -421,6 +440,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool) {
         };
     }
 
+    let mut i = 0;
     // Run programs alone
     if run_alone {
         for a in programs.iter() {
@@ -439,6 +459,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool) {
                     println!("{}", run);
                 }
             }
+            i += 1;
         }
     }
 
@@ -454,6 +475,9 @@ pub fn pair(manifest_folder: &Path, dryrun: bool) {
             else {
                 println!("{}", run);
             }
+            i += 1;
         }
     }
+
+    println!("{} runs completed.", i);
 }
