@@ -138,46 +138,7 @@ def main(argv):
         df = df[:cut_off]
         #print df
 
-    print df
     df.to_csv(os.path.join(data_directory, "transformed.csv"))
-    sys.exit(1)
-
-    # Get list of events after pruning
-    events = list(df.columns)
-    correlation_matrix = pd.DataFrame(np.corrcoef([df[i] for i in events]),
-                                      index=events, columns=events)
-    assert correlation_matrix.shape == (len(events), len(events))
-
-    # Ensure all values in correlation matrix are valid
-    for i in events:
-        for j in events:
-            if np.isnan(correlation_matrix.ix[i, j]):
-                print i, j, correlation_matrix.ix[i, j]
-                assert False
-
-    # Write correlation matrix
-    correlation_file = os.path.join(data_directory, 'event_correlation.dat')
-    persist_correlation(correlation_file, events, correlation_matrix)
-
-    # Get event names
-    """
-    events_file = os.path.join(data_directory, 'events.dat')
-    event_names = pd.read_csv(events_file, sep='\t', header=None, index_col=0)
-    event_names = event_names.to_dict()[1]
-
-    # Write correlated events for each event
-    correlated_events_file = os.path.join(
-        plot_output_dir,
-        'correlated_events.{}.dat'.format(int(CORRELATION_CUTOFF * 100))
-    )
-    persist_correlated_events(correlated_events_file, events, event_names,
-                              correlation_matrix)
-
-    # Write excluded events
-    excluded_events_file = os.path.join(plot_output_dir,
-                                        'excluded_events.dat')
-    persist_excluded_events(excluded_events_file, excluded_events)
-    """
 
 if __name__ == '__main__':
     main(sys.argv)

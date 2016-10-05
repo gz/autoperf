@@ -27,7 +27,7 @@ $ rustup override set nightly
 
 Python:
 ```
-$ sudo pip install pandas numpy ascii_graph scipy toml
+$ sudo pip install pandas numpy ascii_graph scipy toml pydotplus sklearn
 ```
 
 # Stuff not documented in perf
