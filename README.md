@@ -46,6 +46,12 @@ $ sudo pip install pandas numpy ascii_graph scipy toml
   * Full-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are left idle).
   * Full-SMT-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are used).
 
+# Current deplyoyments are
+ b1: L3-SMT-cores
+ b2: Full-cores
+ b3: Full-L3
+ b4: L3-SMT
+
 # TODO
 Not today:
   * The breakpoints need to be aware on which CPU it triggers (one of program A)!

@@ -829,7 +829,7 @@ impl<'a> Profile<'a> {
                           "datafile",
                           "perf_command",
                           "stdout",
-                          "stdin")));
+                          "stderr")));
         Ok(Profile { output_path: output_path, cmd: cmd, env: env, breakpoints: breakpoints, record: record, csv_logfile: wrtr })
     }
 
