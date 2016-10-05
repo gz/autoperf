@@ -269,22 +269,20 @@ pub fn extract(path: &Path) {
             process::exit(1);
         }
     };
-    let cpus: Vec<u64> = doc["cpu"]
-        .as_slice().expect("run.toml: 'cpu' should be an array.")
-        .iter().map(|v| v.as_integer().expect("cpu argument not a number?") as u64)
-        .collect();
-    let breakpoints: Vec<String> = doc["breakpoints"]
+
+    let a: &toml::Table = doc["a"].as_table().expect("run.toml: 'a' should be a table.");
+    let deployment: &toml::Table = doc.get("deployment").expect("deployment?").as_table().expect("run.toml: 'a.deployment' should be a table.");
+    let cpus: Vec<u64> = deployment.get("a").expect("deployment.a").as_slice().expect("run.tom: 'a.deployment.a' should be an array")
+                                        .iter().map(|c| c.as_table().expect("table")["cpu"].as_integer().expect("int") as u64)
+                                        .collect();
+    let breakpoints: Vec<String> = a.get("breakpoints").expect("no breakpoints?")
         .as_slice().expect("breakpoints not an array?")
         .iter().map(|s| s.as_str().expect("breakpoint not a string?").to_string())
         .collect();
 
     let mut lscpu_file: PathBuf = path.to_path_buf();
-    lscpu_file.push("..");
-    lscpu_file.push("..");
     lscpu_file.push("lscpu.csv");
     let mut numactl_file: PathBuf = path.to_path_buf();
-    numactl_file.push("..");
-    numactl_file.push("..");
     numactl_file.push("numactl.dat");
 
     let mt = MachineTopology::from_files(&lscpu_file, &numactl_file);

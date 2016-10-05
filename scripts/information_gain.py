@@ -1,61 +1,24 @@
-import numpy as np
-from scipy.sparse import issparse
-from sklearn.preprocessing import LabelBinarizer
-from sklearn.utils import check_array
-from sklearn.utils.extmath import safe_sparse_dot
+def information_gain(x, y):
 
+    def _entropy(values):
+        counts = np.bincount(values)
+        probs = counts[np.nonzero(counts)] / float(len(values))
+        return - np.sum(probs * np.log(probs))
 
-def ig(X, y):
+    def _information_gain(feature, y):
+        feature_set_indices = np.nonzero(feature)[1]
+        feature_not_set_indices = [i for i in feature_range if i not in feature_set_indices]
+        entropy_x_set = _entropy(y[feature_set_indices])
+        entropy_x_not_set = _entropy(y[feature_not_set_indices])
 
-    def get_t1(fc, c, f):
-        t = np.log2(fc/(c * f))
-        t[~np.isfinite(t)] = 0
-        return np.multiply(fc, t)
+        return entropy_before - (((len(feature_set_indices) / float(feature_size)) * entropy_x_set)
+                                 + ((len(feature_not_set_indices) / float(feature_size)) * entropy_x_not_set))
 
-    def get_t2(fc, c, f):
-        t = np.log2((1-f-c+fc)/((1-c)*(1-f)))
-        t[~np.isfinite(t)] = 0
-        return np.multiply((1-f-c+fc), t)
+    feature_size = x.shape[0]
+    feature_range = range(0, feature_size)
+    entropy_before = _entropy(y)
+    information_gain_scores = []
 
-    def get_t3(c, f, class_count, observed, total):
-        nfc = (class_count - observed)/total
-        t = np.log2(nfc/(c*(1-f)))
-        t[~np.isfinite(t)] = 0
-        return np.multiply(nfc, t)
-
-    def get_t4(c, f, feature_count, observed, total):
-        fnc = (feature_count - observed)/total
-        t = np.log2(fnc/((1-c)*f))
-        t[~np.isfinite(t)] = 0
-        return np.multiply(fnc, t)
-
-    X = check_array(X, accept_sparse='csr')
-    if np.any((X.data if issparse(X) else X) < 0):
-        raise ValueError("Input X must be non-negative.")
-
-    Y = LabelBinarizer().fit_transform(y)
-    if Y.shape[1] == 1:
-        Y = np.append(1 - Y, Y, axis=1)
-
-    # counts
-
-    observed = safe_sparse_dot(Y.T, X)          # n_classes * n_features
-    total = observed.sum(axis=0).reshape(1, -1).sum()
-    feature_count = X.sum(axis=0).reshape(1, -1)
-    class_count = (X.sum(axis=1).reshape(1, -1) * Y).T
-
-    # probs
-
-    f = feature_count / feature_count.sum()
-    c = class_count / float(class_count.sum())
-    fc = observed / total
-
-    # the feature score is averaged over classes
-    scores = (get_t1(fc, c, f) +
-            get_t2(fc, c, f) +
-            get_t3(c, f, class_count, observed, total) +
-            get_t4(c, f, feature_count, observed, total)).mean(axis=0)
-
-    scores = np.asarray(scores).reshape(-1)
-
-    return scores, []
+    for feature in x.T:
+        information_gain_scores.append(_information_gain(feature, y))
+    return information_gain_scores, []
