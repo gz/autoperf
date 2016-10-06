@@ -45,6 +45,16 @@ subcommands:
                 short: d
                 long: debug
                 help: Print verbose debug information.
+            - start:
+                short: s
+                long: start
+                help: Skip the first x configuration (used to evaluate the same manifest simultaneously on multiple machines).
+                takes_value: true
+            - skip:
+                short: t
+                long: skip
+                help: Only evaluate every x-th configuration (used to evaluate the same manifest simultaneously on multiple machines).
+                takes_value: true
             - dryrun:
                 short: r
                 long: dryrun

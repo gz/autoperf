@@ -9,6 +9,7 @@ use std::process::{Command, Child, Stdio};
 use std::str::{FromStr, from_utf8_unchecked};
 use std::fmt;
 use rustc_serialize::Encodable;
+use itertools::Itertools;
 
 use x86::shared::cpuid;
 use csv;
@@ -390,7 +391,7 @@ impl<'a> fmt::Display for Run<'a> {
     }
 }
 
-pub fn pair(manifest_folder: &Path, dryrun: bool) {
+pub fn pair(manifest_folder: &Path, dryrun: bool, stepping: usize) {
     let canonical_manifest_path = fs::canonicalize(&manifest_folder).expect("canonicalize manifest path does not work");
 
     let mut out_dir = canonical_manifest_path.to_path_buf();
@@ -455,7 +456,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool) {
     let mut i = 0;
     // Run programs alone
     if run_alone {
-        for a in programs.iter() {
+        for a in programs.iter().step(stepping) {
             if !a.alone {
                 continue;
             }
@@ -476,7 +477,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool) {
     }
 
     // Run programs pairwise together
-    for (a, b) in iproduct!(programs.iter(), programs.iter()) {
+    for (a, b) in iproduct!(programs.iter(), programs.iter()).step(stepping) {
         for d in deployments.iter() {
             let mut run = Run::new(&canonical_manifest_path,
                                    out_dir.as_path(),

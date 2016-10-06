@@ -20,6 +20,7 @@ extern crate itertools;
 
 use clap::App;
 use std::path::Path;
+use std::str::FromStr;
 
 mod extract;
 mod profile;
@@ -72,8 +73,11 @@ fn main() {
     }
     if let Some(matches) = matches.subcommand_matches("pair") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
+        let start: usize = usize::from_str(matches.value_of("start").unwrap_or("0")).unwrap_or(0);
+        let stepping: usize = usize::from_str(matches.value_of("skip").unwrap_or("1")).unwrap_or(1);
+
         let dryrun: bool = matches.is_present("dryrun");
-        pair(output_path, dryrun);
+        pair(output_path, dryrun, stepping);
     }
     if let Some(matches) = matches.subcommand_matches("stats") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
