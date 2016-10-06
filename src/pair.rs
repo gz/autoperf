@@ -391,7 +391,7 @@ impl<'a> fmt::Display for Run<'a> {
     }
 }
 
-pub fn pair(manifest_folder: &Path, dryrun: bool, stepping: usize) {
+pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize) {
     let canonical_manifest_path = fs::canonicalize(&manifest_folder).expect("canonicalize manifest path does not work");
 
     let mut out_dir = canonical_manifest_path.to_path_buf();
@@ -454,34 +454,25 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, stepping: usize) {
     }
 
     let mut i = 0;
-    // Run programs alone
-    if run_alone {
-        for a in programs.iter().step(stepping) {
-            if !a.alone {
-                continue;
-            }
-
-            for d in deployments.iter() {
-                let mut run = Run::new(&canonical_manifest_path,
-                                       out_dir.as_path(),
-                                       a, None, d);
-                if !dryrun {
-                    run.profile();
-                }
-                else {
-                    println!("{}", run);
-                }
-            }
-            i += 1;
-        }
+    use std::iter;
+    let mut runs: Vec<(&Program, Option<&Program>)> = Vec::new();
+    for p in programs.iter() {
+        runs.push((p, None));
+    }
+    for (a, b) in iproduct!(programs.iter(), programs.iter()) {
+        runs.push((a, Some(b)));
     }
 
     // Run programs pairwise together
-    for (a, b) in iproduct!(programs.iter(), programs.iter()).step(stepping) {
+    for (a, b) in runs.into_iter().skip(start).step(stepping) {
+
         for d in deployments.iter() {
+            if b.is_none() && (!run_alone || !a.alone) {
+                continue;
+            }
+
             let mut run = Run::new(&canonical_manifest_path,
-                                   out_dir.as_path(),
-                                   a, Some(b), d);
+                                   out_dir.as_path(), a, b, d);
             if !dryrun {
                 run.profile();
             }

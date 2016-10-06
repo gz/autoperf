@@ -74,10 +74,14 @@ fn main() {
     if let Some(matches) = matches.subcommand_matches("pair") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
         let start: usize = usize::from_str(matches.value_of("start").unwrap_or("0")).unwrap_or(0);
-        let stepping: usize = usize::from_str(matches.value_of("skip").unwrap_or("1")).unwrap_or(1);
+        let stepping: usize = usize::from_str(matches.value_of("step").unwrap_or("1")).unwrap_or(1);
+        if stepping == 0 {
+            error!("skip amount must be > 0");
+            std::process::exit(1);
+        }
 
         let dryrun: bool = matches.is_present("dryrun");
-        pair(output_path, dryrun, stepping);
+        pair(output_path, dryrun, start, stepping);
     }
     if let Some(matches) = matches.subcommand_matches("stats") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
