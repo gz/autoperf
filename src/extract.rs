@@ -35,8 +35,12 @@ fn verify_events_in_order(events: &Vec<EventDesc>, values: &Vec<(u64, Option<u64
 
 /// Extracts the perf stat file and writes it to a CSV file that looks like this:
 /// "EVENT_NAME", "TIME", "SOCKET", "CORE", "CPU", "NODE", "UNIT", "SAMPLE_VALUE"
-fn parse_perf_csv_file(mt: &MachineTopology, cpus: &Vec<&CpuInfo>, breakpoints: &Vec<String>,
-                       path: &Path, writer: &mut csv::Writer<File>) -> io::Result<()> {
+fn parse_perf_csv_file(mt: &MachineTopology,
+                       cpus: &Vec<&CpuInfo>,
+                       breakpoints: &Vec<String>,
+                       path: &Path,
+                       writer: &mut csv::Writer<File>)
+                       -> io::Result<()> {
     // Check if it's a file:
     let meta: Metadata = try!(fs::metadata(path));
     if !meta.file_type().is_file() {
@@ -51,7 +55,8 @@ fn parse_perf_csv_file(mt: &MachineTopology, cpus: &Vec<&CpuInfo>, breakpoints: 
     let mut start: Option<String> = None;
     let mut end: Option<String> = None;
 
-    let mut rdr = csv::Reader::from_file(path).unwrap().has_headers(false).delimiter(b';').flexible(true);
+    let mut rdr =
+        csv::Reader::from_file(path).unwrap().has_headers(false).delimiter(b';').flexible(true);
     for record in rdr.decode() {
         if record.is_ok() {
             type SourceRow = (f64, String, String, String, String, String, f64);
@@ -63,11 +68,11 @@ fn parse_perf_csv_file(mt: &MachineTopology, cpus: &Vec<&CpuInfo>, breakpoints: 
             // extract it here again:
             let (unit, event_name) = if !event.starts_with("uncore_") {
                 // Normal case, we just take the regular event and cpu fields from perf stat
-                ( String::from("cpu"), String::from(event.trim()) )
+                (String::from("cpu"), String::from(event.trim()))
             } else {
                 // Uncore events, use first part of the event name as the location
                 let (unit, name) = event.split_at(event.find(".").unwrap());
-                ( String::from(unit), String::from(name.trim_left_matches(".").trim()) )
+                (String::from(unit), String::from(name.trim_left_matches(".").trim()))
             };
 
             if erronous_events.contains_key(&event_name) {
@@ -77,44 +82,66 @@ fn parse_perf_csv_file(mt: &MachineTopology, cpus: &Vec<&CpuInfo>, breakpoints: 
 
 
             if !cpu.starts_with("CPU") {
-                error!("{:?}: Unkown CPU value {}, skipping this row.", path.as_os_str(), cpu);
+                error!("{:?}: Unkown CPU value {}, skipping this row.",
+                       path.as_os_str(),
+                       cpu);
                 continue;
             }
 
             let cpu_nr = match u64::from_str(&cpu[3..].trim()) {
                 Ok(v) => v,
                 Err(e) => {
-                    error!("{:?}: CPU value is not a number '{}', skipping this row.", path.as_os_str(), cpu);
+                    error!("{:?}: CPU value is not a number '{}', skipping this row.",
+                           path.as_os_str(),
+                           cpu);
                     continue;
                 }
             };
-            let cpuinfo: &CpuInfo = mt.cpu(cpu_nr).expect("Invalid CPU number (check run.toml or lspcu.csv)");
+            let cpuinfo: &CpuInfo = mt.cpu(cpu_nr)
+                .expect("Invalid CPU number (check run.toml or lspcu.csv)");
 
             if value_string.trim() == "<not counted>" {
-                error!("{:?}: Event '{}' was not counted. This is a bug, please report it!", path.as_os_str(), event_name);
+                error!("{:?}: Event '{}' was not counted. This is a bug, please report it!",
+                       path.as_os_str(),
+                       event_name);
                 erronous_events.insert(event_name.clone(), true);
             }
             if percent < 91.0 {
-                error!("{:?}: has multiplexed event '{}'. This is a bug, please report it!", path.as_os_str(), event_name);
+                error!("{:?}: has multiplexed event '{}'. This is a bug, please report it!",
+                       path.as_os_str(),
+                       event_name);
                 erronous_events.insert(event_name.clone(), true);
             }
 
             let value = u64::from_str(value_string.trim()).expect("Should be a value by now!");
 
-            if breakpoints.len() >= 1 && value == 1 && event_name.ends_with(breakpoints[0].as_str()) {
+            if breakpoints.len() >= 1 && value == 1 &&
+               event_name.ends_with(breakpoints[0].as_str()) {
                 if start.is_some() {
-                    error!("{:?}: Start breakpoint ({:?}) triggered multiple times.", path.as_os_str(), breakpoints[0]);
+                    error!("{:?}: Start breakpoint ({:?}) triggered multiple times.",
+                           path.as_os_str(),
+                           breakpoints[0]);
                 }
                 start = Some(time.to_string())
             }
-            if breakpoints.len() >= 2 && value == 1 && event_name.ends_with(breakpoints[1].as_str()) {
+            if breakpoints.len() >= 2 && value == 1 &&
+               event_name.ends_with(breakpoints[1].as_str()) {
                 if end.is_some() {
-                    error!("{:?}: End breakpoint ({:?}) triggered multiple times.", path.as_os_str(), breakpoints[1]);
+                    error!("{:?}: End breakpoint ({:?}) triggered multiple times.",
+                           path.as_os_str(),
+                           breakpoints[1]);
                 }
                 end = Some(time.to_string())
             }
 
-            parsed_rows.push(( event_name, time.to_string(), cpuinfo.socket, cpuinfo.core, cpu_nr, cpuinfo.node.node, unit, value ));
+            parsed_rows.push((event_name,
+                              time.to_string(),
+                              cpuinfo.socket,
+                              cpuinfo.core,
+                              cpu_nr,
+                              cpuinfo.node.node,
+                              unit,
+                              value));
         } else {
             // Ignore lines that start with # (comments) but fail in case another
             // line can not be parsed:
@@ -129,12 +156,16 @@ fn parse_perf_csv_file(mt: &MachineTopology, cpus: &Vec<&CpuInfo>, breakpoints: 
         }
     }
     if breakpoints.len() >= 1 && start.is_none() {
-        error!("{:?}: We did not find a trigger for start breakpoint ({:?})", path.as_os_str(), breakpoints[0]);
+        error!("{:?}: We did not find a trigger for start breakpoint ({:?})",
+               path.as_os_str(),
+               breakpoints[0]);
     }
     if breakpoints.len() == 2 && end.is_none() {
-        error!("{:?}: We did not find a trigger for end breakpoint ({:?})", path.as_os_str(), breakpoints[1]);
+        error!("{:?}: We did not find a trigger for end breakpoint ({:?})",
+               path.as_os_str(),
+               breakpoints[1]);
     }
-    //debug!("Filter out everything except: {:?} -- {:?}", start, end);
+    // debug!("Filter out everything except: {:?} -- {:?}", start, end);
 
     let mut is_recording: bool = start.is_none();
     for r in parsed_rows {
@@ -143,11 +174,11 @@ fn parse_perf_csv_file(mt: &MachineTopology, cpus: &Vec<&CpuInfo>, breakpoints: 
         // Skip all events before we have the breakpoint
         is_recording = match start {
             Some(ref start_time) => is_recording || time == start_time.as_str(),
-            None => true
+            None => true,
         };
         is_recording = match end {
             Some(ref end_time) => is_recording && time != end_time.as_str(),
-            None => true
+            None => true,
         };
         if !is_recording {
             continue;
@@ -160,7 +191,8 @@ fn parse_perf_csv_file(mt: &MachineTopology, cpus: &Vec<&CpuInfo>, breakpoints: 
             continue;
         }
 
-        if event_name.contains(breakpoints[0].as_str()) || event_name.contains(breakpoints[1].as_str()) {
+        if event_name.contains(breakpoints[0].as_str()) ||
+           event_name.contains(breakpoints[1].as_str()) {
             // We don't need to breakpoints in the resulting CSV file
             continue;
         }
@@ -171,16 +203,15 @@ fn parse_perf_csv_file(mt: &MachineTopology, cpus: &Vec<&CpuInfo>, breakpoints: 
             continue;
         }
 
-        writer.encode(&[
-            event_name.as_str(),
-            time.as_str(),
-            socket.to_string().as_str(),
-            core.to_string().as_str(),
-            cpu.to_string().as_str(),
-            node.to_string().as_str(),
-            unit.as_str(),
-            value.to_string().as_str()
-         ]).unwrap();
+        writer.encode(&[event_name.as_str(),
+                      time.as_str(),
+                      socket.to_string().as_str(),
+                      core.to_string().as_str(),
+                      cpu.to_string().as_str(),
+                      node.to_string().as_str(),
+                      unit.as_str(),
+                      value.to_string().as_str()])
+            .unwrap();
     }
 
     Ok(())
@@ -261,9 +292,7 @@ pub fn extract(path: &Path) {
     let _ = file.read_to_string(&mut run_string).unwrap();
     let mut parser = toml::Parser::new(run_string.as_str());
     let doc = match parser.parse() {
-        Some(doc) => {
-            doc
-        }
+        Some(doc) => doc,
         None => {
             error!("Can't parse the run.toml file:\n{:?}", parser.errors);
             process::exit(1);
@@ -271,13 +300,23 @@ pub fn extract(path: &Path) {
     };
 
     let a: &toml::Table = doc["a"].as_table().expect("run.toml: 'a' should be a table.");
-    let deployment: &toml::Table = doc.get("deployment").expect("deployment?").as_table().expect("run.toml: 'a.deployment' should be a table.");
-    let cpus: Vec<u64> = deployment.get("a").expect("deployment.a").as_slice().expect("run.tom: 'a.deployment.a' should be an array")
-                                        .iter().map(|c| c.as_table().expect("table")["cpu"].as_integer().expect("int") as u64)
-                                        .collect();
-    let breakpoints: Vec<String> = a.get("breakpoints").expect("no breakpoints?")
-        .as_slice().expect("breakpoints not an array?")
-        .iter().map(|s| s.as_str().expect("breakpoint not a string?").to_string())
+    let deployment: &toml::Table = doc.get("deployment")
+        .expect("deployment?")
+        .as_table()
+        .expect("run.toml: 'a.deployment' should be a table.");
+    let cpus: Vec<u64> = deployment.get("a")
+        .expect("deployment.a")
+        .as_slice()
+        .expect("run.tom: 'a.deployment.a' should be an array")
+        .iter()
+        .map(|c| c.as_table().expect("table")["cpu"].as_integer().expect("int") as u64)
+        .collect();
+    let breakpoints: Vec<String> = a.get("breakpoints")
+        .expect("no breakpoints?")
+        .as_slice()
+        .expect("breakpoints not an array?")
+        .iter()
+        .map(|s| s.as_str().expect("breakpoint not a string?").to_string())
         .collect();
 
     let mut lscpu_file: PathBuf = path.to_path_buf();
@@ -289,7 +328,9 @@ pub fn extract(path: &Path) {
     debug!("CPUs used: {:?}", cpus);
     debug!("Breakpoints to filter: {:?}", breakpoints);
 
-    let cpuinfos: Vec<&CpuInfo> = cpus.into_iter().map(|c| mt.cpu(c).expect("Invalid CPU in run.toml or wrong lscpu.csv?")).collect();
+    let cpuinfos: Vec<&CpuInfo> = cpus.into_iter()
+        .map(|c| mt.cpu(c).expect("Invalid CPU in run.toml or wrong lscpu.csv?"))
+        .collect();
 
     // Read perf.csv file:
     let mut csv_data: PathBuf = path.to_owned();
@@ -307,13 +348,14 @@ pub fn extract(path: &Path) {
     let mut csv_result: PathBuf = path.to_owned();
     csv_result.push("result.csv");
     let mut wrtr = csv::Writer::from_file(csv_result.as_path()).unwrap();
-    wrtr.encode(&["EVENT_NAME", "TIME", "SOCKET", "CORE", "CPU", "NODE", "UNIT", "SAMPLE_VALUE"]).unwrap();
+    wrtr.encode(&["EVENT_NAME", "TIME", "SOCKET", "CORE", "CPU", "NODE", "UNIT", "SAMPLE_VALUE"])
+        .unwrap();
 
     // Write content in result.csv
     for row in rows {
         let (_, event_names, _, _, file, _) = row;
         let string_names: Vec<&str> = event_names.split(",").collect();
-        //debug!("Processing: {}", string_names.join(", "));
+        // debug!("Processing: {}", string_names.join(", "));
 
         let mut perf_data = path.to_owned();
         perf_data.push(&file);
@@ -326,7 +368,10 @@ pub fn extract(path: &Path) {
                                 &mut wrtr)
                     .unwrap()
             }
-            "csv" => parse_perf_csv_file(&mt, &cpuinfos, &breakpoints, perf_data.as_path(), &mut wrtr).unwrap(),
+            "csv" => {
+                parse_perf_csv_file(&mt, &cpuinfos, &breakpoints, perf_data.as_path(), &mut wrtr)
+                    .unwrap()
+            }
             _ => panic!("Unknown file extension, I can't parse this."),
         };
     }

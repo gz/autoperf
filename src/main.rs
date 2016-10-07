@@ -25,6 +25,7 @@ use std::str::FromStr;
 mod extract;
 mod profile;
 mod pair;
+mod scale;
 mod stats;
 mod util;
 
@@ -32,6 +33,7 @@ use profile::profile;
 use extract::extract;
 use pair::pair;
 use stats::stats;
+use scale::scale;
 
 fn setup_logging() {
     use log::{LogRecord, LogLevelFilter};
@@ -58,7 +60,8 @@ fn main() {
     if let Some(matches) = matches.subcommand_matches("profile") {
         let output_path = Path::new(matches.value_of("output").unwrap_or("out"));
         let record: bool = matches.is_present("record");
-        let cmd: Vec<String> = matches.values_of("COMMAND").unwrap().map(|s| s.to_string()).collect();
+        let cmd: Vec<String> =
+            matches.values_of("COMMAND").unwrap().map(|s| s.to_string()).collect();
 
         profile(output_path,
                 &output_path.to_string_lossy(),
@@ -82,6 +85,11 @@ fn main() {
 
         let dryrun: bool = matches.is_present("dryrun");
         pair(output_path, dryrun, start, stepping);
+    }
+    if let Some(matches) = matches.subcommand_matches("scale") {
+        let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
+        let dryrun: bool = matches.is_present("dryrun");
+        scale(output_path, dryrun);
     }
     if let Some(matches) = matches.subcommand_matches("stats") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));

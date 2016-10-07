@@ -38,8 +38,24 @@ subcommands:
                 help: Command to execute.
                 required: true
                 multiple: true
+    - scale:
+        settings:
+            - TrailingVarArg
+        about: Measure all available H/W events for commands using `perf stat` with increasing number of threads.
+        args:
+            - debug:
+                short: d
+                long: debug
+                help: Print debug information verbosely.
+            - dryrun:
+                short: r
+                long: dryrun
+                help: Don't run anything, just print what it would do.
+            - directory:
+                help: Path of manifest directory.
+                required: true
     - pair:
-        about: Pair two programs together and measure all hardware events.
+        about: Run every program in the manifest alone as well as pairwise together and measure all events.
         args:
             - debug:
                 short: d
@@ -48,12 +64,12 @@ subcommands:
             - start:
                 short: b
                 long: base
-                help: Skip the first x configuration (used to evaluate the same manifest simultaneously on multiple machines).
+                help: Skip the first x configuration (used to evaluate the same manifest simultaneously on multiple identical machines).
                 takes_value: true
             - step:
                 short: s
                 long: step
-                help: Only evaluate every x-th configuration (used to evaluate the same manifest simultaneously on multiple machines).
+                help: Only evaluate every x-th configuration (used to evaluate the same manifest simultaneously on multiple identical machines).
                 takes_value: true
             - dryrun:
                 short: r

@@ -1,7 +1,7 @@
 use std::io;
 use std::io::prelude::*;
 use std::fs;
-use std::fs::{File};
+use std::fs::File;
 use std::path::PathBuf;
 use std::path::Path;
 use std::str::{FromStr, from_utf8_unchecked};
@@ -86,10 +86,14 @@ pub struct NodeInfo {
 
 #[derive(Debug)]
 pub struct MachineTopology {
-    data: Vec<CpuInfo>
+    data: Vec<CpuInfo>,
 }
 
-fn save_file(cmd: &'static str, output_path: &Path, file: &'static str, out: Output) -> io::Result<String> {
+fn save_file(cmd: &'static str,
+             output_path: &Path,
+             file: &'static str,
+             out: Output)
+             -> io::Result<String> {
     if out.status.success() {
         // Save to result directory:
         let mut out_file: PathBuf = output_path.to_path_buf();
@@ -131,9 +135,9 @@ pub fn save_cpu_topology(output_path: &Path) -> io::Result<String> {
 }
 
 impl MachineTopology {
-
     pub fn new() -> MachineTopology {
-        let lscpu_out = Command::new("lscpu").arg("--parse=NODE,SOCKET,CORE,CPU,CACHE").output().unwrap();
+        let lscpu_out =
+            Command::new("lscpu").arg("--parse=NODE,SOCKET,CORE,CPU,CACHE").output().unwrap();
         let lscpu_string = String::from_utf8(lscpu_out.stdout).unwrap_or(String::new());
 
         let numactl_out = Command::new("numactl").arg("--hardware").output().unwrap();
@@ -156,7 +160,8 @@ impl MachineTopology {
 
     pub fn from_strings(lscpu_output: String, numactl_output: String) -> MachineTopology {
         let no_comments: Vec<&str> = lscpu_output.split('\n')
-            .filter(|s| s.trim().len() > 0 && !s.trim().starts_with("#")).collect();
+            .filter(|s| s.trim().len() > 0 && !s.trim().starts_with("#"))
+            .collect();
 
         type Row = (Node, Socket, Core, Cpu, String); // Online MHz
         let mut rdr = csv::Reader::from_string(no_comments.join("\n")).has_headers(false);

@@ -28,7 +28,7 @@ lazy_static! {
     };
 
     static ref PMU_COUNTERS: HashMap<MonitoringUnit, usize> = {
-        // TODO: How can I get this info from /sys/bus/event_source?
+// TODO: How can I get this info from /sys/bus/event_source?
         let cpuid = cpuid::CpuId::new();
         let cpu_counter = cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters()) as usize;
         let mut res = HashMap::with_capacity(11);
@@ -36,7 +36,7 @@ lazy_static! {
 
         cpuid.get_feature_info().map(|fi| {
             if fi.family_id() == 0x6 && fi.model_id() == 0xe {
-                // IvyBridge EP
+// IvyBridge EP
                 res.insert(MonitoringUnit::UBox, 2);
                 res.insert(MonitoringUnit::CBox, 4);
                 res.insert(MonitoringUnit::HA, 4);
@@ -69,7 +69,7 @@ lazy_static! {
     };
 
     static ref PMU_DEVICES: Vec<String> = {
-        // TODO: Return empty Vec in case of error
+// TODO: Return empty Vec in case of error
         let paths = fs::read_dir("/sys/bus/event_source/devices/").expect("Can't read devices directory.");
         let mut devices = Vec::with_capacity(15);
         for p in paths {
@@ -81,7 +81,7 @@ lazy_static! {
         devices
     };
 
-    // Bogus events that have some weird description
+// Bogus events that have some weird description
     static ref IGNORE_EVENTS: HashMap<&'static str, bool> = {
         let mut ignored = HashMap::with_capacity(1);
         ignored.insert("UNC_CLOCK.SOCKET", true); // Just says fixed and does not name which counter :/
@@ -95,7 +95,7 @@ lazy_static! {
         cpuid.get_feature_info().map_or(
             vec![],
             |fi| {
-                // IvyBridge and IvyBridge-EP, is it correct to check only extended model and not model?
+// IvyBridge and IvyBridge-EP, is it correct to check only extended model and not model?
                 if fi.family_id() == 0x6 && fi.extended_model_id() == 0x3 {
                     vec![   "MEM_UOPS_RETIRED.ALL_STORES",
                             "MEM_LOAD_UOPS_RETIRED.L1_MISS",
@@ -116,7 +116,7 @@ lazy_static! {
                             "MEM_UOPS_RETIRED.LOCK_LOADS",
                             "MEM_LOAD_UOPS_RETIRED.LLC_HIT",
                             "MEM_UOPS_RETIRED.SPLIT_STORES",
-                            // Those are IvyBridge-EP events:
+// Those are IvyBridge-EP events:
                             "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_DRAM",
                             "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_HITM",
                             "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_FWD"]
@@ -143,12 +143,14 @@ fn execute_perf(perf: &mut Command,
 
     let (stdout, stderr) = match perf.output() {
         Ok(out) => {
-            let stdout = String::from_utf8(out.stdout).unwrap_or(String::from("Unable to read stdout!"));
-            let stderr = String::from_utf8(out.stderr).unwrap_or(String::from("Unable to read stderr!"));
+            let stdout = String::from_utf8(out.stdout)
+                .unwrap_or(String::from("Unable to read stdout!"));
+            let stderr = String::from_utf8(out.stderr)
+                .unwrap_or(String::from("Unable to read stderr!"));
 
             if out.status.success() {
-                //debug!("stdout:\n{:?}", stdout);
-                //debug!("stderr:\n{:?}", stderr);
+                // debug!("stdout:\n{:?}", stdout);
+                // debug!("stderr:\n{:?}", stderr);
             } else if !out.status.success() {
                 error!("perf command: {} got unknown exit status was: {}",
                        perf_cmd_str,
@@ -169,7 +171,7 @@ fn execute_perf(perf: &mut Command,
         Err(err) => {
             error!("Executing {} failed : {}", perf_cmd_str, err);
             (String::new(), String::new())
-        },
+        }
     };
 
     (perf_cmd_str, stdout, stderr)
@@ -182,10 +184,8 @@ fn create_out_directory(out_dir: &Path) {
 }
 
 fn get_events() -> Vec<&'static EventDescription> {
-    let mut events: Vec<&EventDescription> =
-        core_counters().unwrap().values().collect();
-    let mut uncore_events: Vec<&EventDescription> =
-        uncore_counters().unwrap().values().collect();
+    let mut events: Vec<&EventDescription> = core_counters().unwrap().values().collect();
+    let mut uncore_events: Vec<&EventDescription> = uncore_counters().unwrap().values().collect();
     events.append(&mut uncore_events);
 
     events
@@ -502,7 +502,9 @@ impl fmt::Display for AddEventError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             AddEventError::OffcoreCapacityReached => write!(f, "Offcore event limit reached."),
-            AddEventError::UnitCapacityReached(u) => write!(f, "Unit '{}' capacity for reached.", u),
+            AddEventError::UnitCapacityReached(u) => {
+                write!(f, "Unit '{}' capacity for reached.", u)
+            }
             AddEventError::CounterConstraintConflict => write!(f, "Counter constraints conflict."),
             AddEventError::ErrataConflict => write!(f, "Errata conflict."),
             AddEventError::TakenAloneConflict => write!(f, "Group contains a taken alone counter."),
@@ -561,12 +563,14 @@ impl PerfEventGroup {
     /// (i.e., either all programmable or all fixed) and the same unit.
     ///
     /// Returns a possible placement or None if no assignment was possible.
-    fn find_counter_assignment<'a>(level: usize, max_level: usize,
+    fn find_counter_assignment<'a>(level: usize,
+                                   max_level: usize,
                                    events: Vec<&'a PerfEvent>,
-                                   assignment: Vec<&'a PerfEvent>) -> Option<Vec<&'a PerfEvent>> {
+                                   assignment: Vec<&'a PerfEvent>)
+                                   -> Option<Vec<&'a PerfEvent>> {
         // Are we done yet?
         if events.len() == 0 {
-           return Some(assignment);
+            return Some(assignment);
         }
         // Are we too deep?
         if level >= max_level {
@@ -576,7 +580,7 @@ impl PerfEventGroup {
         for (idx, event) in events.iter().enumerate() {
             let mask: usize = match event.counter() {
                 Counter::Programmable(mask) => mask as usize,
-                Counter::Fixed(mask) => mask as usize
+                Counter::Fixed(mask) => mask as usize,
             };
 
             let mut assignment = assignment.clone();
@@ -586,7 +590,10 @@ impl PerfEventGroup {
             if (mask & (1 << level)) > 0 {
                 assignment.push(event);
                 events.remove(idx);
-                let ret = PerfEventGroup::find_counter_assignment(level+1, max_level, events, assignment);
+                let ret = PerfEventGroup::find_counter_assignment(level + 1,
+                                                                  max_level,
+                                                                  events,
+                                                                  assignment);
                 if ret.is_some() {
                     return ret;
                 }
@@ -594,7 +601,10 @@ impl PerfEventGroup {
             // Otherwise let's not assign the event at this level and go deeper (for groups that
             // don't use all counters)
             else {
-                let ret = PerfEventGroup::find_counter_assignment(level+1, max_level, events, assignment);
+                let ret = PerfEventGroup::find_counter_assignment(level + 1,
+                                                                  max_level,
+                                                                  events,
+                                                                  assignment);
                 if ret.is_some() {
                     return ret;
                 }
@@ -612,13 +622,16 @@ impl PerfEventGroup {
         let unit_limit = *self.limits.get(&unit).unwrap_or(&0);
 
         // Get all the events that share the same counters as new_event:
-        let mut events: Vec<&PerfEvent> = self.events_by_unit(unit).into_iter().filter(|c| {
-            match (c.counter(), new_event.counter()) {
-                (Counter::Programmable(_), Counter::Programmable(_)) => true,
-                (Counter::Fixed(_), Counter::Fixed(_)) => true,
-                _ => false
-            }
-        }).collect();
+        let mut events: Vec<&PerfEvent> = self.events_by_unit(unit)
+            .into_iter()
+            .filter(|c| {
+                match (c.counter(), new_event.counter()) {
+                    (Counter::Programmable(_), Counter::Programmable(_)) => true,
+                    (Counter::Fixed(_), Counter::Fixed(_)) => true,
+                    _ => false,
+                }
+            })
+            .collect();
 
         events.push(new_event);
         PerfEventGroup::find_counter_assignment(0, unit_limit, events, Vec::new()).is_none()
@@ -748,8 +761,7 @@ impl PerfEventGroup {
 }
 
 /// Given a list of events, create a list of event groups that can be measured together.
-fn schedule_events(events: Vec<&'static EventDescription>)
-                   -> Vec<PerfEventGroup> {
+fn schedule_events(events: Vec<&'static EventDescription>) -> Vec<PerfEventGroup> {
     let mut groups: Vec<PerfEventGroup> = Vec::with_capacity(42);
 
     for event in events {
@@ -763,8 +775,8 @@ fn schedule_events(events: Vec<&'static EventDescription>)
             MonitoringUnit::Unknown(s) => {
                 info!("Ignoring event {} with unknown unit '{}'", event, s);
                 continue;
-            },
-            _ => ()
+            }
+            _ => (),
         };
 
         // Try to add the event to an existing group:
@@ -783,7 +795,10 @@ fn schedule_events(events: Vec<&'static EventDescription>)
 
             let added = pg.add_event(perf_event);
             match added {
-                Err(e) => panic!("Can't add a new event to an empty group: {}", e.description()),
+                Err(e) => {
+                    panic!("Can't add a new event to an empty group: {}",
+                           e.description())
+                }
                 Ok(_) => (),
             };
 
@@ -811,9 +826,12 @@ struct Profile<'a> {
 }
 
 impl<'a> Profile<'a> {
-
-    pub fn new(output_path: &'a Path, cmd: Vec<&'a str>, env: Vec<(String, String)>, breakpoints: Vec<String>, record: bool)
-        -> csv::Result<Profile<'a>> {
+    pub fn new(output_path: &'a Path,
+               cmd: Vec<&'a str>,
+               env: Vec<(String, String)>,
+               breakpoints: Vec<String>,
+               record: bool)
+               -> csv::Result<Profile<'a>> {
         assert!(cmd.len() >= 1);
         create_out_directory(output_path);
 
@@ -830,13 +848,19 @@ impl<'a> Profile<'a> {
                           "perf_command",
                           "stdout",
                           "stderr")));
-        Ok(Profile { output_path: output_path, cmd: cmd, env: env, breakpoints: breakpoints, record: record, csv_logfile: wrtr })
+        Ok(Profile {
+            output_path: output_path,
+            cmd: cmd,
+            env: env,
+            breakpoints: breakpoints,
+            record: record,
+            csv_logfile: wrtr,
+        })
     }
 
     pub fn get_runs(&self) -> Vec<PerfRun> {
         Vec::new()
     }
-
 }
 
 pub fn profile(output_path: &Path,
@@ -849,7 +873,8 @@ pub fn profile(output_path: &Path,
     let mut completed_file: PathBuf = output_path.to_path_buf();
     completed_file.push("completed");
     if completed_file.exists() {
-        info!("Run {} already completed, skipping.", output_path.to_string_lossy());
+        info!("Run {} already completed, skipping.",
+              output_path.to_string_lossy());
         return;
     }
 
@@ -922,7 +947,8 @@ pub fn profile(output_path: &Path,
             breakpoints.iter().map(|s| format!("-e \\{}", s)).collect();
         perf.args(breakpoint_args.as_slice());
 
-        let (executed_cmd, stdout, stdin) = execute_perf(&mut perf, &cmd, &counters, record_path.as_path());
+        let (executed_cmd, stdout, stdin) =
+            execute_perf(&mut perf, &cmd, &counters, record_path.as_path());
         let r = wtr.encode(vec![cmd.join(" "),
                                 event_names.join(","),
                                 counters.join(","),
