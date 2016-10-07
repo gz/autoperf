@@ -79,9 +79,9 @@ pub struct CpuInfo {
 }
 
 impl CpuInfo {
-    pub fn get_cbox(&self, mt: &MachineTopology) -> (Socket, String) {
-        let cbox = self.core % mt.cores().len() as u64;
-        (self.socket, format!("uncore_cbox_{}", cbox))
+    pub fn cbox(&self, mt: &MachineTopology) -> String {
+        let cbox = self.core % mt.cores_on_socket(self.socket).len() as u64;
+        format!("uncore_cbox_{}", cbox)
     }
 }
 
@@ -306,6 +306,13 @@ impl MachineTopology {
 
     pub fn cpus_on_socket(&self, socket: Socket) -> Vec<&CpuInfo> {
         self.data.iter().filter(|t| t.socket == socket).collect()
+    }
+
+    fn cores_on_socket(&self, socket: Socket) -> Vec<Core> {
+        let mut cores: Vec<Core> = self.data.iter().filter(|c| c.socket == socket).map(|c| c.core).collect();
+        cores.sort();
+        cores.dedup();
+        cores
     }
 
     fn cores_on_l3(&self, l3: L3) -> Vec<&CpuInfo> {

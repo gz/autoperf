@@ -79,7 +79,7 @@ subcommands:
                 help: Path of manifest directory.
                 required: true
     - extract:
-        about: Merge counter measurements generated with the `profile` command in a single CSV file.
+        about: Merge counter measurements generated with the `profile` or `pair` command in a single CSV file.
         args:
             - debug:
                 short: d
@@ -97,6 +97,12 @@ subcommands:
                 takes_value: true
                 possible_values: [ all, shared, exclusive, none ]
                 help: Which uncore events to include (default exclusive).
+            - output:
+                short: o
+                long: output
+                help: Set output file (defaults to <input dir>/results.csv).
+                value_name: FILENAME
+                takes_value: true
             - directory:
                 help: Set input directory.
                 required: true

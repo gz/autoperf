@@ -19,7 +19,7 @@ extern crate phf;
 extern crate itertools;
 
 use clap::App;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 mod extract;
@@ -71,10 +71,19 @@ fn main() {
                 record);
     }
     if let Some(matches) = matches.subcommand_matches("extract") {
-        let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
+        let input_directory = Path::new(matches.value_of("directory").unwrap_or("out"));
+        let output_path: PathBuf = match matches.value_of("output") {
+            Some(v) => PathBuf::from(v),
+            None => {
+                let mut pb = input_directory.to_path_buf();
+                pb.push("results.csv");
+                pb
+            }
+        };
         let uncore_filter: &str = matches.value_of("uncore").unwrap_or("exclusive");
         let core_filter: &str = matches.value_of("core").unwrap_or("exclusive");
-        extract(output_path, core_filter, uncore_filter);
+        
+        extract(input_directory, core_filter, uncore_filter, &output_path.as_path());
     }
     if let Some(matches) = matches.subcommand_matches("pair") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));

@@ -38,6 +38,7 @@ fn verify_events_in_order(events: &Vec<EventDesc>, values: &Vec<(u64, Option<u64
 /// "EVENT_NAME", "TIME", "SOCKET", "CORE", "CPU", "NODE", "UNIT", "SAMPLE_VALUE"
 fn parse_perf_csv_file(mt: &MachineTopology,
                        cpus: &Vec<&CpuInfo>,
+                       cpu_filter: Filter,
                        sockets: &Vec<Socket>,
                        breakpoints: &Vec<String>,
                        path: &Path,
@@ -201,7 +202,25 @@ fn parse_perf_csv_file(mt: &MachineTopology,
 
         // Skip all events that we can't attribute fully to our program:
         // TODO: How to include cbox etc.?
-        if unit != "cpu" || !cpus.iter().any(|c| c.cpu == cpu) {
+        let include = if unit == "cpu" {
+            match cpu_filter {
+                Filter::All => true,
+                Filter::Exclusive => cpus.iter().any(|c| c.cpu == cpu),
+                Filter::Shared => unreachable!(), // Only for uncore events
+                Filter::None => false,
+            }
+        } else if unit.trim().starts_with("uncore_cbox") {
+            sockets.contains(&socket) && cpus.iter().any(|c| c.cbox(mt) == unit.trim())
+        } else if unit.starts_with("uncore") {
+            sockets.contains(&socket)
+        }
+        else {
+            error!("Unkown unit '{}', not included!", unit);
+            false
+        };
+
+        if !include {
+            // Skip this event
             continue;
         }
 
@@ -281,11 +300,12 @@ fn parse_perf_file(path: &Path,
     Ok(())
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 enum Filter {
     All,
     Exclusive,
     Shared,
+    None,
 }
 
 impl Filter {
@@ -294,15 +314,20 @@ impl Filter {
             "all" => Filter::All,
             "exclusive" => Filter::Exclusive,
             "shared" => Filter::Shared,
+            "none" => Filter::None,
             _ => panic!("clap-rs should ensure nothing else is passed..."),
         }
     }
 }
 
-pub fn extract(path: &Path, core_filter: &str, uncore_filter: &str) {
+pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Path) {
     if !path.exists() {
         error!("Input directory does not exist {:?}", path);
-        return;
+        process::exit(1);
+    }
+    if save_to.exists() {
+        error!("Input directory does not exist {:?}", path);
+        process::exit(2);
     }
 
     let mut run_config: PathBuf = path.to_path_buf();
@@ -315,7 +340,7 @@ pub fn extract(path: &Path, core_filter: &str, uncore_filter: &str) {
         Some(doc) => doc,
         None => {
             error!("Can't parse the run.toml file:\n{:?}", parser.errors);
-            process::exit(1);
+            process::exit(3);
         }
     };
 
@@ -356,14 +381,13 @@ pub fn extract(path: &Path, core_filter: &str, uncore_filter: &str) {
     all_sockets.dedup();
 
     let uncore_filter = Filter::new(uncore_filter);
-    let core_filter = Filter::new(core_filter);
-    assert!(core_filter == Filter::Exclusive); // TODO
+    let cpu_filter = Filter::new(cpu_filter);
 
     let mut considered_sockets: Vec<Socket> = Vec::new();
     // Find out if we should include the uncore events for every socket that we're running on
-    for socket in all_sockets.into_iter() {
-        match uncore_filter {
-            Filter::Exclusive => {
+    match uncore_filter {
+        Filter::Exclusive => {
+            for socket in all_sockets.into_iter() {
                 let socket_set: HashSet<Cpu> = mt.cpus_on_socket(socket).iter().map(|c| c.cpu).collect();
                 let program_set: HashSet<Cpu> = all_cpus.iter().map(|c| c.cpu).collect();
                 let diff: Vec<Cpu> = socket_set.difference(&program_set).cloned().collect();
@@ -372,17 +396,15 @@ pub fn extract(path: &Path, core_filter: &str, uncore_filter: &str) {
                     debug!("Uncore from socket {:?} considered since A uses it exclusively.", socket);
                     considered_sockets.push(socket);
                 }
-            },
-            Filter::All => {
-                panic!("NYI -- need to add all sockets in system");
-                considered_sockets.push(socket);
-            },
-            Filter::Shared => {
-                debug!("Uncore from socket {:?} added since A uses this socket at least partially.", socket);
-                considered_sockets.push(socket);
-            },
-        }
-    }
+            }
+        },
+        Filter::All => considered_sockets.append(&mut mt.sockets()),
+        Filter::Shared => {
+            debug!("Uncore from sockets {:?} added since A uses these sockets at least partially.", all_sockets);
+            considered_sockets.append(&mut all_sockets);
+        },
+        Filter::None => debug!("Ignore all uncore events."),
+    };
 
     // Read perf.csv file:
     let mut csv_data: PathBuf = path.to_owned();
@@ -397,8 +419,7 @@ pub fn extract(path: &Path, core_filter: &str, uncore_filter: &str) {
     let rows = rdr.decode().collect::<csv::Result<Vec<Row>>>().unwrap();
 
     // Create result.csv file:
-    let mut csv_result: PathBuf = path.to_owned();
-    csv_result.push("result.csv");
+    let mut csv_result: PathBuf = save_to.to_owned();
     let mut wrtr = csv::Writer::from_file(csv_result.as_path()).unwrap();
     wrtr.encode(&["EVENT_NAME", "TIME", "SOCKET", "CORE", "CPU", "NODE", "UNIT", "SAMPLE_VALUE"])
         .unwrap();
@@ -407,7 +428,6 @@ pub fn extract(path: &Path, core_filter: &str, uncore_filter: &str) {
     for row in rows {
         let (_, event_names, _, _, file, _) = row;
         let string_names: Vec<&str> = event_names.split(",").collect();
-        // debug!("Processing: {}", string_names.join(", "));
 
         let mut perf_data = path.to_owned();
         perf_data.push(&file);
@@ -421,7 +441,7 @@ pub fn extract(path: &Path, core_filter: &str, uncore_filter: &str) {
                     .unwrap()
             }
             "csv" => {
-                parse_perf_csv_file(&mt, &all_cpus, &considered_sockets, &breakpoints, perf_data.as_path(), &mut wrtr)
+                parse_perf_csv_file(&mt, &all_cpus, cpu_filter, &considered_sockets, &breakpoints, perf_data.as_path(), &mut wrtr)
                     .unwrap()
             }
             _ => panic!("Unknown file extension, I can't parse this."),
