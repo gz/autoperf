@@ -326,7 +326,7 @@ pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Pat
         process::exit(1);
     }
     if save_to.exists() {
-        error!("Input directory does not exist {:?}", path);
+        error!("Output file already exists {:?}", save_to);
         process::exit(2);
     }
 
