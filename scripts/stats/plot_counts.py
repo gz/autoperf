@@ -5,10 +5,8 @@ import numpy as np
 import pandas as pd
 
 ticks_font = font_manager.FontProperties(family='Decima Mono')
-plt.style.use([os.path.join(sys.path[0], 'ethplot.mplstyle')])
+plt.style.use([os.path.join(sys.path[0], '../ethplot.mplstyle')])
 NAME = "counters_vs_events"
-
-
 
 if __name__ == '__main__':
     fig = plt.figure()

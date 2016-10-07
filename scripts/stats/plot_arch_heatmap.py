@@ -12,7 +12,7 @@ colors = LinearSegmentedColormap.from_list('seismic', ["#ca0020", "#2ca25f"])
 def heatmap(name, data):
     fig, ax = plt.subplots()
     label_font = font_manager.FontProperties(family='Supria Sans', size=10)
-    plt.style.use([os.path.join(sys.path[0], 'ethplot.mplstyle')])
+    plt.style.use([os.path.join(sys.path[0], '../ethplot.mplstyle')])
 
     ax.set_xticklabels(data.index)
     ax.set_yticklabels(data.columns)

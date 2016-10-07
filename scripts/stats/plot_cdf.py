@@ -6,8 +6,7 @@ import numpy as np
 import pandas as pd
 
 ticks_font = font_manager.FontProperties(family='Decima Mono')
-plt.style.use([os.path.join(sys.path[0], 'ethplot.mplstyle')])
-NAME = ""
+plt.style.use([os.path.join(sys.path[0], '../ethplot.mplstyle')])
 
 if __name__ == '__main__':
 
