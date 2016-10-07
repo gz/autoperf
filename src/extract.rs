@@ -5,6 +5,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::io::prelude::*;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::process;
 use std::str::FromStr;
 use toml;
@@ -37,6 +38,7 @@ fn verify_events_in_order(events: &Vec<EventDesc>, values: &Vec<(u64, Option<u64
 /// "EVENT_NAME", "TIME", "SOCKET", "CORE", "CPU", "NODE", "UNIT", "SAMPLE_VALUE"
 fn parse_perf_csv_file(mt: &MachineTopology,
                        cpus: &Vec<&CpuInfo>,
+                       sockets: &Vec<Socket>,
                        breakpoints: &Vec<String>,
                        path: &Path,
                        writer: &mut csv::Writer<File>)
@@ -343,21 +345,44 @@ pub fn extract(path: &Path, core_filter: &str, uncore_filter: &str) {
     numactl_file.push("numactl.dat");
 
     let mt = MachineTopology::from_files(&lscpu_file, &numactl_file);
-    debug!("CPUs used: {:?}", cpus);
-    debug!("Breakpoints to filter: {:?}", breakpoints);
-
-    let cpuinfos: Vec<&CpuInfo> = cpus.into_iter()
+    // All the CPUs this program is (exclusively) running on:
+    let all_cpus: Vec<&CpuInfo> = cpus.into_iter()
         .map(|c| mt.cpu(c).expect("Invalid CPU in run.toml or wrong lscpu.csv?"))
         .collect();
 
-    for c in cpuinfos.iter() {
-        println!("{:?}", c.get_cbox(&mt));
-    }
+    // All the sockets this program is running on:
+    let mut all_sockets: Vec<Socket> = all_cpus.iter().map(|c| c.socket).collect();
+    all_sockets.sort();
+    all_sockets.dedup();
 
     let uncore_filter = Filter::new(uncore_filter);
     let core_filter = Filter::new(core_filter);
-    assert!(core_filter == Filter::Exclusive);
-    assert!(uncore_filter == Filter::Exclusive);
+    assert!(core_filter == Filter::Exclusive); // TODO
+
+    let mut considered_sockets: Vec<Socket> = Vec::new();
+    // Find out if we should include the uncore events for every socket that we're running on
+    for socket in all_sockets.into_iter() {
+        match uncore_filter {
+            Filter::Exclusive => {
+                let socket_set: HashSet<Cpu> = mt.cpus_on_socket(socket).iter().map(|c| c.cpu).collect();
+                let program_set: HashSet<Cpu> = all_cpus.iter().map(|c| c.cpu).collect();
+                let diff: Vec<Cpu> = socket_set.difference(&program_set).cloned().collect();
+
+                if diff.len() == 0 {
+                    debug!("Uncore from socket {:?} considered since A uses it exclusively.", socket);
+                    considered_sockets.push(socket);
+                }
+            },
+            Filter::All => {
+                panic!("NYI -- need to add all sockets in system");
+                considered_sockets.push(socket);
+            },
+            Filter::Shared => {
+                debug!("Uncore from socket {:?} added since A uses this socket at least partially.", socket);
+                considered_sockets.push(socket);
+            },
+        }
+    }
 
     // Read perf.csv file:
     let mut csv_data: PathBuf = path.to_owned();
@@ -396,7 +421,7 @@ pub fn extract(path: &Path, core_filter: &str, uncore_filter: &str) {
                     .unwrap()
             }
             "csv" => {
-                parse_perf_csv_file(&mt, &cpuinfos, &breakpoints, perf_data.as_path(), &mut wrtr)
+                parse_perf_csv_file(&mt, &all_cpus, &considered_sockets, &breakpoints, perf_data.as_path(), &mut wrtr)
                     .unwrap()
             }
             _ => panic!("Unknown file extension, I can't parse this."),
