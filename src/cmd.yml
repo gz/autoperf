@@ -85,6 +85,18 @@ subcommands:
                 short: d
                 long: debug
                 help: Print verbose debug information.
+            - core:
+                short: c
+                long: core
+                takes_value: true
+                possible_values: [ all, exclusive, none ]
+                help: Which core events to include (default exclusive).
+            - uncore:
+                short: u
+                long: uncore
+                takes_value: true
+                possible_values: [ all, shared, exclusive, none ]
+                help: Which uncore events to include (default exclusive).
             - directory:
                 help: Set input directory.
                 required: true

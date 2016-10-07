@@ -72,7 +72,9 @@ fn main() {
     }
     if let Some(matches) = matches.subcommand_matches("extract") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
-        extract(output_path);
+        let uncore_filter: &str = matches.value_of("uncore").unwrap_or("exclusive");
+        let core_filter: &str = matches.value_of("core").unwrap_or("exclusive");
+        extract(output_path, core_filter, uncore_filter);
     }
     if let Some(matches) = matches.subcommand_matches("pair") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));

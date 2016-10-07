@@ -22,6 +22,42 @@ pub type L3 = u64;
 pub type Online = u64;
 pub type MHz = u64;
 
+impl Socket {
+    pub fn uncore_devices() -> Vec<&'static str> {
+        vec![
+            "breakpoint"
+            "cpu"
+            "cstate_core"
+            "cstate_pkg"
+            "intel_bts"
+            "msr"
+            "power"
+            "software"
+            "tracepoint"
+            "uncore_cbox_0"
+            "uncore_cbox_1"
+            "uncore_cbox_2"
+            "uncore_cbox_3"
+            "uncore_cbox_4"
+            "uncore_cbox_5"
+            "uncore_cbox_6"
+            "uncore_cbox_7"
+            "uncore_cbox_8"
+            "uncore_cbox_9"
+            "uncore_ha_0"
+            "uncore_imc_0"
+            "uncore_imc_1"
+            "uncore_imc_2"
+            "uncore_imc_3"
+            "uncore_pcu"
+            "uncore_r2pcie"
+            "uncore_r3qpi_0"
+            "uncore_r3qpi_1"
+            "uncore_ubox"
+        ]
+    }
+}
+
 pub fn mkdir(out_dir: &Path) {
     if !out_dir.exists() {
         fs::create_dir(out_dir).expect("Can't create directory");
@@ -76,6 +112,13 @@ pub struct CpuInfo {
     pub l1: L1,
     pub l2: L2,
     pub l3: L3,
+}
+
+impl CpuInfo {
+    pub fn get_cbox(&self, mt: &MachineTopology) -> (Socket, String) {
+        let cbox = self.core % mt.cores().len() as u64;
+        (self.socket, format!("uncore_cbox_{}", cbox))
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone, RustcEncodable)]

@@ -279,7 +279,25 @@ fn parse_perf_file(path: &Path,
     Ok(())
 }
 
-pub fn extract(path: &Path) {
+#[derive(Debug, Eq, PartialEq)]
+enum Filter {
+    All,
+    Exclusive,
+    Shared,
+}
+
+impl Filter {
+    fn new(what: &str) -> Filter {
+        match what {
+            "all" => Filter::All,
+            "exclusive" => Filter::Exclusive,
+            "shared" => Filter::Shared,
+            _ => panic!("clap-rs should ensure nothing else is passed..."),
+        }
+    }
+}
+
+pub fn extract(path: &Path, core_filter: &str, uncore_filter: &str) {
     if !path.exists() {
         error!("Input directory does not exist {:?}", path);
         return;
@@ -331,6 +349,15 @@ pub fn extract(path: &Path) {
     let cpuinfos: Vec<&CpuInfo> = cpus.into_iter()
         .map(|c| mt.cpu(c).expect("Invalid CPU in run.toml or wrong lscpu.csv?"))
         .collect();
+
+    for c in cpuinfos.iter() {
+        println!("{:?}", c.get_cbox(&mt));
+    }
+
+    let uncore_filter = Filter::new(uncore_filter);
+    let core_filter = Filter::new(core_filter);
+    assert!(core_filter == Filter::Exclusive);
+    assert!(uncore_filter == Filter::Exclusive);
 
     // Read perf.csv file:
     let mut csv_data: PathBuf = path.to_owned();

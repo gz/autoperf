@@ -122,8 +122,7 @@ def heatmap(location, data):
     print range(data.shape[0])
     for x in range(data.shape[1]):
         for y in range(data.shape[0]):
-            #color = 'white' if values[y][x] > 2.3 else 'black'
-            color = 'black'
+            color = 'white' if values[y][x] > 1.5 else 'black'
             plt.text(x + 0.5, y + 0.5, '%.2f' % values[y][x],
                      horizontalalignment='center',
                      verticalalignment='center',
