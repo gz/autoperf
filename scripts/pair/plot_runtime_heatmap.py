@@ -90,7 +90,7 @@ def heatmap(location, data):
     fig, ax = plt.subplots()
     label_font = font_manager.FontProperties(family='Supria Sans', size=10)
     ticks_font = font_manager.FontProperties(family='Decima Mono')
-    plt.style.use([os.path.join(sys.path[0], 'ethplot.mplstyle')])
+    plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 
     ax.set_xticklabels(data.index)
     ax.set_yticklabels(data.columns)
@@ -122,7 +122,7 @@ def heatmap(location, data):
     print range(data.shape[0])
     for x in range(data.shape[1]):
         for y in range(data.shape[0]):
-            color = 'white' if values[y][x] > 1.5 else 'black'
+            color = 'white' if values[y][x] > 1.4 else 'black'
             plt.text(x + 0.5, y + 0.5, '%.2f' % values[y][x],
                      horizontalalignment='center',
                      verticalalignment='center',

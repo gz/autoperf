@@ -4,6 +4,7 @@ sudo pip install --upgrade pip
 sudo pip install pandas numpy ascii_graph
 curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
 source $HOME/.cargo/env
+sudo apt-get install likwid cpuid hwloc numactl util-linux
 cd autoperf
 rustup override set nightly
 cargo run --release -- stats
@@ -13,9 +14,9 @@ sudo sh -c 'echo 0 >> /proc/sys/kernel/kptr_restrict'
 sudo sh -c 'echo 0 > /proc/sys/kernel/nmi_watchdog'
 sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'
 
-route add default gw 10.110.4.4 eno1
+sudo route del default gw 10.110.4.1 eno1
+sudo route add default gw 10.110.4.4 eno1
 
-route add default gw 10.110.4.97 eno1
 
 Thhis worked:
 Kernel IP routing table
