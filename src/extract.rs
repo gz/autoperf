@@ -119,7 +119,7 @@ fn parse_perf_csv_file(mt: &MachineTopology,
             let value = u64::from_str(value_string.trim()).expect("Should be a value by now!");
 
             if breakpoints.len() >= 1 && value == 1 &&
-               event_name.ends_with(breakpoints[0].as_str()) {
+               event_name.ends_with(breakpoints[0].as_str()) && cpus.iter().any(|c| c.cpu == cpu_nr) {
                 if start.is_some() {
                     error!("{:?}: Start breakpoint ({:?}) triggered multiple times.",
                            path.as_os_str(),
@@ -128,7 +128,7 @@ fn parse_perf_csv_file(mt: &MachineTopology,
                 start = Some(time.to_string())
             }
             if breakpoints.len() >= 2 && value == 1 &&
-               event_name.ends_with(breakpoints[1].as_str()) {
+               event_name.ends_with(breakpoints[1].as_str()) && cpus.iter().any(|c| c.cpu == cpu_nr) {
                 if end.is_some() {
                     error!("{:?}: End breakpoint ({:?}) triggered multiple times.",
                            path.as_os_str(),
