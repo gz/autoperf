@@ -460,12 +460,19 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
         .expect("Error in manifest.toml: 'experiment' should be a table.");
     let configuration: &[toml::Value] = experiment["configurations"]
         .as_slice()
-        .expect("Error in manifest.toml: 'configuration' attribute should be an array.");
+        .expect("Error in manifest.toml: 'configuration' attribute should be a list.");
     let configs: Vec<String> = configuration.iter()
         .map(|s| s.as_str().expect("configuration elements should be strings").to_string())
         .collect();
     let run_alone: bool = experiment.get("alone")
         .map_or(true, |v| v.as_bool().expect("'alone' should be boolean"));
+    let profile_only: Option<Vec<String>> = experiment.get("profile_only")
+        .map(|progs| progs.as_slice()
+                          .expect("Error in manifest.toml: 'profile_only' should be a list.")
+                          .into_iter()
+                          .map(|p| p.as_str().expect("profile_only elements should name programs (strings)").to_string())
+                          .collect());
+
 
     let mut programs: Vec<Program> = Vec::with_capacity(2);
     for (key, value) in &doc {
@@ -536,6 +543,9 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
 
     // Run programs pairwise together
     for (a, b) in runs.into_iter().skip(start).step(stepping) {
+        if profile_only.as_ref().map_or(false, |ps| !ps.contains(&a.name)) {
+            continue;
+        }
 
         for d in deployments.iter() {
             if b.is_none() && (!run_alone || !a.alone) {
