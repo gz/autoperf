@@ -55,8 +55,8 @@ fn parse_perf_csv_file(mt: &MachineTopology,
     let mut parsed_rows: Vec<OutputRow> = Vec::with_capacity(5000);
 
     // Timestamps for filtering start and end:
-    let mut start: Option<String> = None;
-    let mut end: Option<String> = None;
+    let mut start: Option<f64> = None;
+    let mut end: Option<f64> = None;
 
     let mut rdr =
         csv::Reader::from_file(path).unwrap().has_headers(false).delimiter(b';').flexible(true);
@@ -125,16 +125,21 @@ fn parse_perf_csv_file(mt: &MachineTopology,
                            path.as_os_str(),
                            breakpoints[0]);
                 }
-                start = Some(time.to_string())
+                start = Some(time)
             }
             if breakpoints.len() >= 2 && value == 1 &&
                event_name.ends_with(breakpoints[1].as_str()) && cpus.iter().any(|c| c.cpu == cpu_nr) {
-                if end.is_some() {
-                    error!("{:?}: End breakpoint ({:?}) triggered multiple times.",
+                if cpus.first().unwrap().cpu != cpu_nr {
+                    warn!("{:?}: End breakpoint ({:?}) not triggered on first cpu.",
                            path.as_os_str(),
                            breakpoints[1]);
                 }
-                end = Some(time.to_string())
+                if end.is_some() {
+                    warn!("{:?}: End breakpoint ({:?}) triggered multiple times. Update end breakpoint.",
+                           path.as_os_str(),
+                           breakpoints[1]);
+                }
+                end = Some(time)
             }
 
             parsed_rows.push((event_name,
@@ -168,9 +173,17 @@ fn parse_perf_csv_file(mt: &MachineTopology,
                path.as_os_str(),
                breakpoints[1]);
     }
-    // debug!("Filter out everything except: {:?} -- {:?}", start, end);
+    if breakpoints.len() == 2 && end.is_some() && start.is_some() {
+        if end.unwrap_or(0.0) < start.unwrap_or(0.0) {
+            error!("{:?}: End breakpoint is before start breakpoint ({:?} -- {:?})",
+                   path.as_os_str(),
+                   start, end);
+        }
+    }
 
     let mut is_recording: bool = start.is_none();
+    let start = start.map(|s| s.to_string());
+    let end = end.map(|s| s.to_string());
     for r in parsed_rows {
         let (event_name, time, socket, core, cpu, node, unit, value): OutputRow = r;
 
