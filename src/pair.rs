@@ -277,6 +277,9 @@ impl<'a> Program<'a> {
                               self.manifest_path.to_str().unwrap())));
             env.push((String::from("PARSEC_CPU_NUM"), format!("{}", cpus.len())));
             env.push((String::from("PARSEC_CPU_BASE"), format!("{}", cpus.join(","))));
+            if antagonist {
+                env.push((String::from("PARSEC_REPEAT"), String::from("1")));
+            }
         }
 
         env
@@ -354,9 +357,6 @@ impl<'a> Run<'a> {
             // Add the environment:
             for (key, value) in env {
                 cmd.env(key, value);
-            }
-            if !b.use_watch_repeat {
-                cmd.env("PARSEC_REPEAT", "1");
             }
 
             match cmd.spawn() {
