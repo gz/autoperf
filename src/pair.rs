@@ -8,6 +8,8 @@ use std::path::PathBuf;
 use std::process::{Command, Child, Stdio};
 use std::str::{FromStr, from_utf8_unchecked};
 use std::fmt;
+use std::time::Duration;
+use wait_timeout::ChildExt;
 use rustc_serialize::Encodable;
 use itertools::Itertools;
 
@@ -390,18 +392,33 @@ impl<'a> Run<'a> {
         self.save_run_information();
 
         // Profile together with B
-        let mut maybe_app_b = self.start_b();
+        let mut maybe_app_b: Option<Child> = self.start_b();
 
         try!(self.profile_a());
 
         match maybe_app_b {
-            Some(mut app_b) => {
-                // Done, do clean-up:
-                try!(app_b.kill());
-                app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
-                app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
-            }
-            None => (),
+            Some(mut app_b) =>  match app_b.wait_timeout(Duration::from_millis(200)).unwrap() {
+                Some(status) => {
+                    // The Application B has already exited, this means it probably crashed
+                    // while we were profiling (bad). We can't use these results.
+                    app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
+                    app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
+
+                    let mut completed_path = self.output_path.clone();
+                    completed_path.push("completed");
+                    try!(fs::remove_file(completed_path));
+
+                    panic!("B has crashed during measurements {:?}. This is bad.", status.code());
+                    // TODO: save error code and continue (?)
+                },
+                None => {
+                    try!(app_b.kill());
+                    try!(app_b.wait());
+                    app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
+                    app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
+                }
+            },
+            None => {}
         };
 
         Ok(())

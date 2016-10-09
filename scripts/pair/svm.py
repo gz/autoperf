@@ -17,10 +17,8 @@ def add_to_classifier(X, Y):
     return (X, Y)
 
 def make_matrix(results_file, output_file):
-    print "Processing", results_file
     df = load_as_X(results_file, aggregate_samples='meanstd', cut_off_nan=True)
     df.to_csv(output_file, index=False)
-
 
 if __name__ == '__main__':
     pd.set_option('display.max_rows', 10)
@@ -46,10 +44,15 @@ if __name__ == '__main__':
                     results_path = os.path.join(sys.argv[1], config, "{}_vs_{}".format(A, B))
                     results_file = os.path.join(results_path, RESULTS_FILE)
                     output_file = os.path.join(results_path, OUT_FILE)
-                    if not os.path.exists(output_file):
-                        pool.apply_async(make_matrix, (results_file, output_file))
+
+                    if os.path.exists(os.path.join(results_path, 'completed')):
+                        if not os.path.exists(output_file):
+                            print "Processing {} vs. {}".format(A, B)
+                            pool.apply_async(make_matrix, (results_file, output_file))
+                        else:
+                            print "{} already exists, skipping.".format(output_file)
                     else:
-                        print "{} already exists, skipping.".format(output_file)
+                        print "Exclude unfinished directory {}".format(results_path)
 
     pool.close()
     pool.join()

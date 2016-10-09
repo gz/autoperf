@@ -82,6 +82,9 @@ def get_runtime_dataframe(data_directory):
                 print "{}: High standard deviation {} with mean {}.".format(root, row['A std'], row['A mean'])
 
             row_list.append(row)
+        else:
+            print "Exclude unfinished directory {}".format(root)
+
 
     return pd.DataFrame(row_list)
 

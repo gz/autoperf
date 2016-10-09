@@ -15,6 +15,7 @@ extern crate perfcnt;
 extern crate rustc_serialize;
 extern crate toml;
 extern crate phf;
+extern crate wait_timeout;
 #[macro_use]
 extern crate itertools;
 
@@ -82,7 +83,7 @@ fn main() {
         };
         let uncore_filter: &str = matches.value_of("uncore").unwrap_or("exclusive");
         let core_filter: &str = matches.value_of("core").unwrap_or("exclusive");
-        
+
         extract(input_directory, core_filter, uncore_filter, &output_path.as_path());
     }
     if let Some(matches) = matches.subcommand_matches("pair") {

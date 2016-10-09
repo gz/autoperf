@@ -25,6 +25,8 @@ def extract_all(data_directory):
 
             filename = os.path.join(root, "results_uncore_none.csv")
             subprocess.call([AUTOPERF_PATH, "extract", "-u", "none", "-o", filename, root])
+        else:
+            print "Exclude unfinished directory {}".format(root)
 
 
 
