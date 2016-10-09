@@ -569,10 +569,12 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
 
     // Run programs pairwise together
     for (a, b) in runs.into_iter().skip(start).step(stepping) {
-        if profile_only.as_ref().map_or(false, |ps| !ps.contains(&a.name)) {
+        let skip_a = profile_only.as_ref().map_or(false, |ps| !ps.contains(&a.name));
+        if skip_a {
             continue;
         }
-        if !b.is_none() && profile_only_b.as_ref().map_or(false, |ps| !ps.contains(&b.unwrap().name)) {
+        let skip_b = !b.is_none() && profile_only_b.as_ref().map_or(false, |ps| !ps.contains(&b.unwrap().name));
+        if skip_b {
             continue;
         }
 
