@@ -15,8 +15,7 @@ from matplotlib.colors import Normalize, LinearSegmentedColormap
 
 colors = LinearSegmentedColormap.from_list('seismic', ["#ca0020", "#2ca25f"])
 
-
-def get_pairwise_runtime_dataframe(data_directory):
+def get_runtime_dataframe(data_directory):
     """
     Walks through all subdirectories in the results directory.
     Then finds all that have a 'completed' file and gathers all
@@ -86,6 +85,37 @@ def get_pairwise_runtime_dataframe(data_directory):
 
     return pd.DataFrame(row_list)
 
+
+def get_runtime_pivot_tables(df):
+    """
+    Takes as input the dataframe provided by 'get_runtime_dataframe'.
+
+    Returns as output a list of tuples (config, pivot table) for every configuration
+    that shows the runtimes of the program of every row running together with
+    the program of the column normalized (compared to running alone).
+    """
+    df = df.set_index('config')
+
+    tables = []
+    for idx in df.index.unique():
+        sub_df = df.ix[idx]
+
+        normalize_by = {}
+        for (key, row) in sub_df.iterrows():
+            if row['B'] == None:
+                normalize_by[row['A']] = row['A mean']
+        def add_normalized(x):
+            x['A alone'] = normalize_by[x['A']]
+            x['A mean normalized'] = x['A mean'] / normalize_by[x['A']]
+            return x
+
+        sub_df = sub_df.apply(add_normalized, axis=1, reduce=False)
+        pivot_table = sub_df.pivot_table(index='A', columns='B', values='A mean normalized')
+        tables.append( (idx, pivot_table) )
+
+    return tables
+
+
 def heatmap(location, data):
     fig, ax = plt.subplots()
     label_font = font_manager.FontProperties(family='Supria Sans', size=10)
@@ -108,18 +138,7 @@ def heatmap(location, data):
 
     c = plt.pcolor(data, cmap = cm.Greys, vmin=1.0, vmax=1.5)
 
-    #colorbar = plt.colorbar(c, drawedges=False)
-    #colorbar.outline.set_linewidth(0)
-    #labels = np.arange(0, 10, 1)
-    #colorbar.set_ticks(labels)
-    #colorbar.set_ticklabels([  str(i) + "%" for i in range(0, 10, 1) ])
-
     values = data.as_matrix()
-    print location
-    print data
-    print data.shape
-    print values
-    print range(data.shape[0])
     for x in range(data.shape[1]):
         for y in range(data.shape[0]):
             color = 'white' if values[y][x] > 1.4 else 'black'
@@ -128,11 +147,7 @@ def heatmap(location, data):
                      verticalalignment='center',
                      color=color,
                      fontproperties=ticks_font)
-    """
-    ax.grid(False)
-    ax = plt.gca()
-    ax.set_frame_on(False)
-    """
+
     for t in ax.xaxis.get_major_ticks():
         t.tick1On = False
         t.tick2On = False
@@ -146,24 +161,13 @@ def heatmap(location, data):
     plt.close()
 
 if __name__ == '__main__':
-    df = get_pairwise_runtime_dataframe(sys.argv[1])
+    pd.set_option('display.max_rows', 50)
+    pd.set_option('display.max_columns', 30)
+    pd.set_option('display.width', 160)
+
+    df = get_runtime_dataframe(sys.argv[1])
     df = df[['config', 'A', 'B', 'A mean', 'A std']]
     df.to_csv(os.path.join(sys.argv[1], "runtimes.csv"))
-    df.set_index('config', inplace=True)
 
-    for idx in df.index.unique():
-        sub_df = df.ix[idx]
-
-        normalize_by = {}
-        for (key, row) in sub_df.iterrows():
-            if row['B'] == None:
-                normalize_by[row['A']] = row['A mean']
-        def add_normalized(x):
-            x['A alone'] = normalize_by[x['A']]
-            x['A mean normalized'] = x['A mean'] / normalize_by[x['A']]
-            return x
-
-        sub_df = sub_df.apply(add_normalized, axis=1, reduce=False)
-        pivot_table = sub_df.pivot_table(index='A', columns='B', values='A mean normalized')
-
-        heatmap(os.path.join(sys.argv[1], idx), pivot_table)
+    for config, pivot_table in get_runtime_pivot_tables(df):
+        heatmap(os.path.join(sys.argv[1], config), pivot_table)

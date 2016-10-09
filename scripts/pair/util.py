@@ -1,6 +1,6 @@
 import pandas as pd
 
-def load_as_X(f, aggregate_samples=True, remove_zero=True, cut_off_nan=True):
+def load_as_X(f, aggregate_samples='mean', remove_zero=False, cut_off_nan=True):
     """
     Transform CSV file into a matrix X (used for most ML inputs).
     The rows will be different times, the columns are the events.
@@ -16,26 +16,47 @@ def load_as_X(f, aggregate_samples=True, remove_zero=True, cut_off_nan=True):
 
     # Convert time
     time_to_ms(raw_data)
-
-    # Aggregate all event samples from the same event at time
-    if aggregate_samples:
-        grouped_df = raw_data.groupby(['EVENT_NAME', 'TIME']).sum()
-        grouped_df.reset_index(level=['TIME'], inplace=True)
-
-    # Remove events whose deltas are all 0:
-    if remove_zero:
-        df = grouped_df.drop(get_all_zero_events(grouped_df))
-        df = result_to_matrix(df)
+    #print raw_data
 
     # Cut off everything after first NaN value:
     if cut_off_nan:
-        cut_off = minimum_nan_index(df)
-        if cut_off != None:
-            df = df[:cut_off]
+        df = raw_data.groupby(['EVENT_NAME', 'TIME']).count()
+        df.reset_index(level=['TIME'], inplace=True)
+        sample_lengths = map(lambda group: len(df.loc[group, :]), df.index.unique())
+        cutoff = min(sample_lengths)
+        max_samples = max(sample_lengths)
+        if cutoff + 30 < max_samples:
+            print "Limiting to {} max is {}".format(cutoff, max_samples)
+
+
+    # Aggregate all event samples from the same event at time
+    if aggregate_samples:
+        if aggregate_samples == 'meanstd':
+            grouped_df = raw_data.groupby(['EVENT_NAME', 'TIME'])
+            df_mean = grouped_df.mean()
+            df_mean.rename(lambda event: "AVG.{}".format(event), inplace=True)
+
+            df_std = grouped_df.std(ddof=0)
+            df_std.rename(lambda event: "STD.{}".format(event), inplace=True)
+
+            df = pd.concat([df_mean, df_std], axis=0)
+        else:
+            assert "Unknown aggregation mode: {}. Supported are: [meanstd].".format(aggregate_samples)
+
+    df.reset_index(level=['TIME'], inplace=True)
+
+    # Remove events whose deltas are all 0:
+    if remove_zero:
+        df = df.drop(get_all_zero_events(df))
+
+    df = result_to_matrix(df, cutoff)
+    for idx, has_null in df.isnull().any(axis=1).iteritems():
+        if has_null:
+            assert "found nan in ", idx
 
     return df
 
-def result_to_matrix(df):
+def result_to_matrix(df, cutoff):
     """
     Transform the result as read from results.csv in a matrix of the following format:
 
@@ -52,7 +73,7 @@ def result_to_matrix(df):
     """
     frames = []
     for idx in df.index.unique():
-        series = df.loc[[idx], 'SAMPLE_VALUE']
+        series = df.loc[[idx], 'SAMPLE_VALUE'].head(cutoff)
         new_series = series.rename(idx).reset_index(drop=True)
         frames.append(new_series)
 
@@ -74,7 +95,12 @@ def minimum_nan_index(df):
     """
     for idx, has_null in df.isnull().any(axis=1).iteritems():
         if has_null:
+            print "found nan in ", idx
+    for idx, has_null in df.isnull().any(axis=1).iteritems():
+        if has_null:
+            print "nan offset", idx
             return idx
+
 
 def get_all_zero_events(df):
     """

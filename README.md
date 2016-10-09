@@ -46,18 +46,18 @@ $ sudo pip install pandas numpy ascii_graph scipy toml pydotplus sklearn
   * Full-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are left idle).
   * Full-SMT-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are used).
 
-# Current deplyoyments are
- b1: L3-SMT-cores
- b2: Full-cores
- b3: Full-L3
- b4: L3-SMT
-
 # TODO
+  * Create one big SVM matrix, evaluate with one program removed [uncore: shared, exclusive, all]
+  * Put plots, SVM accuracty in the paper
+  * Add figure to paper [events]
+  * Add eval program descriptions / data size to paper
+  * Add machine description to paper
+  * put heatmaps them in the paper
+  * Fix and redo all AA700 antagonist runs (crashed in --repeat)! Check CNEAL as well!
 Not today:
-  * The breakpoints need to be aware on which CPU it triggers (one of program A)!
-  * Filter out offcore stuff
   * Scale out analysis
   * Wait a bit before A starts (to warm-up b)
+  - TODO: Should probably have return codes in perf.csv and check them as well!
 
 
 # Related projects
