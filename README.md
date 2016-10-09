@@ -53,7 +53,6 @@ $ sudo pip install pandas numpy ascii_graph scipy toml pydotplus sklearn
   * Add eval program descriptions / data size to paper
   * Add machine description to paper
   * put heatmaps them in the paper
-  * Fix and redo all AA700 antagonist runs (crashed in --repeat)! Check CNEAL as well!
 Not today:
   * Scale out analysis
   * Wait a bit before A starts (to warm-up b)
