@@ -79,7 +79,7 @@ if __name__ == '__main__':
     #print X_test
     X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
 
-    clf = svm.SVC()
+    clf = svm.SVC(kernel='poly', degree=1, coef0=250007)
     clf.fit(X.as_matrix(), Y.as_matrix())
     print "Test {}".format(args.test), clf.score(X_test, Y_test)
 
