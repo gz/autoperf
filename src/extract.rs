@@ -119,7 +119,8 @@ fn parse_perf_csv_file(mt: &MachineTopology,
             let value = u64::from_str(value_string.trim()).expect("Should be a value by now!");
 
             if breakpoints.len() >= 1 && value == 1 &&
-               event_name.ends_with(breakpoints[0].as_str()) && cpus.iter().any(|c| c.cpu == cpu_nr) {
+               event_name.ends_with(breakpoints[0].as_str()) &&
+               cpus.iter().any(|c| c.cpu == cpu_nr) {
                 if start.is_some() {
                     error!("{:?}: Start breakpoint ({:?}) triggered multiple times.",
                            path.as_os_str(),
@@ -128,16 +129,18 @@ fn parse_perf_csv_file(mt: &MachineTopology,
                 start = Some(time)
             }
             if breakpoints.len() >= 2 && value == 1 &&
-               event_name.ends_with(breakpoints[1].as_str()) && cpus.iter().any(|c| c.cpu == cpu_nr) {
+               event_name.ends_with(breakpoints[1].as_str()) &&
+               cpus.iter().any(|c| c.cpu == cpu_nr) {
                 if cpus.first().unwrap().cpu != cpu_nr {
                     warn!("{:?}: End breakpoint ({:?}) not triggered on first cpu.",
-                           path.as_os_str(),
-                           breakpoints[1]);
+                          path.as_os_str(),
+                          breakpoints[1]);
                 }
                 if end.is_some() {
-                    warn!("{:?}: End breakpoint ({:?}) triggered multiple times. Update end breakpoint.",
-                           path.as_os_str(),
-                           breakpoints[1]);
+                    warn!("{:?}: End breakpoint ({:?}) triggered multiple times. Update end \
+                           breakpoint.",
+                          path.as_os_str(),
+                          breakpoints[1]);
                 }
                 end = Some(time)
             }
@@ -177,7 +180,8 @@ fn parse_perf_csv_file(mt: &MachineTopology,
         if end.unwrap_or(0.0) < start.unwrap_or(0.0) {
             error!("{:?}: End breakpoint is before start breakpoint ({:?} -- {:?})",
                    path.as_os_str(),
-                   start, end);
+                   start,
+                   end);
         }
     }
 
@@ -226,8 +230,7 @@ fn parse_perf_csv_file(mt: &MachineTopology,
             sockets.contains(&socket) && cpus.iter().any(|c| c.cbox(mt) == unit.trim())
         } else if unit.starts_with("uncore") {
             sockets.contains(&socket)
-        }
-        else {
+        } else {
             error!("Unkown unit '{}', not included!", unit);
             false
         };
@@ -338,10 +341,6 @@ pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Pat
         error!("Input directory does not exist {:?}", path);
         process::exit(1);
     }
-    if save_to.exists() {
-        error!("Output file already exists {:?}", save_to);
-        process::exit(2);
-    }
 
     let mut run_config: PathBuf = path.to_path_buf();
     run_config.push("run.toml");
@@ -401,21 +400,24 @@ pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Pat
     match uncore_filter {
         Filter::Exclusive => {
             for socket in all_sockets.into_iter() {
-                let socket_set: HashSet<Cpu> = mt.cpus_on_socket(socket).iter().map(|c| c.cpu).collect();
+                let socket_set: HashSet<Cpu> =
+                    mt.cpus_on_socket(socket).iter().map(|c| c.cpu).collect();
                 let program_set: HashSet<Cpu> = all_cpus.iter().map(|c| c.cpu).collect();
                 let diff: Vec<Cpu> = socket_set.difference(&program_set).cloned().collect();
 
                 if diff.len() == 0 {
-                    debug!("Uncore from socket {:?} considered since A uses it exclusively.", socket);
+                    debug!("Uncore from socket {:?} considered since A uses it exclusively.",
+                           socket);
                     considered_sockets.push(socket);
                 }
             }
-        },
+        }
         Filter::All => considered_sockets.append(&mut mt.sockets()),
         Filter::Shared => {
-            debug!("Uncore from sockets {:?} added since A uses these sockets at least partially.", all_sockets);
+            debug!("Uncore from sockets {:?} added since A uses these sockets at least partially.",
+                   all_sockets);
             considered_sockets.append(&mut all_sockets);
-        },
+        }
         Filter::None => debug!("Ignore all uncore events."),
     };
 
@@ -454,7 +456,13 @@ pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Pat
                     .unwrap()
             }
             "csv" => {
-                parse_perf_csv_file(&mt, &all_cpus, cpu_filter, &considered_sockets, &breakpoints, perf_data.as_path(), &mut wrtr)
+                parse_perf_csv_file(&mt,
+                                    &all_cpus,
+                                    cpu_filter,
+                                    &considered_sockets,
+                                    &breakpoints,
+                                    perf_data.as_path(),
+                                    &mut wrtr)
                     .unwrap()
             }
             _ => panic!("Unknown file extension, I can't parse this."),

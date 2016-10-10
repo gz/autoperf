@@ -7,38 +7,48 @@ Calls extract on all result folders.
 import sys
 import os
 import subprocess
+import argparse
 
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
 
-def extract_all(data_directory):
-    for root, dirs, files in os.walk(sys.argv[1]):
+def extract_all(data_directory, uncore, overwrite):
+    for root, dirs, files in os.walk(args.data_directory):
         if os.path.exists(os.path.join(root, 'completed')):
             print "Processing", root
-            filename = os.path.join(root, "results_uncore_all.csv")
-            subprocess.call([AUTOPERF_PATH, "extract", "-u", "all", "-o", filename, root])
 
-            filename = os.path.join(root, "results_uncore_shared.csv")
-            subprocess.call([AUTOPERF_PATH, "extract", "-u", "shared", "-o", filename, root])
+            if "uncore" in uncore:
+                filename = os.path.join(root, "results_uncore_all.csv")
+                if overwrite or not os.path.exists(filename):
+                    subprocess.call([AUTOPERF_PATH, "extract", "-u", "all", "-o", filename, root])
 
-            filename = os.path.join(root, "results_uncore_exclusive.csv")
-            subprocess.call([AUTOPERF_PATH, "extract", "-u", "exclusive", "-o", filename, root])
+            if "shared" in uncore:
+                filename = os.path.join(root, "results_uncore_shared.csv")
+                if overwrite or not os.path.exists(filename):
+                    subprocess.call([AUTOPERF_PATH, "extract", "-u", "shared", "-o", filename, root])
 
-            filename = os.path.join(root, "results_uncore_none.csv")
-            subprocess.call([AUTOPERF_PATH, "extract", "-u", "none", "-o", filename, root])
+            if "exclusive" in uncore:
+                filename = os.path.join(root, "results_uncore_exclusive.csv")
+                if overwrite or not os.path.exists(filename):
+                    subprocess.call([AUTOPERF_PATH, "extract", "-u", "exclusive", "-o", filename, root])
+
+            if "none" in uncore:
+                filename = os.path.join(root, "results_uncore_none.csv")
+                if overwrite or not os.path.exists(filename):
+                    subprocess.call([AUTOPERF_PATH, "extract", "-u", "none", "-o", filename, root])
         else:
             print "Exclude unfinished directory {}".format(root)
 
 
 
 if __name__ == '__main__':
-    if len(sys.argv) >= 2:
-        data_directory = sys.argv[1]
-    else:
-        print "Usage: %s <data directory>" % sys.argv[0]
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description='Generates one big results CSV files from all the perf CSV files.')
+    parser.add_argument('data_directory', type=str, help="Data directory root.")
+    parser.add_argument('--uncore', dest='uncore', nargs='+', type=str, help="What uncore counters to include [all, shared, exclusive, none].", default='shared')
+    parser.add_argument('--overwrite', dest='overwrite', type=bool, help="Overwrite the file if it already exists.")
+    args = parser.parse_args()
 
     if not os.path.exists(AUTOPERF_PATH) and not os.path.isfile(AUTOPERF_PATH):
         print "autoperf binary not found, do cargo build --release first!"
         sys.exit(2)
 
-    extract_all(data_directory)
+    extract_all(args.data_directory, args.uncore, args.overwrite)
