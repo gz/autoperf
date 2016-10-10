@@ -22,9 +22,9 @@ if __name__ == '__main__':
     pd.set_option('display.width', 160)
 
     parser = argparse.ArgumentParser(description='Generates X and Y matrix files for use with ML algorithms.')
+    parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.", default=False)
+    parser.add_argument('--uncore', dest='uncore', nargs='?', type=str, help="What uncore counters to include.", default=['shared'], choices=['all', 'shared', 'exclusive', 'none'])
     parser.add_argument('data_directory', type=str, help="Data directory root.")
-    parser.add_argument('--uncore', dest='uncore', nargs='+', type=str, help="What uncore counters to include [all, shared, exclusive, none].", default=['shared'])
-    parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.")
     args = parser.parse_args()
 
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
         results_file = os.path.join(results_path, RESULTS_FILE)
         output_file = os.path.join(results_path, OUT_FILE)
-        
+
         if os.path.exists(os.path.join(results_path, 'completed')):
             for uncore in args.uncore:
                 results_file = os.path.join(results_path, RESULTS_FILE.format(uncore))
@@ -62,6 +62,6 @@ if __name__ == '__main__':
                     print "{} already exists, skipping.".format(output_file)
         else:
             print "Exclude unfinished directory {}".format(results_path)
-    
+
     pool.close()
     pool.join()
