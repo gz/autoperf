@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import os
 import sys
 import time
@@ -30,7 +29,7 @@ if __name__ == '__main__':
 
 
     ## Settings:
-    PARALLELISM = 6
+    PARALLELISM = 8
     RESULTS_FILE = 'results_uncore_{}.csv'
     OUT_FILE = 'matrix_X_uncore_{}.csv'
 
