@@ -17,6 +17,13 @@ from matplotlib.colors import Normalize, LinearSegmentedColormap
 colors = LinearSegmentedColormap.from_list('seismic', ["#ca0020", "#2ca25f"])
 
 def get_runtime_dataframe(data_directory):
+    runtimes_file = os.path.join(data_directory, 'runtimes.csv')
+    if os.path.exists(runtimes_file):
+        df.to_csv(os.path.join(runtimes_file), index=False)
+    else:
+        print "{} does not exist yet, make sure you call scripts/pair/runtimes.py!".format(runtimes_file)
+
+def compute_runtime_dataframe(data_directory):
     """
     Walks through all subdirectories in the results directory.
     Then finds all that have a 'completed' file and gathers all
@@ -92,7 +99,7 @@ def get_runtime_dataframe(data_directory):
 
 def get_runtime_pivot_tables(df):
     """
-    Takes as input the dataframe provided by 'get_runtime_dataframe'.
+    Takes as input the dataframe provided by 'compute_runtime_dataframe'.
 
     Returns as output a list of tuples (config, pivot table) for every configuration
     that shows the runtimes of the program of every row running together with
@@ -173,9 +180,9 @@ if __name__ == '__main__':
     parser.add_argument('data_directory', type=str, help="Data directory root.")
     args = parser.parse_args()
 
-    df = get_runtime_dataframe(args.data_directory)
+    df = compute_runtime_dataframe(args.data_directory)
     df = df[['config', 'A', 'B', 'A mean', 'A std']]
-    df.to_csv(os.path.join(args.data_directory, "runtimes.csv"))
+    df.to_csv(os.path.join(args.data_directory, "runtimes.csv"), index=False)
 
     for config, pivot_table in get_runtime_pivot_tables(df):
         heatmap(os.path.join(args.data_directory, config), pivot_table)

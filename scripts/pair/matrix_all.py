@@ -11,11 +11,6 @@ import numpy as np
 from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from util import *
 
-def add_to_classifier(X, Y):
-    X = None
-    Y = None
-    return (X, Y)
-
 def make_matrix(results_file, output_file):
     df = load_as_X(results_file, aggregate_samples='meanstd', cut_off_nan=True)
     df.to_csv(output_file, index=False)
