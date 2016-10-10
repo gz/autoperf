@@ -113,7 +113,7 @@ def get_runtime_pivot_tables(df):
 
         normalize_by = {}
         for (key, row) in sub_df.iterrows():
-            if row['B'] == None:
+            if row['B'] == None or pd.isnull(row['B']):
                 normalize_by[row['A']] = row['A mean']
         def add_normalized(x):
             x['A alone'] = normalize_by[x['A']]
