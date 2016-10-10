@@ -22,7 +22,7 @@ def extract_all(data_directory, uncore, overwrite):
                     subprocess.call([AUTOPERF_PATH, "extract", "-u", "all", "-o", filename, root])
                 else:
                     print "{} exists, skipping".format(filename)
-                    
+
             if "shared" in uncore:
                 filename = os.path.join(root, "results_uncore_shared.csv")
                 if overwrite or not os.path.exists(filename):

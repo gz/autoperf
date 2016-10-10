@@ -174,12 +174,12 @@ fn parse_perf_csv_file(mt: &MachineTopology,
     if breakpoints.len() == 2 && end.is_some() && start.is_some() {
         let start_s = start.unwrap_or(0.0);
         let end_s = end.unwrap_or(0.0);
-        if end_s < start_s {
+        if end_s <= start_s {
             error!("{:?}: End breakpoint is before start breakpoint ({:?} -- {:?})",
                    path.as_os_str(),
                    start,
                    end);
-        } else if (end_s - start_s) < 2.0 {
+        } else if (end_s - start_s) < 1.0 {
             warn!("Region of interest very short ({} s)", end_s - start_s);
         }
     }
