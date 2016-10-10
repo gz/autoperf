@@ -51,7 +51,7 @@ def extract_all(data_directory, uncore, overwrite):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generates one big results CSV files from all the perf CSV files.')
     parser.add_argument('data_directory', type=str, help="Data directory root.")
-    parser.add_argument('--uncore', dest='uncore', nargs='+', type=str, help="What uncore counters to include [all, shared, exclusive, none].", default='shared')
+    parser.add_argument('--uncore', dest='uncore', nargs='+', type=str, help="What uncore counters to include [all, shared, exclusive, none].", default=['shared'])
     parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.")
     args = parser.parse_args()
 

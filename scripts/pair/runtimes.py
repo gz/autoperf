@@ -19,7 +19,7 @@ colors = LinearSegmentedColormap.from_list('seismic', ["#ca0020", "#2ca25f"])
 def get_runtime_dataframe(data_directory):
     runtimes_file = os.path.join(data_directory, 'runtimes.csv')
     if os.path.exists(runtimes_file):
-        df.to_csv(os.path.join(runtimes_file), index=False)
+        return pd.read_csv(os.path.join(runtimes_file))
     else:
         print "{} does not exist yet, make sure you call scripts/pair/runtimes.py!".format(runtimes_file)
 

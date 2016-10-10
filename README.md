@@ -30,6 +30,12 @@ Python:
 $ sudo pip install pandas numpy ascii_graph scipy toml pydotplus sklearn tabulate
 ```
 
+# Workflow
+
+python scripts/pair/runtimes.py
+python scripts/pair/extract_all.py
+python scripts/pair/matrix_all.py
+
 # Stuff not documented in perf
   * PCU has umask which is supposed to be and'ed with event= attribute (from pmu-tools ucevent.py)
   * Intel Unit to perf device translation (libpfm4 source code and ucevent.py)
