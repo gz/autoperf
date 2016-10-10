@@ -20,21 +20,29 @@ def extract_all(data_directory, uncore, overwrite):
                 filename = os.path.join(root, "results_uncore_all.csv")
                 if overwrite or not os.path.exists(filename):
                     subprocess.call([AUTOPERF_PATH, "extract", "-u", "all", "-o", filename, root])
-
+                else:
+                    print "{} exists, skipping".format(filename)
+                    
             if "shared" in uncore:
                 filename = os.path.join(root, "results_uncore_shared.csv")
                 if overwrite or not os.path.exists(filename):
                     subprocess.call([AUTOPERF_PATH, "extract", "-u", "shared", "-o", filename, root])
+                else:
+                    print "{} exists, skipping".format(filename)
 
             if "exclusive" in uncore:
                 filename = os.path.join(root, "results_uncore_exclusive.csv")
                 if overwrite or not os.path.exists(filename):
                     subprocess.call([AUTOPERF_PATH, "extract", "-u", "exclusive", "-o", filename, root])
+                else:
+                    print "{} exists, skipping".format(filename)
 
             if "none" in uncore:
                 filename = os.path.join(root, "results_uncore_none.csv")
                 if overwrite or not os.path.exists(filename):
                     subprocess.call([AUTOPERF_PATH, "extract", "-u", "none", "-o", filename, root])
+                else:
+                    print "{} exists, skipping".format(filename)
         else:
             print "Exclude unfinished directory {}".format(root)
 
@@ -44,7 +52,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generates one big results CSV files from all the perf CSV files.')
     parser.add_argument('data_directory', type=str, help="Data directory root.")
     parser.add_argument('--uncore', dest='uncore', nargs='+', type=str, help="What uncore counters to include [all, shared, exclusive, none].", default='shared')
-    parser.add_argument('--overwrite', dest='overwrite', type=bool, help="Overwrite the file if it already exists.")
+    parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.")
     args = parser.parse_args()
 
     if not os.path.exists(AUTOPERF_PATH) and not os.path.isfile(AUTOPERF_PATH):
