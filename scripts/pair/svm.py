@@ -14,20 +14,16 @@ from util import *
 from sklearn import svm
 from sklearn.model_selection import cross_val_score
 
-def make_matrix(results_file, output_file):
-    df = load_as_X(results_file, aggregate_samples='meanstd', cut_off_nan=True)
-    df.to_csv(output_file, index=False)
-
 if __name__ == '__main__':
     pd.set_option('display.max_rows', 10)
     pd.set_option('display.max_columns', 5)
     pd.set_option('display.width', 160)
 
     parser = argparse.ArgumentParser(description='Get the SVM accuracy for all programs.')
-    parser.add_argument('data_directory', type=str, help="Data directory root.")
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).")
-    parser.add_argument('--uncore', dest='uncore', nargs='+', type=str, help="What uncore counters to include.", default='shared')
+    parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.", default='shared')
     parser.add_argument('--test', dest='test', nargs='+', type=str, help="Which programs to use as the test set.")
+    parser.add_argument('data_directory', type=str, help="Data directory root.")
     args = parser.parse_args()
 
     ## Settings:
@@ -48,13 +44,13 @@ if __name__ == '__main__':
                 for (i, normalized_runtime) in enumerate(values):
                     B = table.columns[i]
 
-                    classification = 1 if normalized_runtime > CLASSIFIER_CUTOFF else 0
+                    classification = 'Y' if normalized_runtime > CLASSIFIER_CUTOFF else 'N'
                     results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
                     matrix_file = os.path.join(results_path, MATRIX_FILE)
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
                         if not os.path.exists(matrix_file):
-                            print "No matrix file found, run the scripts/pair/matrix.py script first!"
+                            print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
                             sys.exit(1)
                         df = pd.read_csv(matrix_file, index_col=False)
 
@@ -78,6 +74,9 @@ if __name__ == '__main__':
     X_test['Y'] = Y_test
     #print X_test
     X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
+
+    X['Y'] = X['Y'].map(lambda x: 1 if x == 'Y' else 0)
+    X_test['Y'] = X_test['Y'].map(lambda x: 1 if x == 'Y' else 0)
 
     clf = svm.SVC(kernel='poly', degree=1, coef0=250007)
     clf.fit(X.as_matrix(), Y.as_matrix())

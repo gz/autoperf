@@ -7,6 +7,7 @@ out of it.
 
 import sys
 import os
+import argparse
 import pandas as pd
 import numpy as np
 import matplotlib.cm as cm
@@ -38,7 +39,7 @@ def get_runtime_dataframe(data_directory):
     GREEN_MARL_TIME_PATTERN = "running time="
 
     row_list = []
-    for root, dirs, files in os.walk(sys.argv[1]):
+    for root, dirs, files in os.walk(data_directory):
         if os.path.exists(os.path.join(root, 'completed')):
             row = {}
 
@@ -168,9 +169,13 @@ if __name__ == '__main__':
     pd.set_option('display.max_columns', 30)
     pd.set_option('display.width', 160)
 
-    df = get_runtime_dataframe(sys.argv[1])
+    parser = argparse.ArgumentParser(description='Gather all runtimes and plot heatmaps.')
+    parser.add_argument('data_directory', type=str, help="Data directory root.")
+    args = parser.parse_args()
+
+    df = get_runtime_dataframe(args.data_directory)
     df = df[['config', 'A', 'B', 'A mean', 'A std']]
-    df.to_csv(os.path.join(sys.argv[1], "runtimes.csv"))
+    df.to_csv(os.path.join(args.data_directory, "runtimes.csv"))
 
     for config, pivot_table in get_runtime_pivot_tables(df):
-        heatmap(os.path.join(sys.argv[1], config), pivot_table)
+        heatmap(os.path.join(args.data_directory, config), pivot_table)
