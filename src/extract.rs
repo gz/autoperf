@@ -131,11 +131,6 @@ fn parse_perf_csv_file(mt: &MachineTopology,
             if breakpoints.len() >= 2 && value == 1 &&
                event_name.ends_with(breakpoints[1].as_str()) &&
                cpus.iter().any(|c| c.cpu == cpu_nr) {
-                if cpus.first().unwrap().cpu != cpu_nr {
-                    warn!("{:?}: End breakpoint ({:?}) not triggered on first cpu.",
-                          path.as_os_str(),
-                          breakpoints[1]);
-                }
                 if end.is_some() {
                     warn!("{:?}: End breakpoint ({:?}) triggered multiple times. Update end \
                            breakpoint.",
@@ -177,11 +172,15 @@ fn parse_perf_csv_file(mt: &MachineTopology,
                breakpoints[1]);
     }
     if breakpoints.len() == 2 && end.is_some() && start.is_some() {
-        if end.unwrap_or(0.0) < start.unwrap_or(0.0) {
+        let start_s = start.unwrap_or(0.0);
+        let end_s = end.unwrap_or(0.0);
+        if end_s < start_s {
             error!("{:?}: End breakpoint is before start breakpoint ({:?} -- {:?})",
                    path.as_os_str(),
                    start,
                    end);
+        } else if (end_s - start_s) < 2.0 {
+            warn!("Region of interest very short ({} s)", end_s - start_s);
         }
     }
 
