@@ -13,6 +13,7 @@ from util import *
 
 from sklearn import svm
 from sklearn import metrics
+from sklearn import preprocessing
 
 if __name__ == '__main__':
     pd.set_option('display.max_rows', 10)
@@ -49,7 +50,7 @@ if __name__ == '__main__':
                     for (i, normalized_runtime) in enumerate(values):
                         B = table.columns[i]
 
-                        classification = 1 if normalized_runtime > CLASSIFIER_CUTOFF else 0
+                        classification = True if normalized_runtime > CLASSIFIER_CUTOFF else False
                         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
                         matrix_file = os.path.join(results_path, MATRIX_FILE)
                         #print A, B, normalized_runtime, classification
@@ -71,10 +72,13 @@ if __name__ == '__main__':
                         else:
                             print "Exclude unfinished directory {}".format(results_path)
 
-        print test, config
-        clf = svm.SVC(kernel='poly', degree=1, coef0=0)
-        clf.fit(X.as_matrix(), Y.as_matrix())
-        Y_pred = clf.predict(X_test)
+        print test
+        clf = svm.SVC(kernel='poly', degree=1)
+        X_norm = preprocessing.normalize(X.as_matrix(), norm='l2', copy=True)
+        X_test_norm = preprocessing.normalize(X_test.as_matrix(), norm='l2', copy=True)
+
+        clf.fit(X_norm, Y)
+        Y_pred = clf.predict(X_test_norm)
 
         row = {}
         row['Config'] = ' '.join(args.config)
@@ -88,6 +92,7 @@ if __name__ == '__main__':
         row['F1 score'] = "%.2f" % metrics.f1_score(Y_test, Y_pred)
         row['Accuracy'] = "%.2f" % metrics.accuracy_score(Y_test, Y_pred)
         results_table = results_table.append(row, ignore_index=True)
+        print results_table
 
         #print "{}: Accuracy {}".format(test, metrics.accuracy_score(Y_test, Y_pred))
         #print "{}: Error {}".format(test, 1.0 - metrics.accuracy_score(Y_test, Y_pred))
@@ -102,8 +107,8 @@ if __name__ == '__main__':
             X['Y'] = Y
             X_test['Y'] = Y_test
 
-            X['Y'] = X['Y'].map(lambda x: 'Y' if x == 1 else 'N')
-            X_test['Y'] = X_test['Y'].map(lambda x: 'Y' if x == 1 else 'N')
+            X['Y'] = X['Y'].map(lambda x: 'Y' if x else 'N')
+            X_test['Y'] = X_test['Y'].map(lambda x: 'Y' if x else 'N')
 
             X.to_csv(os.path.join(args.data_directory, training_file_name), index=False)
             X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
