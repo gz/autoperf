@@ -13,30 +13,29 @@ from util import *
 
 from sklearn import svm
 from sklearn import metrics
+from sklearn import preprocessing
+from sklearn.feature_selection import RFECV
 
 if __name__ == '__main__':
-    pd.set_option('display.max_rows', 10)
-    pd.set_option('display.max_columns', 5)
+    pd.set_option('display.max_rows', 1000)
+    pd.set_option('display.max_columns', 10)
     pd.set_option('display.width', 160)
 
     parser = argparse.ArgumentParser(description='Get the SVM parameters for all programs.')
     parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
     parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
-    parser.add_argument('--weka', dest='weka', action='store_true', default=False, help='Save files for Weka')
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).")
     parser.add_argument('data_directory', type=str, help="Data directory root.")
     args = parser.parse_args()
 
     ## Settings:
-    MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
     CLASSIFIER_CUTOFF = args.cutoff
 
     results_table = pd.DataFrame()
     runtimes = get_runtime_dataframe(args.data_directory)
 
     for test in sorted(runtimes['A'].unique()):
-    #for test in ['CNEAL']:
         X = pd.DataFrame()
         Y = pd.Series()
 
@@ -49,7 +48,7 @@ if __name__ == '__main__':
                     for (i, normalized_runtime) in enumerate(values):
                         B = table.columns[i]
 
-                        classification = 1 if normalized_runtime > CLASSIFIER_CUTOFF else 0
+                        classification = True if normalized_runtime > CLASSIFIER_CUTOFF else False
                         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
                         matrix_file = os.path.join(results_path, MATRIX_FILE)
                         #print A, B, normalized_runtime, classification
@@ -59,55 +58,18 @@ if __name__ == '__main__':
                                 print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
                                 sys.exit(1)
                             df = pd.read_csv(matrix_file, index_col=False)
-
-                            if A == test or B == test:
-                                #print "Adding {} vs {} to test set".format(A, B), classification
-                                Y_test = pd.concat([Y_test, pd.Series([classification for _ in range(0, df.shape[0])])])
-                                X_test = pd.concat([X_test, df])
-                            else:
-                                #print "Adding {} vs {} to training set".format(A, B), classification
-                                Y = pd.concat([Y, pd.Series([classification for _ in range(0, df.shape[0])])])
-                                X = pd.concat([X, df])
+                            Y = pd.concat([Y, pd.Series([classification for _ in range(0, df.shape[0])])])
+                            X = pd.concat([X, df])
                         else:
                             print "Exclude unfinished directory {}".format(results_path)
 
-        print test, config
-        clf = svm.SVC(kernel='poly', degree=1, coef0=0)
-        clf.fit(X.as_matrix(), Y.as_matrix())
-        Y_pred = clf.predict(X_test)
+        clf = svm.SVC(kernel='linear')
 
-        row = {}
-        row['Config'] = ' '.join(args.config)
-        row['Test App'] = test
-        Y_counts = Y.value_counts(sort=False)
-        Y_test_counts = Y_test.value_counts(sort=False)
-        row['Samples detail'] = "({}, {}) / ({}, {})".format(Y_counts[0], Y_counts[1], Y_test_counts[0], Y_test_counts[1])
-        row['Samples'] = "{} / {}".format(len(Y), len(Y_test))
-        row['Error'] = "%.2f" % (1.0 - metrics.accuracy_score(Y_test, Y_pred))
-        row['Precision/Recall'] = "%.2f / %.2f" % (metrics.precision_score(Y_test, Y_pred), metrics.recall_score(Y_test, Y_pred))
-        row['F1 score'] = "%.2f" % metrics.f1_score(Y_test, Y_pred)
-        row['Accuracy'] = "%.2f" % metrics.accuracy_score(Y_test, Y_pred)
-        results_table = results_table.append(row, ignore_index=True)
+        min_max_scaler = preprocessing.MinMaxScaler()
+        X_scaled = min_max_scaler.fit_transform(X)
 
-        #print "{}: Accuracy {}".format(test, metrics.accuracy_score(Y_test, Y_pred))
-        #print "{}: Error {}".format(test, 1.0 - metrics.accuracy_score(Y_test, Y_pred))
-        #print "{}: Precision {}".format(test, metrics.precision_score(Y_test, Y_pred))
-        #print "{}: Recall {}".format(test, metrics.recall_score(Y_test, Y_pred))
-        #print "{}: F1 {}".format(test, metrics.f1_score(Y_test, Y_pred))
+        selector = RFECV(clf, step=1, cv=5)
+        selector = selector.fit(X_scaled, Y)
 
-        if args.weka:
-            training_file_name = 'svm_training_without_{}_{}_uncore_{}.csv'.format(test, '_'.join(args.config), args.uncore)
-            test_file_name = 'svm_test_{}_{}_uncore_{}.csv'.format(test, '_'.join(args.config), args.uncore)
-
-            X['Y'] = Y
-            X_test['Y'] = Y_test
-
-            X['Y'] = X['Y'].map(lambda x: 'Y' if x == 1 else 'N')
-            X_test['Y'] = X_test['Y'].map(lambda x: 'Y' if x == 1 else 'N')
-
-            X.to_csv(os.path.join(args.data_directory, training_file_name), index=False)
-            X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
-
-    #results_table = results_table.set_index('Config')
-    results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
-    print results_table.to_latex(index=False)
+        print selector.support_
+        print selector.ranking_

@@ -71,7 +71,7 @@ if __name__ == '__main__':
                         else:
                             print "Exclude unfinished directory {}".format(results_path)
 
-        clf = svm.SVC(kernel='poly', degree=1)
+        clf = svm.SVC(kernel='linear')
 
         min_max_scaler = preprocessing.MinMaxScaler()
         X_scaled = min_max_scaler.fit_transform(X)
