@@ -191,7 +191,7 @@ fn get_events() -> Vec<&'static EventDescription> {
     events
 }
 
-#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
+#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone, PartialOrd, Ord)]
 pub enum MonitoringUnit {
     /// Devices
     CPU,
@@ -227,20 +227,20 @@ pub enum MonitoringUnit {
 impl fmt::Display for MonitoringUnit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            MonitoringUnit::CPU => write!(f, "MonitoringUnit::CPU"),
-            MonitoringUnit::Arb => write!(f, "MonitoringUnit::Arb"),
-            MonitoringUnit::CBox => write!(f, "MonitoringUnit::CBox"),
-            MonitoringUnit::SBox => write!(f, "MonitoringUnit::SBox"),
-            MonitoringUnit::UBox => write!(f, "MonitoringUnit::UBox"),
-            MonitoringUnit::QPI => write!(f, "MonitoringUnit::QPI"),
-            MonitoringUnit::R3QPI => write!(f, "MonitoringUnit::R3QPI"),
-            MonitoringUnit::QPI_LL => write!(f, "MonitoringUnit::QPI_LL"),
-            MonitoringUnit::IRP => write!(f, "MonitoringUnit::IRP"),
-            MonitoringUnit::R2PCIe => write!(f, "MonitoringUnit::R2PCIe"),
-            MonitoringUnit::IMC => write!(f, "MonitoringUnit::IMC"),
-            MonitoringUnit::HA => write!(f, "MonitoringUnit::HA"),
-            MonitoringUnit::PCU => write!(f, "MonitoringUnit::PCU"),
-            MonitoringUnit::Unknown(s) => write!(f, "MonitoringUnit::Unknown({})", s),
+            MonitoringUnit::CPU => write!(f, "CPU"),
+            MonitoringUnit::Arb => write!(f, "Arb"),
+            MonitoringUnit::CBox => write!(f, "CBox"),
+            MonitoringUnit::SBox => write!(f, "SBox"),
+            MonitoringUnit::UBox => write!(f, "UBox"),
+            MonitoringUnit::QPI => write!(f, "QPI"),
+            MonitoringUnit::R3QPI => write!(f, "R3QPI"),
+            MonitoringUnit::QPI_LL => write!(f, "QPI_LL"),
+            MonitoringUnit::IRP => write!(f, "IRP"),
+            MonitoringUnit::R2PCIe => write!(f, "R2PCIe"),
+            MonitoringUnit::IMC => write!(f, "IMC"),
+            MonitoringUnit::HA => write!(f, "HA"),
+            MonitoringUnit::PCU => write!(f, "PCU"),
+            MonitoringUnit::Unknown(s) => write!(f, "{}", s),
         }
     }
 }
@@ -297,7 +297,7 @@ impl MonitoringUnit {
 
 
 #[derive(Debug)]
-struct PerfEvent(&'static EventDescription);
+pub struct PerfEvent(pub &'static EventDescription);
 
 impl PerfEvent {
     /// Returns all possible configurations of the event.
@@ -344,7 +344,7 @@ impl PerfEvent {
         self.0.unit.is_some()
     }
 
-    fn unit(&self) -> MonitoringUnit {
+    pub fn unit(&self) -> MonitoringUnit {
         self.0.unit.map_or(MonitoringUnit::CPU, |u| MonitoringUnit::new(u))
     }
 

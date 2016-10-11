@@ -29,7 +29,8 @@ if __name__ == '__main__':
     parser.add_argument('data_directory', type=str, help="Data directory root.")
     args = parser.parse_args()
 
-    ## Settings:
+    ## Settings, n_jobs=8:
+    MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
     CLASSIFIER_CUTOFF = args.cutoff
 
     results_table = pd.DataFrame()
@@ -68,7 +69,7 @@ if __name__ == '__main__':
         min_max_scaler = preprocessing.MinMaxScaler()
         X_scaled = min_max_scaler.fit_transform(X)
 
-        selector = RFECV(clf, step=1, cv=5)
+        selector = RFECV(clf, step=1, cv=5, n_jobs=8)
         selector = selector.fit(X_scaled, Y)
 
         print selector.support_

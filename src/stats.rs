@@ -4,13 +4,16 @@ use std::fs;
 use std::fs::File;
 use std::path::Path;
 use std::collections::HashMap;
+use std::cmp::Ord;
 use phf::Map;
 use csv;
+use itertools::Itertools;
 
 use x86::shared::perfcnt;
 use x86::shared::perfcnt::intel::EventDescription;
 
 use super::util::*;
+use super::profile::{MonitoringUnit, PerfEvent};
 
 type EventMap = Map<&'static str, EventDescription>;
 type ArchitectureMap = HashMap<&'static str, (&'static str, &'static str, &'static str)>;
@@ -18,7 +21,7 @@ type ArchitectureMap = HashMap<&'static str, (&'static str, &'static str, &'stat
 /// Saves the event count for all architectures to a file.
 fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
     let mut writer = csv::Writer::from_file(csv_result).unwrap();
-    writer.encode(&["year", "architecture", "core events", "uncore events", "counters"]).unwrap();
+    writer.encode(&["year", "architecture", "core events", "uncore events", "counters", "uncore groups"]).unwrap();
 
     for (key, &(name, year, counters)) in key_to_name.iter() {
         let core_counters =
@@ -26,15 +29,39 @@ fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
         let uncore_counters =
             perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-uncore", key).as_str());
 
+        let counter_groups: Vec<(MonitoringUnit, usize)> = uncore_counters.map_or(Vec::new(), |uc| {
+            let mut units: Vec<(MonitoringUnit, PerfEvent)> = Vec::with_capacity(uc.len());
+            for ref e in uc.values() {
+                units.push((PerfEvent(&e).unit(), PerfEvent(&e)));
+            }
+            units.sort_by(|a, b| a.0.cmp(&b.0));
+
+            let mut counts: Vec<(MonitoringUnit, usize)> = Vec::with_capacity(10);
+            for (key, group) in &units.into_iter().group_by(|&(unit, _)| unit) {
+                counts.push((key, group.count()));
+            }
+
+            counts
+        });
+
 
         let cc_count = core_counters.map(|c| c.len()).unwrap_or(0);
         let uc_count = uncore_counters.map(|c| c.len()).unwrap_or(0);
-        writer.encode(&[year,
-                      name,
-                      cc_count.to_string().as_str(),
-                      uc_count.to_string().as_str(),
-                      counters])
-            .unwrap();
+
+
+        let group_string = counter_groups.into_iter().map(|(u, c)| format!("{}:{}", u, c) ).join(";");
+        let cc_count = cc_count.to_string();
+        let uc_count = uc_count.to_string();
+
+        let mut row: Vec<&str> = Vec::new();
+        row.push(year);
+        row.push(name);
+        row.push(cc_count.as_str());
+        row.push(uc_count.as_str());
+        row.push(counters);
+        row.push(group_string.as_str());
+
+        writer.encode(&row.as_slice()).unwrap();
     }
 }
 
