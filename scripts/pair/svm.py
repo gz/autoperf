@@ -37,7 +37,6 @@ if __name__ == '__main__':
     runtimes = get_runtime_dataframe(args.data_directory)
 
     for test in sorted(runtimes['A'].unique()):
-    #for test in ['AA700']:
         X = pd.DataFrame()
         Y = pd.Series()
 
@@ -72,10 +71,7 @@ if __name__ == '__main__':
                         else:
                             print "Exclude unfinished directory {}".format(results_path)
 
-        print test
         clf = svm.SVC(kernel='poly', degree=1)
-        #X_norm = preprocessing.normalize(X.as_matrix(), norm='max', copy=True)
-        #X_test_norm = preprocessing.normalize(X_test.as_matrix(), norm='max', copy=True)
 
         min_max_scaler = preprocessing.MinMaxScaler()
         X_scaled = min_max_scaler.fit_transform(X)
@@ -98,16 +94,13 @@ if __name__ == '__main__':
         results_table = results_table.append(row, ignore_index=True)
         print results_table
 
-        #print "{}: Accuracy {}".format(test, metrics.accuracy_score(Y_test, Y_pred))
-        #print "{}: Error {}".format(test, 1.0 - metrics.accuracy_score(Y_test, Y_pred))
-        #print "{}: Precision {}".format(test, metrics.precision_score(Y_test, Y_pred))
-        #print "{}: Recall {}".format(test, metrics.recall_score(Y_test, Y_pred))
-        #print "{}: F1 {}".format(test, metrics.f1_score(Y_test, Y_pred))
-
         if args.weka:
             training_file_name = 'svm_training_without_{}_{}_uncore_{}.csv'.format(test, '_'.join(args.config), args.uncore)
             test_file_name = 'svm_test_{}_{}_uncore_{}.csv'.format(test, '_'.join(args.config), args.uncore)
 
+            # TODO: Weka has a bug when the 2nd class appears late in the vector it will think this
+            # file has only one class and complain. THe solutionis to make sure both class label appear
+            # directly for example as first and 2nd row XD
             X['Y'] = Y
             X_test['Y'] = Y_test
 
@@ -117,6 +110,5 @@ if __name__ == '__main__':
             X.to_csv(os.path.join(args.data_directory, training_file_name), index=False)
             X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
 
-    #results_table = results_table.set_index('Config')
     results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
     print results_table.to_latex(index=False)
