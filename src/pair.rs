@@ -400,27 +400,30 @@ impl<'a> Run<'a> {
         try!(self.profile_a());
 
         match maybe_app_b {
-            Some(mut app_b) =>  match app_b.wait_timeout(Duration::from_millis(200)).unwrap() {
-                Some(status) => {
-                    // The Application B has already exited, this means it probably crashed
-                    // while we were profiling (bad). We can't use these results.
-                    app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
-                    app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
+            Some(mut app_b) => {
+                match app_b.wait_timeout(Duration::from_millis(200)).unwrap() {
+                    Some(status) => {
+                        // The Application B has already exited, this means it probably crashed
+                        // while we were profiling (bad). We can't use these results.
+                        app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
+                        app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
 
-                    let mut completed_path = self.output_path.clone();
-                    completed_path.push("completed");
-                    try!(fs::remove_file(completed_path));
+                        let mut completed_path = self.output_path.clone();
+                        completed_path.push("completed");
+                        try!(fs::remove_file(completed_path));
 
-                    panic!("B has crashed during measurements {:?}. This is bad.", status.code());
-                    // TODO: save error code and continue (?)
-                },
-                None => {
-                    try!(app_b.kill());
-                    try!(app_b.wait());
-                    app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
-                    app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
+                        panic!("B has crashed during measurements {:?}. This is bad.",
+                               status.code());
+                        // TODO: save error code and continue (?)
+                    }
+                    None => {
+                        try!(app_b.kill());
+                        try!(app_b.wait());
+                        app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
+                        app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
+                    }
                 }
-            },
+            }
             None => {}
         };
 
@@ -487,17 +490,29 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
     let run_alone: bool = experiment.get("alone")
         .map_or(true, |v| v.as_bool().expect("'alone' should be boolean"));
     let profile_only: Option<Vec<String>> = experiment.get("profile_only")
-        .map(|progs| progs.as_slice()
-                          .expect("Error in manifest.toml: 'profile_only' should be a list.")
-                          .into_iter()
-                          .map(|p| p.as_str().expect("profile_only elements should name programs (strings)").to_string())
-                          .collect());
+        .map(|progs| {
+            progs.as_slice()
+                .expect("Error in manifest.toml: 'profile_only' should be a list.")
+                .into_iter()
+                .map(|p| {
+                    p.as_str()
+                        .expect("profile_only elements should name programs (strings)")
+                        .to_string()
+                })
+                .collect()
+        });
     let profile_only_b: Option<Vec<String>> = experiment.get("profile_only_b")
-        .map(|progs| progs.as_slice()
-                          .expect("Error in manifest.toml: 'profile_only_b' should be a list.")
-                          .into_iter()
-                          .map(|p| p.as_str().expect("profile_only_b elements should name programs (strings)").to_string())
-                          .collect());
+        .map(|progs| {
+            progs.as_slice()
+                .expect("Error in manifest.toml: 'profile_only_b' should be a list.")
+                .into_iter()
+                .map(|p| {
+                    p.as_str()
+                        .expect("profile_only_b elements should name programs (strings)")
+                        .to_string()
+                })
+                .collect()
+        });
 
 
     let mut programs: Vec<Program> = Vec::with_capacity(2);
@@ -570,11 +585,9 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
     // Run programs pairwise together
     for (a, b) in runs.into_iter().skip(start).step(stepping) {
         let skip_a = profile_only.as_ref().map_or(false, |ps| !ps.contains(&a.name));
-        if skip_a {
-            continue;
-        }
-        let skip_b = !b.is_none() && profile_only_b.as_ref().map_or(false, |ps| !ps.contains(&b.unwrap().name));
-        if skip_b {
+        let skip_b = !b.is_none() &&
+                     profile_only_b.as_ref().map_or(false, |ps| !ps.contains(&b.unwrap().name));
+        if skip_a && skip_b {
             continue;
         }
 
