@@ -16,6 +16,8 @@ TODO: explain manifest
 Dependencies:
 ```
 $ sudo apt-get install likwid cpuid hwloc numactl util-linux
+For parsec binary (swaptons):
+$ sudo apt-get install libtbb2
 ```
 
 Rust:

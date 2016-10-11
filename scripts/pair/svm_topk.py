@@ -13,11 +13,10 @@ from util import *
 
 from sklearn import svm
 from sklearn import metrics
-from sklearn import preprocessing
 
 if __name__ == '__main__':
-    pd.set_option('display.max_rows', 1000)
-    pd.set_option('display.max_columns', 10)
+    pd.set_option('display.max_rows', 10)
+    pd.set_option('display.max_columns', 5)
     pd.set_option('display.width', 160)
 
     parser = argparse.ArgumentParser(description='Get the SVM parameters for all programs.')
@@ -37,7 +36,7 @@ if __name__ == '__main__':
     runtimes = get_runtime_dataframe(args.data_directory)
 
     for test in sorted(runtimes['A'].unique()):
-    #for test in ['AA700']:
+    #for test in ['CNEAL']:
         X = pd.DataFrame()
         Y = pd.Series()
 
@@ -50,7 +49,7 @@ if __name__ == '__main__':
                     for (i, normalized_runtime) in enumerate(values):
                         B = table.columns[i]
 
-                        classification = True if normalized_runtime > CLASSIFIER_CUTOFF else False
+                        classification = 1 if normalized_runtime > CLASSIFIER_CUTOFF else 0
                         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
                         matrix_file = os.path.join(results_path, MATRIX_FILE)
                         #print A, B, normalized_runtime, classification
@@ -72,17 +71,10 @@ if __name__ == '__main__':
                         else:
                             print "Exclude unfinished directory {}".format(results_path)
 
-        print test
-        clf = svm.SVC(kernel='poly', degree=1)
-        #X_norm = preprocessing.normalize(X.as_matrix(), norm='max', copy=True)
-        #X_test_norm = preprocessing.normalize(X_test.as_matrix(), norm='max', copy=True)
-
-        min_max_scaler = preprocessing.MinMaxScaler()
-        X_scaled = min_max_scaler.fit_transform(X)
-        X_test_scaled = min_max_scaler.transform(X_test)
-
-        clf.fit(X_scaled, Y)
-        Y_pred = clf.predict(X_test_scaled)
+        print test, config
+        clf = svm.SVC(kernel='poly', degree=1, coef0=0)
+        clf.fit(X.as_matrix(), Y.as_matrix())
+        Y_pred = clf.predict(X_test)
 
         row = {}
         row['Config'] = ' '.join(args.config)
@@ -96,7 +88,6 @@ if __name__ == '__main__':
         row['F1 score'] = "%.2f" % metrics.f1_score(Y_test, Y_pred)
         row['Accuracy'] = "%.2f" % metrics.accuracy_score(Y_test, Y_pred)
         results_table = results_table.append(row, ignore_index=True)
-        print results_table
 
         #print "{}: Accuracy {}".format(test, metrics.accuracy_score(Y_test, Y_pred))
         #print "{}: Error {}".format(test, 1.0 - metrics.accuracy_score(Y_test, Y_pred))
@@ -111,8 +102,8 @@ if __name__ == '__main__':
             X['Y'] = Y
             X_test['Y'] = Y_test
 
-            X['Y'] = X['Y'].map(lambda x: 'Y' if x else 'N')
-            X_test['Y'] = X_test['Y'].map(lambda x: 'Y' if x else 'N')
+            X['Y'] = X['Y'].map(lambda x: 'Y' if x == 1 else 'N')
+            X_test['Y'] = X_test['Y'].map(lambda x: 'Y' if x == 1 else 'N')
 
             X.to_csv(os.path.join(args.data_directory, training_file_name), index=False)
             X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
