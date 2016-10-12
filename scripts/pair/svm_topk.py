@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import argparse
+import multiprocessing
 
 import pandas as pd
 import numpy as np
@@ -36,41 +37,49 @@ if __name__ == '__main__':
     results_table = pd.DataFrame()
     runtimes = get_runtime_dataframe(args.data_directory)
 
-    for test in sorted(runtimes['A'].unique()):
-        X = pd.DataFrame()
-        Y = pd.Series()
+    X = pd.DataFrame()
+    Y = pd.Series()
 
-        X_test = pd.DataFrame()
-        Y_test = pd.Series()
+    X_test = pd.DataFrame()
+    Y_test = pd.Series()
 
-        for config, table in get_runtime_pivot_tables(runtimes):
-            if config in args.config:
-                for (A, values) in table.iterrows():
-                    for (i, normalized_runtime) in enumerate(values):
-                        B = table.columns[i]
+    for config, table in get_runtime_pivot_tables(runtimes):
+        if config in args.config:
+            for (A, values) in table.iterrows():
+                for (i, normalized_runtime) in enumerate(values):
+                    B = table.columns[i]
 
-                        classification = True if normalized_runtime > CLASSIFIER_CUTOFF else False
-                        results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
-                        matrix_file = os.path.join(results_path, MATRIX_FILE)
-                        #print A, B, normalized_runtime, classification
+                    classification = True if normalized_runtime > CLASSIFIER_CUTOFF else False
+                    results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
+                    matrix_file = os.path.join(results_path, MATRIX_FILE)
+                    #print A, B, normalized_runtime, classification
 
-                        if os.path.exists(os.path.join(results_path, 'completed')):
-                            if not os.path.exists(matrix_file):
-                                print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
-                                sys.exit(1)
-                            df = pd.read_csv(matrix_file, index_col=False)
-                            Y = pd.concat([Y, pd.Series([classification for _ in range(0, df.shape[0])])])
-                            X = pd.concat([X, df])
-                        else:
-                            print "Exclude unfinished directory {}".format(results_path)
+                    if os.path.exists(os.path.join(results_path, 'completed')):
+                        if not os.path.exists(matrix_file):
+                            print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
+                            sys.exit(1)
+                        df = pd.read_csv(matrix_file, index_col=False)
+                        Y = pd.concat([Y, pd.Series([classification for _ in range(0, df.shape[0])])])
+                        X = pd.concat([X, df])
+                    else:
+                        print "Exclude unfinished directory {}".format(results_path)
 
-        clf = svm.SVC(kernel='linear')
+    clf = svm.SVC(kernel='linear')
 
-        min_max_scaler = preprocessing.MinMaxScaler()
-        X_scaled = min_max_scaler.fit_transform(X)
+    min_max_scaler = preprocessing.MinMaxScaler()
+    X_scaled = min_max_scaler.fit_transform(X)
 
-        selector = RFECV(clf, step=250, cv=1, n_jobs=8)
-        selector = selector.fit(X_scaled, Y)
+    selector = RFECV(clf, step=1, n_jobs=multiprocessing.cpu_count())
+    selector = selector.fit(X_scaled, Y)
 
-        print selector.support_
-        print selector.ranking_
+    df = pd.DataFrame()
+    for idx, (selected, feature) in enumerate(zip(selector.support_, X.columns)):
+        assert feature == X.columns[idx]
+        if selected:
+            row = { 'name': feature, 'column_index': str(idx), 'rank': selector.ranking_[idx] }
+            df = df.append(row, ignore_index=True)
+
+    rf_filename = 'RFECV_for_{}_uncore_{}.csv'.format('_'.join(args.config), args.uncore)
+    save_to = os.path.join(args.data_directory, rf_filename)
+    df.to_csv(save_to, index=False)
+    print "Just computed", save_to
