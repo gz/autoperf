@@ -37,6 +37,7 @@ $ sudo pip install pandas numpy ascii_graph scipy toml pydotplus sklearn tabulat
 python scripts/pair/runtimes.py
 python scripts/pair/extract_all.py
 python scripts/pair/matrix_all.py
+python scripts/pair/svm_topk.py ../results-babybel --config L3-SMT L3-SMT-cores  --features ../results-babybel/weka_cross_validated_cfssubset_bestfirst_L3-SMT_L3-SMT-cores.txt --ranking ../results-babybel/weka_correlation_ranking_L3-SMT_L3-SMT-cores.txt
 
 # Stuff not documented in perf
   * PCU has umask which is supposed to be and'ed with event= attribute (from pmu-tools ucevent.py)

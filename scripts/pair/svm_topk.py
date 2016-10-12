@@ -4,10 +4,11 @@ import os
 import sys
 import time
 import argparse
-import multiprocessing
+import re
 
 import pandas as pd
 import numpy as np
+from matplotlib import pyplot as plt, font_manager
 
 from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from util import *
@@ -15,72 +16,110 @@ from util import *
 from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
-from sklearn.feature_selection import RFECV
+
+from svm import get_training_and_test_set, get_svm_metrics
+
+def get_selected_events(weka_fold_file):
+    df = pd.DataFrame()
+    with open(weka_fold_file) as f:
+        for line in f.readlines():
+            regex = r"\s+(\d+)\(\s*(\d+)\s+%\)\s+(\d+)\s+(.*)"
+            matches = re.match(regex, line)
+            if matches:
+                fold = int(matches.group(1))
+                index = matches.group(3)
+                event = matches.group(4)
+
+                row = { 'column_index': index, 'name': event, 'folds': fold }
+                df = df.append(row, ignore_index=True)
+    return df
+
+def get_event_rankings(weka_rankings_file):
+    df = pd.DataFrame()
+    with open(weka_rankings_file) as f:
+        index = 0
+        for line in f.readlines():
+            splits = line.strip().split(' ')
+            # Assumes the event name is last in the line and starts with either AVG. or STD.
+            if splits[-1].startswith("AVG.") or splits[-1].startswith("STD."):
+                event = splits[-1]
+                row = { 'name': event, 'rank': index }
+                df = df.append(row, ignore_index=True)
+                index += 1
+    return df
+
+
+def error_plot(args, df):
+    ticks_font = font_manager.FontProperties(family='Decima Mono')
+    plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
+    fig = plt.figure()
+    ax1 = fig.add_subplot(1, 1, 1)
+    ax1.set_xlabel('Events [Count]')
+    ax1.set_ylabel('Error [%]')
+    ax1.spines['top'].set_visible(False)
+    ax1.spines['right'].set_visible(False)
+    ax1.get_xaxis().tick_bottom()
+    ax1.get_yaxis().tick_left()
+
+    p = ax1.plot(df['Error'], label="PR700")
+    plt.savefig("{}-error.png".format(args.test), format='png')
 
 if __name__ == '__main__':
-    pd.set_option('display.max_rows', 1000)
-    pd.set_option('display.max_columns', 10)
-    pd.set_option('display.width', 160)
+    pd.set_option('display.max_rows', 37)
+    pd.set_option('display.max_columns', 15)
+    pd.set_option('display.width', 200)
 
-    parser = argparse.ArgumentParser(description='Get the SVM parameters for all programs.')
+    parser = argparse.ArgumentParser(description='Get the SVM parameters when limiting the amount of features.')
     parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
     parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
+    parser.add_argument('--test', dest='test', type=str, help="Which program to use as a test set.")
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).")
+    parser.add_argument('--ranking', dest='ranking', type=str, help="Weka file containing feature rankings.")
+    parser.add_argument('--features', dest='features', type=str, help="Weka file containing reduced, relevant features.")
     parser.add_argument('data_directory', type=str, help="Data directory root.")
     args = parser.parse_args()
 
-    ## Settings, n_jobs=8:
-    MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
-    CLASSIFIER_CUTOFF = args.cutoff
+    #X_all, Y_all, X_test_all, Y_test_all = get_training_and_test_set(args, args.test)
 
-    results_table = pd.DataFrame()
-    runtimes = get_runtime_dataframe(args.data_directory)
+    # Add features, according to ranking, repeat
+    relevant_events = get_selected_events(args.features)
+    relevant_events = relevant_events[relevant_events.folds >= 0] # Now, really only take relevant ones :P
+    ranking_events = get_event_rankings(args.ranking)
+
+    event_list = pd.merge(relevant_events, ranking_events, on='name', sort=True)
+    event_list.sort_values(['folds', 'rank'], inplace=True)
+
+    assert args.test != None
+    X_all, Y, X_test_all, Y_test = get_training_and_test_set(args, args.test)
 
     X = pd.DataFrame()
-    Y = pd.Series()
-
     X_test = pd.DataFrame()
-    Y_test = pd.Series()
 
-    for config, table in get_runtime_pivot_tables(runtimes):
-        if config in args.config:
-            for (A, values) in table.iterrows():
-                for (i, normalized_runtime) in enumerate(values):
-                    B = table.columns[i]
+    results_table = pd.DataFrame()
+    for event in event_list.itertuples():
+        print event.name
+        X[event.name] = X_all[event.name]
+        X_test[event.name] = X_test_all[event.name]
 
-                    classification = True if normalized_runtime > CLASSIFIER_CUTOFF else False
-                    results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
-                    matrix_file = os.path.join(results_path, MATRIX_FILE)
-                    #print A, B, normalized_runtime, classification
+        clf = svm.SVC(kernel='linear')
+        min_max_scaler = preprocessing.MinMaxScaler()
+        X_scaled = min_max_scaler.fit_transform(X)
+        X_test_scaled = min_max_scaler.transform(X_test)
 
-                    if os.path.exists(os.path.join(results_path, 'completed')):
-                        if not os.path.exists(matrix_file):
-                            print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
-                            sys.exit(1)
-                        df = pd.read_csv(matrix_file, index_col=False)
-                        Y = pd.concat([Y, pd.Series([classification for _ in range(0, df.shape[0])])])
-                        X = pd.concat([X, df])
-                    else:
-                        print "Exclude unfinished directory {}".format(results_path)
+        clf.fit(X_scaled, Y)
+        Y_pred = clf.predict(X_test_scaled)
 
-    clf = svm.SVC(kernel='linear')
+        row = get_svm_metrics(args, args.test, Y, Y_test, Y_pred)
+        # TODO: append some more stuff here... how many features etc.
+        row['Event'] = event.name
 
-    min_max_scaler = preprocessing.MinMaxScaler()
-    X_scaled = min_max_scaler.fit_transform(X)
+        results_table = results_table.append(row, ignore_index=True)
+        #print results_table
 
-    print "Starting RFECV"
-    selector = RFECV(clf, step=1, cv=20, n_jobs=multiprocessing.cpu_count())
-    selector = selector.fit(X_scaled, Y)
-
-    df = pd.DataFrame()
-    for idx, (selected, feature) in enumerate(zip(selector.support_, X.columns)):
-        assert feature == X.columns[idx]
-        if selected:
-            row = { 'name': feature, 'column_index': str(idx), 'rank': selector.ranking_[idx] }
-            df = df.append(row, ignore_index=True)
-
-    rf_filename = 'RFECV_for_{}_uncore_{}.csv'.format('_'.join(args.config), args.uncore)
-    save_to = os.path.join(args.data_directory, rf_filename)
-    df.to_csv(save_to, index=False)
-    print "Just computed", save_to
+    # TODO: update what gets saved:
+    results_table = results_table[['Test App', 'Event', 'Samples', 'Error', 'Accuracy', 'Precision/Recall', 'F1 score']]
+    print results_table
+    error_plot(args, results_table)
+    #print results_table.to_latex(index=False)
+    # TODO: plot
