@@ -83,9 +83,9 @@ if __name__ == '__main__':
         row = {}
         row['Config'] = ' '.join(args.config)
         row['Test App'] = test
-        Y_counts = Y.value_counts(sort=False)
-        Y_test_counts = Y_test.value_counts(sort=False)
-        row['Samples detail'] = "({}, {}) / ({}, {})".format(Y_counts[0], Y_counts[1], Y_test_counts[0], Y_test_counts[1])
+        Y_counts = map(lambda x: str(x), Y.value_counts(sort=False))
+        Y_test_counts = map(lambda x: str(x), Y_test.value_counts(sort=False))
+        row['Samples detail'] = "({}) / ({})".format(', '.join(Y_counts), ', '.join(Y_test_counts))
         row['Samples'] = "{} / {}".format(len(Y), len(Y_test))
         row['Error'] = "%.2f" % (1.0 - metrics.accuracy_score(Y_test, Y_pred))
         row['Precision/Recall'] = "%.2f / %.2f" % (metrics.precision_score(Y_test, Y_pred), metrics.recall_score(Y_test, Y_pred))

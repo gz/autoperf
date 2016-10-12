@@ -62,7 +62,7 @@ def compute_runtime_dataframe(data_directory):
             df = pd.read_csv(perf_csv, skipinitialspace=True)
             # Because I was stupid and called stderr stdout originally
             stderr_key = 'stdin' if 'stdin' in df.columns else 'stderr'
-            if not df[stderr_key].isnull().values.all():
+            if not df[stderr_key].isnull().values.all() and not row['A'] in ['SWAPT', 'SCLUS']:
                 print root, "has errors. Don't put it in the matrix!"
                 continue
 

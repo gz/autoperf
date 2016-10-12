@@ -69,7 +69,7 @@ if __name__ == '__main__':
         min_max_scaler = preprocessing.MinMaxScaler()
         X_scaled = min_max_scaler.fit_transform(X)
 
-        selector = RFECV(clf, step=1, cv=5, n_jobs=8)
+        selector = RFECV(clf, step=250, cv=1, n_jobs=8)
         selector = selector.fit(X_scaled, Y)
 
         print selector.support_
