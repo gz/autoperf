@@ -69,7 +69,8 @@ if __name__ == '__main__':
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)
 
-    selector = RFECV(clf, step=1, n_jobs=multiprocessing.cpu_count())
+    print "Starting RFECV"
+    selector = RFECV(clf, step=1, cv=20, n_jobs=multiprocessing.cpu_count())
     selector = selector.fit(X_scaled, Y)
 
     df = pd.DataFrame()
