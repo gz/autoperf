@@ -75,14 +75,15 @@ if __name__ == '__main__':
     pd.set_option('display.width', 160)
 
     parser = argparse.ArgumentParser(description='Get the SVM parameters for all programs.')
+    parser.add_argument('--data', dest='data_directory', type=str, help="Data directory root.")
     parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
     parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
-    parser.add_argument('--weka', dest='weka', action='store_true', default=False, help='Save files for Weka')
-    parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).")
-    parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="List or programs to include for the test set.")
+    parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
+                        default=['L3-SMT', 'L3-SMT-cores'])
 
-    parser.add_argument('data_directory', type=str, help="Data directory root.")
+    parser.add_argument('--weka', dest='weka', action='store_true', default=False, help='Save files for Weka')
+    parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="List or programs to include for the test set.")
     args = parser.parse_args()
 
     results_table = pd.DataFrame()
@@ -131,6 +132,9 @@ if __name__ == '__main__':
             if test != [None]:
                 test_file_name = 'svm_test_{}_{}_uncore_{}.csv'.format('_'.join(test), '_'.join(args.config), args.uncore)
                 X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
+
+    svm_result_table_file = "svm_results_{}_uncore_{}.csv".format('_'.join(args.config), args.uncore)
+    results_table.to_csv(svm_result_table_file, index=False)
 
     results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
     print results_table.to_latex(index=False)

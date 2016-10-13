@@ -56,25 +56,35 @@ if __name__ == '__main__':
     pd.set_option('display.width', 200)
 
     parser = argparse.ArgumentParser(description='Get the SVM parameters when limiting the amount of features.')
+    parser.add_argument('--data', dest='data_directory', type=str, help="Data directory root.")
+
     parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
     parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
-    parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="Which programs to use as a test set.")
-    parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).")
+    parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
+                        default=['L3-SMT', 'L3-SMT-cores'])
     parser.add_argument('--cfs', dest='cfs', type=str, help="Weka file containing reduced, relevant features.")
-
-    parser.add_argument('data_directory', type=str, help="Data directory root.")
+    parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="Which programs to use as a test set.")
     args = parser.parse_args()
 
-    event_list = get_selected_events(args.cfs)
-    runtimes = get_runtime_dataframe(args.data_directory)
 
     if not args.tests:
+        runtimes = get_runtime_dataframe(args.data_directory)
         tests = map(lambda x: [x], sorted(runtimes['A'].unique()))
     else:
         tests = [args.tests]
 
     for test in tests:
+        if not args.cfs:
+            cfs_default_file = os.path.join(args.data_directory, "weka_{}_cfssubset_greedystepwise_{}.txt"
+                .format('_'.join(test), '_'.join(args.config)))
+            if not os.path.exists(cfs_default_file):
+                print "Skipping {} because we didn't find the cfs file {}".format(' '.join(test), cfs_default_file)
+                continue
+            event_list = get_selected_events(cfs_default_file)
+        else:
+            event_list = get_selected_events(args.cfs)
+
         X_all, Y, X_test_all, Y_test = get_training_and_test_set(args, test)
 
         X = pd.DataFrame()
