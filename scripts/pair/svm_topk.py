@@ -48,8 +48,7 @@ def get_event_rankings(weka_rankings_file):
                 index += 1
     return df
 
-
-def error_plot(args, df):
+def error_plot(args, test, df):
     ticks_font = font_manager.FontProperties(family='Decima Mono')
     plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
     fig = plt.figure()
@@ -61,8 +60,8 @@ def error_plot(args, df):
     ax1.get_xaxis().tick_bottom()
     ax1.get_yaxis().tick_left()
 
-    p = ax1.plot(df['Error'], label="PR700")
-    plt.savefig("{}-error.png".format(args.test), format='png')
+    p = ax1.plot(df['Error'], label=test)
+    plt.savefig("{}_{}_rfecv_corr_rank.png".format(test, '_'.join(args.config)), format='png')
 
 if __name__ == '__main__':
     pd.set_option('display.max_rows', 37)
@@ -77,49 +76,58 @@ if __name__ == '__main__':
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).")
     parser.add_argument('--ranking', dest='ranking', type=str, help="Weka file containing feature rankings.")
     parser.add_argument('--features', dest='features', type=str, help="Weka file containing reduced, relevant features.")
+    parser.add_argument('--rfecv-ranking', dest='rfecv', type=str, help="RFECV file containing feature rankings.")
+
     parser.add_argument('data_directory', type=str, help="Data directory root.")
     args = parser.parse_args()
 
-    #X_all, Y_all, X_test_all, Y_test_all = get_training_and_test_set(args, args.test)
-
     # Add features, according to ranking, repeat
-    relevant_events = get_selected_events(args.features)
-    relevant_events = relevant_events[relevant_events.folds >= 0] # Now, really only take relevant ones :P
-    ranking_events = get_event_rankings(args.ranking)
+    if not args.rfecv:
+        relevant_events = get_selected_events(args.features)
+        relevant_events = relevant_events[relevant_events.folds >= 1] # Now, really only take relevant ones :P
+        ranking_events = get_event_rankings(args.ranking)
+        event_list = pd.merge(relevant_events, ranking_events, on='name', sort=True)
+        event_list.sort_values(['folds', 'rank'], inplace=True)
+    else:
+        ranking_events = get_event_rankings(args.ranking)
+        relevant_events = pd.read_csv(args.rfecv)
+        event_list = pd.merge(relevant_events, ranking_events, on='name', sort=True)
+        event_list.sort_values(['rank_y'], inplace=True)
 
-    event_list = pd.merge(relevant_events, ranking_events, on='name', sort=True)
-    event_list.sort_values(['folds', 'rank'], inplace=True)
+    runtimes = get_runtime_dataframe(args.data_directory)
 
-    assert args.test != None
-    X_all, Y, X_test_all, Y_test = get_training_and_test_set(args, args.test)
+    if not args.test:
+        tests = sorted(runtimes['A'].unique()):
+    else:
+        tests = args.test
 
-    X = pd.DataFrame()
-    X_test = pd.DataFrame()
+    for test in tests:
+        X_all, Y, X_test_all, Y_test = get_training_and_test_set(args, test)
 
-    results_table = pd.DataFrame()
-    for event in event_list.itertuples():
-        print event.name
-        X[event.name] = X_all[event.name]
-        X_test[event.name] = X_test_all[event.name]
+        X = pd.DataFrame()
+        X_test = pd.DataFrame()
 
-        clf = svm.SVC(kernel='linear')
-        min_max_scaler = preprocessing.MinMaxScaler()
-        X_scaled = min_max_scaler.fit_transform(X)
-        X_test_scaled = min_max_scaler.transform(X_test)
+        results_table = pd.DataFrame()
+        for event in event_list.itertuples():
+            print event.name
+            X[event.name] = X_all[event.name]
+            X_test[event.name] = X_test_all[event.name]
 
-        clf.fit(X_scaled, Y)
-        Y_pred = clf.predict(X_test_scaled)
+            clf = svm.SVC(kernel='linear')
+            min_max_scaler = preprocessing.MinMaxScaler()
+            X_scaled = min_max_scaler.fit_transform(X)
+            X_test_scaled = min_max_scaler.transform(X_test)
 
-        row = get_svm_metrics(args, args.test, Y, Y_test, Y_pred)
-        # TODO: append some more stuff here... how many features etc.
-        row['Event'] = event.name
+            clf.fit(X_scaled, Y)
+            Y_pred = clf.predict(X_test_scaled)
 
-        results_table = results_table.append(row, ignore_index=True)
-        #print results_table
+            row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
+            row['Event'] = event.name
+            results_table = results_table.append(row, ignore_index=True)
 
-    # TODO: update what gets saved:
-    results_table = results_table[['Test App', 'Event', 'Samples', 'Error', 'Accuracy', 'Precision/Recall', 'F1 score']]
-    print results_table
-    error_plot(args, results_table)
-    #print results_table.to_latex(index=False)
-    # TODO: plot
+        results_table = results_table[['Test App', 'Event', 'Samples', 'Error', 'Accuracy', 'Precision/Recall', 'F1 score']]
+        print results_table
+        error_plot(args, test, results_table)
+
+        #print results_table.to_latex(index=False)
+        # TODO: plot

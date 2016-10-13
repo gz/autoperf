@@ -85,6 +85,7 @@ if __name__ == '__main__':
 
     results_table = pd.DataFrame()
 
+    runtimes = get_runtime_dataframe(args.data_directory)
     for test in [None] + sorted(runtimes['A'].unique()): # None here means we save the whole matrix as X (no training set)
         X, Y, X_test, Y_test = get_training_and_test_set(args, test)
 
