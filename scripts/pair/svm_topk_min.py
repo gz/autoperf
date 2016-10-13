@@ -23,14 +23,14 @@ def get_selected_events(weka_fold_file):
     df = pd.DataFrame()
     with open(weka_fold_file) as f:
         for line in f.readlines():
-            regex = r"\s+(\d+)\(\s*(\d+)\s+%\)\s+(\d+)\s+(.*)"
+            regex = r"\s+ [-+]?([0-9]*\.[0-9]+|[0-9]+)\s+(\d+)\s+(.*)"
             matches = re.match(regex, line)
             if matches:
-                fold = int(matches.group(1))
-                index = matches.group(3)
-                event = matches.group(4)
+                goodness = float(matches.group(1))
+                index = matches.group(2)
+                event = matches.group(3)
 
-                row = { 'column_index': index, 'name': event, 'folds': fold }
+                row = { 'index': index, 'name': event, 'goodness': goodness }
                 df = df.append(row, ignore_index=True)
     return df
 
@@ -61,7 +61,7 @@ def error_plot(args, filename, df):
     ax1.get_yaxis().tick_left()
 
     p = ax1.plot(df['Error'], label=test)
-    plt.savefig(filename + ".png", format='png')
+    plt.savefig(filename, format='png')
 
 if __name__ == '__main__':
     pd.set_option('display.max_rows', 37)
@@ -74,15 +74,15 @@ if __name__ == '__main__':
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
     parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="Which programs to use as a test set.")
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).")
-    parser.add_argument('--cfs', dest='cfs', type=str, help="Weka file containing reduced, relevant features using the CFS method.")
+    parser.add_argument('--cfs', dest='cfs', type=str, help="Weka file containing reduced, relevant, ranked features using the CFS method.")
 
     parser.add_argument('data_directory', type=str, help="Data directory root.")
     args = parser.parse_args()
 
     # Add features, according to ranking, repeat
     relevant_events = get_selected_events(args.cfs)
-    event_list = relevant_events[relevant_events.folds >= 5] # Now, really only take relevant ones :P
-    event_list.sort_values(['folds'], inplace=True)
+    #event_list = relevant_events[relevant_events.folds >= 5] # Now, really only take relevant ones :P
+    #event_list.sort_values(['folds'], inplace=True)
 
     runtimes = get_runtime_dataframe(args.data_directory)
 
@@ -154,6 +154,3 @@ if __name__ == '__main__':
 
         error_plot(args, filename + ".png", results_table)
         results_table.to_csv(filename + ".csv", index=False)
-
-        #print results_table.to_latex(index=False)
-        # TODO: plot

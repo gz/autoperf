@@ -58,7 +58,7 @@ def get_training_and_test_set(args, tests):
 def get_svm_metrics(args, test, Y, Y_test, Y_pred):
     row = {}
     row['Config'] = ' '.join(args.config)
-    row['Test App'] = test
+    row['Test App'] = ' '.join(test)
     Y_counts = map(lambda x: str(x), Y.value_counts(sort=False))
     Y_test_counts = map(lambda x: str(x), Y_test.value_counts(sort=False))
     row['Samples detail'] = "({}) / ({})".format(', '.join(Y_counts), ', '.join(Y_test_counts))
