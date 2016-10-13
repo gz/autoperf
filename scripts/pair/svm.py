@@ -15,7 +15,7 @@ from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
-def get_training_and_test_set(args, test):
+def get_training_and_test_set(args, tests):
     MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
 
     X = pd.DataFrame()
@@ -42,7 +42,7 @@ def get_training_and_test_set(args, test):
                             sys.exit(1)
                         df = pd.read_csv(matrix_file, index_col=False)
 
-                        if A == test or B == test:
+                        if A in tests or B in tests:
                             #print "Adding {} vs {} to test set".format(A, B), classification
                             Y_test = pd.concat([Y_test, pd.Series([classification for _ in range(0, df.shape[0])])])
                             X_test = pd.concat([X_test, df])
@@ -80,20 +80,27 @@ if __name__ == '__main__':
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
     parser.add_argument('--weka', dest='weka', action='store_true', default=False, help='Save files for Weka')
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).")
+    parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="List or programs to include for the test set.")
+
     parser.add_argument('data_directory', type=str, help="Data directory root.")
     args = parser.parse_args()
 
     results_table = pd.DataFrame()
 
-    runtimes = get_runtime_dataframe(args.data_directory)
-    for test in [None] + sorted(runtimes['A'].unique()): # None here means we save the whole matrix as X (no training set)
+    if not args.tests:
+        runtimes = get_runtime_dataframe(args.data_directory)
+        tests = map(lambda x: [x], [None] + sorted(runtimes['A'].unique())) # None here means we save the whole matrix as X (no training set)
+    else:
+        tests = [args.tests] # Pass the tests as a single set
+
+    for test in tests:
         X, Y, X_test, Y_test = get_training_and_test_set(args, test)
 
         clf = svm.SVC(kernel='linear')
         min_max_scaler = preprocessing.MinMaxScaler()
         X_scaled = min_max_scaler.fit_transform(X)
 
-        if test != None:
+        if test != [None]:
             X_test_scaled = min_max_scaler.transform(X_test)
 
             clf.fit(X_scaled, Y)
@@ -114,14 +121,15 @@ if __name__ == '__main__':
             X_test['Y'] = X_test['Y'].map(lambda x: 'Y' if x else 'N')
 
             training_file_name = "unset"
-            if test == None:
+            if test == [None]:
                 training_file_name = 'svm_complete_{}_uncore_{}.csv'.format('_'.join(args.config), args.uncore)
             else:
-                training_file_name = 'svm_training_without_{}_{}_uncore_{}.csv'.format(test, '_'.join(args.config), args.uncore)
+                training_file_name = 'svm_training_without_{}_{}_uncore_{}.csv'.format('_'.join(test), '_'.join(args.config), args.uncore)
+
             X.to_csv(os.path.join(args.data_directory, training_file_name), index=False)
 
-            if test != None:
-                test_file_name = 'svm_test_{}_{}_uncore_{}.csv'.format(test, '_'.join(args.config), args.uncore)
+            if test != [None]:
+                test_file_name = 'svm_test_{}_{}_uncore_{}.csv'.format('_'.join(test), '_'.join(args.config), args.uncore)
                 X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
 
     results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]

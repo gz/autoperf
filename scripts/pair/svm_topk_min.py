@@ -48,7 +48,7 @@ def get_event_rankings(weka_rankings_file):
                 index += 1
     return df
 
-def error_plot(args, test, df):
+def error_plot(args, filename, df):
     ticks_font = font_manager.FontProperties(family='Decima Mono')
     plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
     fig = plt.figure()
@@ -61,7 +61,7 @@ def error_plot(args, test, df):
     ax1.get_yaxis().tick_left()
 
     p = ax1.plot(df['Error'], label=test)
-    plt.savefig("{}_{}_cfs_rank.png".format(test, '_'.join(args.config)), format='png')
+    plt.savefig(filename + ".png", format='png')
 
 if __name__ == '__main__':
     pd.set_option('display.max_rows', 37)
@@ -72,48 +72,65 @@ if __name__ == '__main__':
     parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
     parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
-    parser.add_argument('--test', dest='test', nargs='+', type=str, help="Which program to use as a test set.")
+    parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="Which programs to use as a test set.")
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).")
-    parser.add_argument('--ranking', dest='ranking', type=str, help="Weka file containing feature rankings.")
-    parser.add_argument('--cfs', dest='cfs', type=str, help="Weka file containing reduced, relevant features.")
-    parser.add_argument('--rfecv', dest='rfecv', type=str, help="RFECV file containing feature rankings.")
+    parser.add_argument('--cfs', dest='cfs', type=str, help="Weka file containing reduced, relevant features using the CFS method.")
 
     parser.add_argument('data_directory', type=str, help="Data directory root.")
     args = parser.parse_args()
 
     # Add features, according to ranking, repeat
-    if not args.rfecv:
-        relevant_events = get_selected_events(args.cfs)
-        relevant_events = relevant_events[relevant_events.folds >= 1] # Now, really only take relevant ones :P
-        ranking_events = get_event_rankings(args.ranking)
-        event_list = pd.merge(relevant_events, ranking_events, on='name', sort=True)
-        event_list.sort_values(['folds', 'rank'], inplace=True)
-    else:
-        ranking_events = get_event_rankings(args.ranking)
-        relevant_events = pd.read_csv(args.rfecv)
-        event_list = pd.merge(relevant_events, ranking_events, on='name', sort=True)
-        event_list.sort_values(['rank_y'], inplace=True)
+    relevant_events = get_selected_events(args.cfs)
+    event_list = relevant_events[relevant_events.folds >= 5] # Now, really only take relevant ones :P
+    event_list.sort_values(['folds'], inplace=True)
 
     runtimes = get_runtime_dataframe(args.data_directory)
 
-    if not args.test:
-        tests = sorted(runtimes['A'].unique())
+    if not args.tests:
+        tests = map(lambda x: [x], sorted(runtimes['A'].unique()))
     else:
-        print args.test
-        tests = args.test
+        tests = [args.tests]
 
     for test in tests:
+        print "Testing", test
         X_all, Y, X_test_all, Y_test = get_training_and_test_set(args, test)
+        results_table = pd.DataFrame()
 
         X = pd.DataFrame()
         X_test = pd.DataFrame()
 
-        results_table = pd.DataFrame()
-        for event in event_list.itertuples():
-            print event.name
-            X[event.name] = X_all[event.name]
-            X_test[event.name] = X_test_all[event.name]
+        available_event_set = event_list.copy()
 
+        while len(available_event_set) > 0:
+            min_error = (100.0, None)
+
+            # Find the event that gives the least error:
+            for event in available_event_set.itertuples():
+                #print event.name
+                X[event.name] = X_all[event.name]
+                X_test[event.name] = X_test_all[event.name]
+
+                clf = svm.SVC(kernel='linear')
+                min_max_scaler = preprocessing.MinMaxScaler()
+                X_scaled = min_max_scaler.fit_transform(X)
+                X_test_scaled = min_max_scaler.transform(X_test)
+
+                clf.fit(X_scaled, Y)
+                Y_pred = clf.predict(X_test_scaled)
+                error = (1.0 - metrics.accuracy_score(Y_test, Y_pred))
+                if error < min_error[0]:
+                    print "Found new min error", error, event.name
+                    min_error = (error, event.name)
+                # Remove again and test the next event
+                del X[event.name]
+                del X_test[event.name]
+
+            print "Selected", min_error
+            # Add the event with minimum error to the set:
+            X[min_error[1]] = X_all[min_error[1]]
+            X_test[min_error[1]] = X_test_all[min_error[1]]
+
+            # Update statistics
             clf = svm.SVC(kernel='linear')
             min_max_scaler = preprocessing.MinMaxScaler()
             X_scaled = min_max_scaler.fit_transform(X)
@@ -123,12 +140,20 @@ if __name__ == '__main__':
             Y_pred = clf.predict(X_test_scaled)
 
             row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
-            row['Event'] = event.name
+            row['Event'] = min_error[1]
             results_table = results_table.append(row, ignore_index=True)
+
+            print available_event_set
+            available_event_set = available_event_set[available_event_set.name != min_error[1]]
+
 
         results_table = results_table[['Test App', 'Event', 'Samples', 'Error', 'Accuracy', 'Precision/Recall', 'F1 score']]
         print results_table
-        error_plot(args, test, results_table)
+
+        filename = "{}_{}_topk_min_folds".format("_".join(test), '_'.join(args.config))
+
+        error_plot(args, filename + ".png", results_table)
+        results_table.to_csv(filename + ".csv", index=False)
 
         #print results_table.to_latex(index=False)
         # TODO: plot
