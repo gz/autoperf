@@ -500,6 +500,12 @@ impl PerfEvent {
     }
 }
 
+impl fmt::Display for PerfEvent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0.event_name)
+    }
+}
+
 #[derive(Debug)]
 pub enum AddEventError {
     UnitCapacityReached(MonitoringUnit),
@@ -658,12 +664,7 @@ impl<'o> PerfEventGroup<'o> {
     /// * Event Erratas this is not complete in the JSON files, and we just run them in isolation
     ///
     pub fn add_event(&mut self, event: PerfEvent) -> Result<(), AddEventError> {
-        // 1. Can't measure more than two offcore events:
-        if event.is_offcore() && self.offcore_events() == 2 {
-            return Err(AddEventError::OffcoreCapacityReached);
-        }
-
-        // 2. Check we don't measure more events than we have counters
+        // 1. Check we don't measure more events than we have counters
         // for on the repspective units
         let unit = event.unit();
         let unit_limit = *self.limits.get(&unit).unwrap_or(&0);
