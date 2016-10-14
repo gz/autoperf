@@ -67,7 +67,7 @@ fn main() {
             matches.values_of("COMMAND").unwrap().map(|s| s.to_string()).collect();
 
         profile(output_path,
-                &output_path.to_string_lossy(),
+                ".",
                 cmd,
                 Default::default(),
                 Default::default(),
