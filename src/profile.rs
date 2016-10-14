@@ -37,6 +37,7 @@ lazy_static! {
         cpuid.get_feature_info().map(|fi| {
             if fi.family_id() == 0x6 && fi.model_id() == 0xe {
 // IvyBridge EP
+                res.insert(MonitoringUnit::Offcore, 2);
                 res.insert(MonitoringUnit::UBox, 2);
                 res.insert(MonitoringUnit::CBox, 4);
                 res.insert(MonitoringUnit::HA, 4);
@@ -50,6 +51,7 @@ lazy_static! {
             }
             else {
                 error!("Don't know this CPU, can't infer #counters for offcore stuff. Assume conservative defaults...");
+                res.insert(MonitoringUnit::Offcore, 2);
                 res.insert(MonitoringUnit::UBox, 2);
                 res.insert(MonitoringUnit::HA, 2);
                 res.insert(MonitoringUnit::IRP, 2);
@@ -195,6 +197,8 @@ fn get_events() -> Vec<&'static EventDescription> {
 pub enum MonitoringUnit {
     /// Devices
     CPU,
+    /// Offcore -- technically for CPU but we account them as a separate unit
+    Offcore,
     /// Memory stuff
     Arb,
     /// The CBox manages the interface between the core and the LLC, so
@@ -228,6 +232,7 @@ impl fmt::Display for MonitoringUnit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             MonitoringUnit::CPU => write!(f, "CPU"),
+            MonitoringUnit::Offcore => write!(f, "Offcore"),
             MonitoringUnit::Arb => write!(f, "Arb"),
             MonitoringUnit::CBox => write!(f, "CBox"),
             MonitoringUnit::SBox => write!(f, "SBox"),
@@ -249,12 +254,12 @@ impl MonitoringUnit {
     fn new(unit: &'static str) -> MonitoringUnit {
         match unit.to_lowercase().as_str() {
             "cpu" => MonitoringUnit::CPU,
+            "offcore" => MonitoringUnit::Offcore,
             "cbo" => MonitoringUnit::CBox,
             "qpi_ll" => MonitoringUnit::QPI,
             "sbo" => MonitoringUnit::SBox,
             "imph-u" => MonitoringUnit::Arb,
             "arb" => MonitoringUnit::Arb,
-
             "r3qpi" => MonitoringUnit::R3QPI,
             "qpi ll" => MonitoringUnit::QPI_LL,
             "irp" => MonitoringUnit::IRP,
@@ -272,11 +277,11 @@ impl MonitoringUnit {
 
         let res = match *self {
             MonitoringUnit::CPU => Some("cpu"),
+            MonitoringUnit::Offcore => Some("cpu"),
             MonitoringUnit::CBox => Some("uncore_cbox"),
             MonitoringUnit::QPI => Some("uncore_qpi"),
             MonitoringUnit::SBox => Some("uncore_sbox"),
             MonitoringUnit::Arb => Some("uncore_arb"),
-
             MonitoringUnit::R3QPI => Some("uncore_r3qpi"), // Adds postfix value
             MonitoringUnit::QPI_LL => Some("uncore_qpi"), // Adds postfix value
             MonitoringUnit::IRP => Some("uncore_irp"), // According to libpfm4 (lib/pfmlib_intel_ivbep_unc_irp.c)
@@ -345,7 +350,14 @@ impl PerfEvent {
     }
 
     pub fn unit(&self) -> MonitoringUnit {
-        self.0.unit.map_or(MonitoringUnit::CPU, |u| MonitoringUnit::new(u))
+        self.0.unit.map_or_else(|| {
+            if !self.is_offcore() {
+                MonitoringUnit::CPU
+            } else {
+                MonitoringUnit::Offcore
+            }
+        },
+                                |u| MonitoringUnit::new(u))
     }
 
     /// Is this event an offcore event?
@@ -490,7 +502,6 @@ impl PerfEvent {
 
 #[derive(Debug)]
 pub enum AddEventError {
-    OffcoreCapacityReached,
     UnitCapacityReached(MonitoringUnit),
     CounterConstraintConflict,
     ErrataConflict,
@@ -501,10 +512,7 @@ pub enum AddEventError {
 impl fmt::Display for AddEventError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AddEventError::OffcoreCapacityReached => write!(f, "Offcore event limit reached."),
-            AddEventError::UnitCapacityReached(u) => {
-                write!(f, "Unit '{}' capacity for reached.", u)
-            }
+            AddEventError::UnitCapacityReached(u) => write!(f, "Unit '{}' capacity reached.", u),
             AddEventError::CounterConstraintConflict => write!(f, "Counter constraints conflict."),
             AddEventError::ErrataConflict => write!(f, "Errata conflict."),
             AddEventError::TakenAloneConflict => write!(f, "Group contains a taken alone counter."),
@@ -516,7 +524,6 @@ impl fmt::Display for AddEventError {
 impl error::Error for AddEventError {
     fn description(&self) -> &str {
         match *self {
-            AddEventError::OffcoreCapacityReached => "Offcore event limit reached.",
             AddEventError::UnitCapacityReached(_) => "Unit capacity reached.",
             AddEventError::CounterConstraintConflict => "Counter constraints conflict.",
             AddEventError::ErrataConflict => "Errata conflict.",
