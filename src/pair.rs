@@ -14,7 +14,6 @@ use rustc_serialize::Encodable;
 use itertools::Itertools;
 
 use x86::shared::cpuid;
-use csv;
 use toml;
 
 use profile;

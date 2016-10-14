@@ -21,7 +21,13 @@ type ArchitectureMap = HashMap<&'static str, (&'static str, &'static str, &'stat
 /// Saves the event count for all architectures to a file.
 fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
     let mut writer = csv::Writer::from_file(csv_result).unwrap();
-    writer.encode(&["year", "architecture", "core events", "uncore events", "counters", "uncore groups"]).unwrap();
+    writer.encode(&["year",
+                  "architecture",
+                  "core events",
+                  "uncore events",
+                  "counters",
+                  "uncore groups"])
+        .unwrap();
 
     for (key, &(name, year, counters)) in key_to_name.iter() {
         let core_counters =
@@ -30,26 +36,27 @@ fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
             perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-uncore", key).as_str());
 
         let counter_groups: Vec<(MonitoringUnit, usize)> = uncore_counters.map_or(Vec::new(), |uc| {
-            let mut units: Vec<(MonitoringUnit, PerfEvent)> = Vec::with_capacity(uc.len());
-            for ref e in uc.values() {
-                units.push((PerfEvent(&e).unit(), PerfEvent(&e)));
-            }
-            units.sort_by(|a, b| a.0.cmp(&b.0));
+                let mut units: Vec<(MonitoringUnit, PerfEvent)> = Vec::with_capacity(uc.len());
+                for ref e in uc.values() {
+                    units.push((PerfEvent(&e).unit(), PerfEvent(&e)));
+                }
+                units.sort_by(|a, b| a.0.cmp(&b.0));
 
-            let mut counts: Vec<(MonitoringUnit, usize)> = Vec::with_capacity(10);
-            for (key, group) in &units.into_iter().group_by(|&(unit, _)| unit) {
-                counts.push((key, group.count()));
-            }
+                let mut counts: Vec<(MonitoringUnit, usize)> = Vec::with_capacity(10);
+                for (key, group) in &units.into_iter().group_by(|&(unit, _)| unit) {
+                    counts.push((key, group.count()));
+                }
 
-            counts
-        });
+                counts
+            });
 
 
         let cc_count = core_counters.map(|c| c.len()).unwrap_or(0);
         let uc_count = uncore_counters.map(|c| c.len()).unwrap_or(0);
 
 
-        let group_string = counter_groups.into_iter().map(|(u, c)| format!("{}:{}", u, c) ).join(";");
+        let group_string =
+            counter_groups.into_iter().map(|(u, c)| format!("{}:{}", u, c)).join(";");
         let cc_count = cc_count.to_string();
         let uc_count = uc_count.to_string();
 

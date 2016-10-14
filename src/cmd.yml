@@ -14,6 +14,17 @@ subcommands:
             - directory:
                 help: Output folder.
                 required: true
+    - mkgroup:
+        settings:
+            - TrailingVarArg
+        about: Given a machine, form the largest possible group of events from a given ranking input file.
+        args:
+            - file:
+                short: i
+                long: input
+                help: Input file (weka ranking).
+                value_name: FILE
+                takes_value: true
     - profile:
         settings:
             - TrailingVarArg

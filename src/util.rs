@@ -309,7 +309,8 @@ impl MachineTopology {
     }
 
     fn cores_on_socket(&self, socket: Socket) -> Vec<Core> {
-        let mut cores: Vec<Core> = self.data.iter().filter(|c| c.socket == socket).map(|c| c.core).collect();
+        let mut cores: Vec<Core> =
+            self.data.iter().filter(|c| c.socket == socket).map(|c| c.core).collect();
         cores.sort();
         cores.dedup();
         cores

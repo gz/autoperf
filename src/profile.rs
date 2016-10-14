@@ -489,7 +489,7 @@ impl PerfEvent {
 }
 
 #[derive(Debug)]
-enum AddEventError {
+pub enum AddEventError {
     OffcoreCapacityReached,
     UnitCapacityReached(MonitoringUnit),
     CounterConstraintConflict,
@@ -527,14 +527,14 @@ impl error::Error for AddEventError {
 }
 
 #[derive(Debug)]
-struct PerfEventGroup {
+pub struct PerfEventGroup<'o> {
     events: Vec<PerfEvent>,
-    limits: &'static HashMap<MonitoringUnit, usize>,
+    limits: &'o HashMap<MonitoringUnit, usize>,
 }
 
-impl PerfEventGroup {
+impl<'o> PerfEventGroup<'o> {
     /// Make a new performance event group.
-    pub fn new(unit_sizes: &'static HashMap<MonitoringUnit, usize>) -> PerfEventGroup {
+    pub fn new(unit_sizes: &'o HashMap<MonitoringUnit, usize>) -> PerfEventGroup {
         PerfEventGroup {
             events: Default::default(),
             limits: unit_sizes,

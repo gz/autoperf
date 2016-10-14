@@ -29,12 +29,14 @@ mod pair;
 mod scale;
 mod stats;
 mod util;
+mod mkgroup;
 
 use profile::profile;
 use extract::extract;
 use pair::pair;
 use stats::stats;
 use scale::scale;
+use mkgroup::mkgroup;
 
 fn setup_logging() {
     use log::{LogRecord, LogLevelFilter};
@@ -84,7 +86,10 @@ fn main() {
         let uncore_filter: &str = matches.value_of("uncore").unwrap_or("exclusive");
         let core_filter: &str = matches.value_of("core").unwrap_or("exclusive");
 
-        extract(input_directory, core_filter, uncore_filter, &output_path.as_path());
+        extract(input_directory,
+                core_filter,
+                uncore_filter,
+                &output_path.as_path());
     }
     if let Some(matches) = matches.subcommand_matches("pair") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
@@ -106,6 +111,10 @@ fn main() {
     if let Some(matches) = matches.subcommand_matches("stats") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
         stats(output_path);
+    }
+    if let Some(matches) = matches.subcommand_matches("mkgroup") {
+        let ranking_file = Path::new(matches.value_of("file").unwrap_or("notfound"));
+        mkgroup(ranking_file);
     }
 
 }
