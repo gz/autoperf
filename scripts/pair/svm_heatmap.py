@@ -40,7 +40,10 @@ def get_training_and_test_set(args, program_of_interest, program_antagonist, con
                     B = table.columns[i]
 
                     classification = True if normalized_runtime > args.cutoff else False
-                    results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
+                    if B == "Alone":
+                        results_path = os.path.join(args.data_directory, config, "{}".format(A))
+                    else:
+                        results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
                     matrix_file = os.path.join(results_path, MATRIX_FILE)
                     #print A, B, normalized_runtime, classification
 
@@ -64,6 +67,25 @@ def get_training_and_test_set(args, program_of_interest, program_antagonist, con
                         print "Exclude unfinished directory {}".format(results_path)
 
     return (pd.concat(X), pd.concat(Y), pd.concat(X_test), pd.concat(Y_test))
+
+def classify(args, A, B, config):
+    print A, B
+    X, Y, X_test, Y_test = get_training_and_test_set(args, A, B, config)
+
+    clf = svm.SVC(kernel='linear')
+    min_max_scaler = preprocessing.MinMaxScaler()
+    X_scaled = min_max_scaler.fit_transform(X)
+    X_test_scaled = min_max_scaler.transform(X_test)
+
+    clf.fit(X_scaled, Y)
+    Y_pred = clf.predict(X_test_scaled)
+
+    row = get_svm_metrics(args, [A], Y, Y_test, Y_pred)
+    row['A'] = A
+    row['B'] = B
+    row['config'] = config
+    return row
+
 
 def mkgroup(cfs_ranking_file):
     ret = subprocess.check_output([AUTOPERF_PATH, "mkgroup", "--input", cfs_ranking_file])
@@ -95,32 +117,22 @@ if __name__ == '__main__':
     else:
         tests = [args.tests]
 
-    results_table = pd.DataFrame()
-
+    results = []
+    pool = Pool(processes=8)
     runtimes = get_runtime_dataframe(args.data_directory)
     for config, table in get_runtime_pivot_tables(runtimes):
         if config in args.config:
             for (A, values) in table.iterrows():
                 for (i, normalized_runtime) in enumerate(values):
                     B = table.columns[i]
-                    print A, B
-                    X, Y, X_test, Y_test = get_training_and_test_set(args, A, B, config)
+                    res = pool.apply_async(classify, (args, A, B, config))
+                    results.append(res)
+    pool.close()
+    results_table = pd.concat(map(lambda x: x.get(), results), ignore_index=True)
+    print results_table
 
-                    clf = svm.SVC(kernel='linear')
-                    min_max_scaler = preprocessing.MinMaxScaler()
-                    X_scaled = min_max_scaler.fit_transform(X)
-                    X_test_scaled = min_max_scaler.transform(X_test)
+    pool.join()
 
-                    clf.fit(X_scaled, Y)
-                    Y_pred = clf.predict(X_test_scaled)
-
-                    row = get_svm_metrics(args, [A], Y, Y_test, Y_pred)
-                    row['A'] = A
-                    row['B'] = B
-                    row['config'] = config
-                    results_table = results_table.append(row, ignore_index=True)
-                    print results_table
-
-    results_table.to_csv("svm_heatmap.csv", index=False)
+    results_table.to_csv("svm_heatmap_training_{}.csv".format("_".join(args.config)), index=False)
     #results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
     #print results_table.to_latex(index=False)

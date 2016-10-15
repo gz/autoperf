@@ -56,7 +56,7 @@ def compute_runtime_dataframe(data_directory):
             programs = programs.split("_vs_")
 
             row['A'] = programs[0]
-            row['B'] = None if len(programs) == 1 else programs[1]
+            row['B'] = "Alone" if len(programs) == 1 else programs[1]
             row['config'] = config
 
             df = pd.read_csv(perf_csv, skipinitialspace=True)
@@ -113,8 +113,9 @@ def get_runtime_pivot_tables(df):
 
         normalize_by = {}
         for (key, row) in sub_df.iterrows():
-            if row['B'] == None or pd.isnull(row['B']):
+            if row['B'] == "Alone" or pd.isnull(row['B']):
                 normalize_by[row['A']] = row['A mean']
+
         def add_normalized(x):
             x['A alone'] = normalize_by[x['A']]
             x['A mean normalized'] = x['A mean'] / normalize_by[x['A']]
@@ -133,8 +134,8 @@ def heatmap(location, data):
     ticks_font = font_manager.FontProperties(family='Decima Mono')
     plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 
-    ax.set_xticklabels(data.index)
-    ax.set_yticklabels(data.columns)
+    ax.set_xticklabels(data.columns)
+    ax.set_yticklabels(data.index)
     ax.set_yticks(np.arange(data.shape[0]) + 0.5, minor=False)
     ax.set_xticks(np.arange(data.shape[1]) + 0.5, minor=False)
 

@@ -32,7 +32,10 @@ def get_training_and_test_set(args, tests):
                     B = table.columns[i]
 
                     classification = True if normalized_runtime > args.cutoff else False
-                    results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
+                    if B == "Alone":
+                        results_path = os.path.join(args.data_directory, config, "{}".format(A))
+                    else:
+                        results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
                     matrix_file = os.path.join(results_path, MATRIX_FILE)
                     #print A, B, normalized_runtime, classification
 
@@ -63,16 +66,10 @@ def get_svm_metrics(args, test, Y, Y_test, Y_pred):
     row['Samples Training Total'] = "{}".format(len(Y))
     row['Samples Test Total'] = "{}".format(len(Y_test))
 
-    row['Samples Training 0'] = 0
-    row['Samples Training 1'] = 0
-    # The sort attribute here is misleading: means not to sort by frequencies
-    for (idx, count) in Y.value_counts(sort=False):
-        row['Samples Training {}'.format(idx)] = count
-
-    row['Samples Test 0'] = 0
-    row['Samples Test 1'] = 0
-    for (idx, count) in Y_test.value_counts(sort=False):
-        row['Samples Test {}'.format(idx)] = count
+    row['Samples Training 0'] = len(Y[Y == 0])
+    row['Samples Training 1'] = len(Y[Y == 1])
+    row['Samples Test 0'] = len(Y_test[Y_test == 0])
+    row['Samples Test 1'] = len(Y_test[Y_test == 1])
 
     row['Accuracy'] = "%.2f" % metrics.accuracy_score(Y_test, Y_pred)
     row['Error'] = "%.2f" % (1.0 - metrics.accuracy_score(Y_test, Y_pred))

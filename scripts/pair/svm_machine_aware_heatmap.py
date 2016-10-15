@@ -68,11 +68,10 @@ if __name__ == '__main__':
                     X = pd.DataFrame()
                     X_test = pd.DataFrame()
 
-                    cfs_default_file = os.path.join(args.data_directory, "topk_svm_{}_{}.csv"
-                        .format(A, '_'.join(args.config + ["L3-SMT-cores"]))) # TODO HACk!
+                    cfs_default_file = os.path.join(args.data_directory, "topk_svm_{}_{}.csv".format(A, '_'.join(args.config)))
                     if not os.path.exists(cfs_default_file):
-                        print "Skipping {} because we didn't find the cfs file {}".format(A, cfs_default_file)
-                        continue
+                        print "Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)
+                        sys.exit(1)
 
                     event_list = mkgroup(cfs_default_file)
 

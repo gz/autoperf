@@ -60,8 +60,9 @@ if __name__ == '__main__':
             cfs_default_file = os.path.join(args.data_directory, "topk_svm_{}_{}.csv"
                 .format('_'.join(test), '_'.join(args.config)))
             if not os.path.exists(cfs_default_file):
-                print "Skipping {} because we didn't find the cfs file {}".format(' '.join(test), cfs_default_file)
-                continue
+                print "Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)
+                sys.exit(1)
+
             event_list = mkgroup(cfs_default_file)
         else:
             event_list = mkgroup(args.cfs)
@@ -88,7 +89,7 @@ if __name__ == '__main__':
 
     results_table.to_csv("svm_machine_aware.csv", index=False)
     print results_table
-    
+
     #TODO:
     #results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
     #print results_table.to_latex(index=False)
