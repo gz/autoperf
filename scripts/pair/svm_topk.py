@@ -112,5 +112,5 @@ if __name__ == '__main__':
         results_table.to_csv(filename + ".csv", index=False)
         error_plot(args, filename + ".png", results_table)
 
-        results_table = results_table[['Test App', 'Event', 'Samples', 'Error', 'Accuracy', 'Precision/Recall', 'F1 score']]
+        #results_table = results_table[['Test App', 'Event', 'Samples', 'Error', 'Accuracy', 'Precision/Recall', 'F1 score']]
         print results_table

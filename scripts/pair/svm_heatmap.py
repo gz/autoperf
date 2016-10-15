@@ -20,9 +20,50 @@ from sklearn import preprocessing
 
 from svm import get_svm_metrics
 from svm_topk import get_selected_events
-from svm_heatmap import get_training_and_test_set
 
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
+
+def get_training_and_test_set(args, program_of_interest, program_antagonist, config_of_interest):
+    MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
+
+    X = []
+    Y = []
+
+    X_test = []
+    Y_test = []
+
+    runtimes = get_runtime_dataframe(args.data_directory)
+    for config, table in get_runtime_pivot_tables(runtimes):
+        if config in args.config:
+            for (A, values) in table.iterrows():
+                for (i, normalized_runtime) in enumerate(values):
+                    B = table.columns[i]
+
+                    classification = True if normalized_runtime > args.cutoff else False
+                    results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
+                    matrix_file = os.path.join(results_path, MATRIX_FILE)
+                    #print A, B, normalized_runtime, classification
+
+                    if os.path.exists(os.path.join(results_path, 'completed')):
+                        if not os.path.exists(matrix_file):
+                            print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
+                            sys.exit(1)
+                        df = pd.read_csv(matrix_file, index_col=False)
+
+                        if A == program_of_interest and B == program_antagonist and config == config_of_interest:
+                            print "Adding {} vs. {} in {} to test set".format(A, B, config)
+                            X_test.append(df)
+                            Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
+                        elif A == program_of_interest or B == program_of_interest:
+                            print "Discarding {} vs {} in {}".format(A, B, config)
+                        else:
+                            print "Adding {} vs {} in {} to training set".format(A, B, config)
+                            Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
+                            X.append(df)
+                    else:
+                        print "Exclude unfinished directory {}".format(results_path)
+
+    return (pd.concat(X), pd.concat(Y), pd.concat(X_test), pd.concat(Y_test))
 
 def mkgroup(cfs_ranking_file):
     ret = subprocess.check_output([AUTOPERF_PATH, "mkgroup", "--input", cfs_ranking_file])
@@ -63,22 +104,7 @@ if __name__ == '__main__':
                 for (i, normalized_runtime) in enumerate(values):
                     B = table.columns[i]
                     print A, B
-                    X_all, Y, X_test_all, Y_test = get_training_and_test_set(args, A, B, config)
-
-                    X = pd.DataFrame()
-                    X_test = pd.DataFrame()
-
-                    cfs_default_file = os.path.join(args.data_directory, "topk_svm_{}_{}.csv"
-                        .format(A, '_'.join(args.config + ["L3-SMT-cores"]))) # TODO HACk!
-                    if not os.path.exists(cfs_default_file):
-                        print "Skipping {} because we didn't find the cfs file {}".format(A, cfs_default_file)
-                        continue
-
-                    event_list = mkgroup(cfs_default_file)
-
-                    for event in event_list:
-                        X[event] = X_all[event]
-                        X_test[event] = X_test_all[event]
+                    X, Y, X_test, Y_test = get_training_and_test_set(args, A, B, config)
 
                     clf = svm.SVC(kernel='linear')
                     min_max_scaler = preprocessing.MinMaxScaler()
@@ -95,6 +121,6 @@ if __name__ == '__main__':
                     results_table = results_table.append(row, ignore_index=True)
                     print results_table
 
-    results_table.to_csv("svm_machine_aware_heatmap_training_{}.csv".format("_".join(args.config)), index=False)
+    results_table.to_csv("svm_heatmap.csv", index=False)
     #results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
     #print results_table.to_latex(index=False)

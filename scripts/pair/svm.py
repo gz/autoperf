@@ -57,16 +57,29 @@ def get_training_and_test_set(args, tests):
 
 def get_svm_metrics(args, test, Y, Y_test, Y_pred):
     row = {}
-    row['Config'] = ' '.join(args.config)
-    row['Test App'] = ' '.join(test)
-    Y_counts = map(lambda x: str(x), Y.value_counts(sort=False))
-    Y_test_counts = map(lambda x: str(x), Y_test.value_counts(sort=False))
-    row['Samples detail'] = "({}) / ({})".format(', '.join(Y_counts), ', '.join(Y_test_counts))
-    row['Samples'] = "{} / {}".format(len(Y), len(Y_test))
-    row['Error'] = "%.2f" % (1.0 - metrics.accuracy_score(Y_test, Y_pred))
-    row['Precision/Recall'] = "%.2f / %.2f" % (metrics.precision_score(Y_test, Y_pred), metrics.recall_score(Y_test, Y_pred))
-    row['F1 score'] = "%.2f" % metrics.f1_score(Y_test, Y_pred)
+    row['Training Configs'] = ' '.join(args.config)
+    row['Tested Application'] = ' '.join(test)
+
+    row['Samples Training Total'] = "{}".format(len(Y))
+    row['Samples Test Total'] = "{}".format(len(Y_test))
+
+    row['Samples Training 0'] = 0
+    row['Samples Training 1'] = 0
+    # The sort attribute here is misleading: means not to sort by frequencies
+    for (idx, count) in Y.value_counts(sort=False):
+        row['Samples Training {}'.format(idx)] = count
+
+    row['Samples Test 0'] = 0
+    row['Samples Test 1'] = 0
+    for (idx, count) in Y_test.value_counts(sort=False):
+        row['Samples Test {}'.format(idx)] = count
+
     row['Accuracy'] = "%.2f" % metrics.accuracy_score(Y_test, Y_pred)
+    row['Error'] = "%.2f" % (1.0 - metrics.accuracy_score(Y_test, Y_pred))
+    row['Precision'] = "%.2f" % metrics.precision_score(Y_test, Y_pred)
+    row['Recall'] = "%.2f" % metrics.recall_score(Y_test, Y_pred)
+    row['F1 score'] = "%.2f" % metrics.f1_score(Y_test, Y_pred)
+
     return row
 
 if __name__ == '__main__':
@@ -136,5 +149,6 @@ if __name__ == '__main__':
     svm_result_table_file = "svm_results_{}_uncore_{}.csv".format('_'.join(args.config), args.uncore)
     results_table.to_csv(svm_result_table_file, index=False)
 
-    results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
-    print results_table.to_latex(index=False)
+    # TODO:
+    # results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
+    print results_table

@@ -87,5 +87,8 @@ if __name__ == '__main__':
         results_table = results_table.append(row, ignore_index=True)
 
     results_table.to_csv("svm_machine_aware.csv", index=False)
-    results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
-    print results_table.to_latex(index=False)
+    print results_table
+    
+    #TODO:
+    #results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
+    #print results_table.to_latex(index=False)
