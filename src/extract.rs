@@ -216,9 +216,8 @@ fn parse_perf_csv_file(mt: &MachineTopology,
             continue;
         }
 
-        // Skip all events that we can't attribute fully to our program:
-        // TODO: How to include cbox etc.?
-        let include = if unit == "cpu" {
+        // Skip all events that we don't want to attribute fully to our program:
+        let include = if unit.trim() == "cpu" {
             match cpu_filter {
                 Filter::All => true,
                 Filter::Exclusive => cpus.iter().any(|c| c.cpu == cpu),
