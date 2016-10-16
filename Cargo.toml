@@ -3,6 +3,7 @@ name = "autoperf"
 version = "0.1.0"
 authors = [
     "Denny Lin <dennylin93@hs.ntnu.edu.tw>",
+    "Besmira Nushi <nushib@inf.ethz.ch>",
     "Gerd Zellweger <mail@gerdzellweger.com>"
 ]
 
