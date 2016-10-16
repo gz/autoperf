@@ -36,9 +36,9 @@ def compute_runtime_dataframe(data_directory):
     Finally returns a dataframe that looks a bit like this:
     =============================================================
               A       B        config          mean           std
-    0     AA700    None        L1-SMT  31966.062500    240.786896
+    0     AA700   Alone        L1-SMT  31966.062500    240.786896
     1     PR700   PR700        L1-SMT  88666.857143    262.895069
-    2     PF200    None        L1-SMT  20426.687500     90.623767
+    2     PF200   Alone        L1-SMT  20426.687500     90.623767
     ...
     """
 
@@ -84,6 +84,9 @@ def compute_runtime_dataframe(data_directory):
                 runtimes.append(time_ms)
 
             rseries = pd.Series(runtimes)
+            name = "{}_vs_{}".format(row['A'], row['B'])
+            violin("violin_{}_{}".format(config, name), name, rseries)
+
             row['A mean'] = rseries.mean()
             row['A std'] = rseries.std()
             if row['A std'] > 1000:
@@ -126,6 +129,17 @@ def get_runtime_pivot_tables(df):
         tables.append( (idx, pivot_table) )
 
     return tables
+
+def violin(location, name, data):
+    fig, ax = plt.subplots()
+
+    ax.violinplot(data, points=20, widths=0.1, showmeans=True, showextrema=True, showmedians=True)
+    ax.set_title(name)
+
+    plt.savefig(location + ".png", format='png')
+    plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
+    plt.clf()
+    plt.close()
 
 
 def heatmap(location, data):

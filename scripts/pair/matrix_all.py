@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Generates X and Y matrix files for use with ML algorithms.')
     parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.", default=False)
-    parser.add_argument('--uncore', dest='uncore', nargs='?', type=str, help="What uncore counters to include.", default=['shared'], choices=['all', 'shared', 'exclusive', 'none'])
+    parser.add_argument('--uncore', dest='uncore', nargs='+', type=str, help="What uncore counters to include.", default=['shared'], choices=['all', 'shared', 'exclusive', 'none'])
     parser.add_argument('data_directory', type=str, help="Data directory root.")
     args = parser.parse_args()
 
@@ -42,7 +42,7 @@ if __name__ == '__main__':
         config = row.config
         normalized_runtime = row[4]
         results_path = None
-        if pd.isnull(B):
+        if pd.isnull(B) or B == "Alone":
             results_path = os.path.join(sys.argv[1], config, "{}".format(A))
         else:
             results_path = os.path.join(sys.argv[1], config, "{}_vs_{}".format(A, B))

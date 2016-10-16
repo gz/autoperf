@@ -33,6 +33,9 @@ def get_training_and_test_set(args, tests):
 
                     classification = True if normalized_runtime > args.cutoff else False
                     if B == "Alone":
+                        if not args.include_alone:
+                            print "Skipping the samples with {} alone".format(A)
+                            continue
                         results_path = os.path.join(args.data_directory, config, "{}".format(A))
                     else:
                         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
@@ -45,12 +48,14 @@ def get_training_and_test_set(args, tests):
                             sys.exit(1)
                         df = pd.read_csv(matrix_file, index_col=False)
 
-                        if A in tests or B in tests:
-                            #print "Adding {} vs {} to test set".format(A, B), classification
+                        if A in tests:
+                            print "Adding {} vs {} to test set".format(A, B), classification
                             Y_test = pd.concat([Y_test, pd.Series([classification for _ in range(0, df.shape[0])])])
                             X_test = pd.concat([X_test, df])
+                        elif B in tests:
+                            print "Discarding {} vs {}".format(A, B), classification
                         else:
-                            #print "Adding {} vs {} to training set".format(A, B), classification
+                            print "Adding {} vs {} to training set".format(A, B), classification
                             Y = pd.concat([Y, pd.Series([classification for _ in range(0, df.shape[0])])])
                             X = pd.concat([X, df])
                     else:
@@ -89,6 +94,8 @@ if __name__ == '__main__':
     parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
     parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
+    parser.add_argument('--alone', dest='include_alone', action='store_true',
+                        default=False, help="Include alone runs.")
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
                         default=['L3-SMT', 'L3-SMT-cores'])
 
@@ -100,7 +107,7 @@ if __name__ == '__main__':
 
     if not args.tests:
         runtimes = get_runtime_dataframe(args.data_directory)
-        tests = map(lambda x: [x], [None] + sorted(runtimes['A'].unique())) # None here means we save the whole matrix as X (no training set)
+        tests = map(lambda x: [x], sorted(runtimes['A'].unique())) # None here means we save the whole matrix as X (no training set)
     else:
         tests = [args.tests] # Pass the tests as a single set
 

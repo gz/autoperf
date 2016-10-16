@@ -6,10 +6,12 @@ import time
 import argparse
 import re
 import subprocess
+from multiprocessing import Pool, TimeoutError
 
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt, font_manager
+import matplotlib.cm as cm
 
 from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from util import *
@@ -41,7 +43,8 @@ def get_training_and_test_set(args, program_of_interest, program_antagonist, con
 
                     classification = True if normalized_runtime > args.cutoff else False
                     if B == "Alone":
-                        results_path = os.path.join(args.data_directory, config, "{}".format(A))
+                        #results_path = os.path.join(args.data_directory, config, "{}".format(A))
+                        continue
                     else:
                         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
                     matrix_file = os.path.join(results_path, MATRIX_FILE)
@@ -54,13 +57,14 @@ def get_training_and_test_set(args, program_of_interest, program_antagonist, con
                         df = pd.read_csv(matrix_file, index_col=False)
 
                         if A == program_of_interest and B == program_antagonist and config == config_of_interest:
-                            print "Adding {} vs. {} in {} to test set".format(A, B, config)
+                            #print "Adding {} vs. {} in {} to test set".format(A, B, config)
                             X_test.append(df)
                             Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                         elif A == program_of_interest or B == program_of_interest:
-                            print "Discarding {} vs {} in {}".format(A, B, config)
+                            #print "Discarding {} vs {} in {}".format(A, B, config)
+                            pass
                         else:
-                            print "Adding {} vs {} in {} to training set".format(A, B, config)
+                            #print "Adding {} vs {} in {} to training set".format(A, B, config)
                             Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                             X.append(df)
                     else:
@@ -69,7 +73,6 @@ def get_training_and_test_set(args, program_of_interest, program_antagonist, con
     return (pd.concat(X), pd.concat(Y), pd.concat(X_test), pd.concat(Y_test))
 
 def classify(args, A, B, config):
-    print A, B
     X, Y, X_test, Y_test = get_training_and_test_set(args, A, B, config)
 
     clf = svm.SVC(kernel='linear')
@@ -84,14 +87,67 @@ def classify(args, A, B, config):
     row['A'] = A
     row['B'] = B
     row['config'] = config
-    return row
+    print pd.DataFrame([row])
+    return pd.DataFrame([row])
 
+def get_pivot_tables(df):
+    df = df.set_index('config')
 
-def mkgroup(cfs_ranking_file):
-    ret = subprocess.check_output([AUTOPERF_PATH, "mkgroup", "--input", cfs_ranking_file])
-    lines = ret.split(os.linesep)
-    assert lines[-1] == ''
-    return lines[:-1]
+    tables = []
+    for idx in df.index.unique():
+        sub_df = df.ix[idx]
+        sub_df['Error'] = sub_df['Error'].astype(float)
+        pivot_table = sub_df.pivot_table(index='A', columns='B', values='Error')
+        tables.append( (idx, pivot_table) )
+
+    return tables
+
+def heatmap(location, data, title):
+    plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
+
+    fig, ax = plt.subplots()
+    label_font = font_manager.FontProperties(family='Supria Sans', size=10)
+    ticks_font = font_manager.FontProperties(family='Decima Mono')
+
+    if title:
+        fig.suptitle(title, fontsize=13, y=1.05)
+
+    ax.set_xticklabels(data.columns)
+    ax.set_yticklabels(data.index)
+    ax.set_yticks(np.arange(data.shape[0]) + 0.5, minor=False)
+    ax.set_xticks(np.arange(data.shape[1]) + 0.5, minor=False)
+
+    # want a more natural, table-like display
+    ax.invert_yaxis()
+    ax.xaxis.tick_top()
+    plt.xticks(rotation=90)
+    ax.tick_params(pad=11)
+
+    plt.setp(ax.get_xticklabels(), fontproperties=label_font)
+    plt.setp(ax.get_yticklabels(), fontproperties=label_font)
+
+    c = plt.pcolor(data, cmap = cm.Reds, vmin=0.0, vmax=1.0)
+
+    values = data.as_matrix()
+    for x in range(data.shape[1]):
+        for y in range(data.shape[0]):
+            color = 'white' if values[y][x] > 1.4 else 'black'
+            plt.text(x + 0.5, y + 0.5, '%.2f' % values[y][x],
+                     horizontalalignment='center',
+                     verticalalignment='center',
+                     color=color,
+                     fontproperties=ticks_font)
+
+    for t in ax.xaxis.get_major_ticks():
+        t.tick1On = False
+        t.tick2On = False
+    for t in ax.yaxis.get_major_ticks():
+        t.tick1On = False
+        t.tick2On = False
+
+    plt.savefig(location + ".png", format='png')
+    plt.clf()
+    plt.close()
 
 if __name__ == '__main__':
     pd.set_option('display.max_rows', 37)
@@ -106,33 +162,32 @@ if __name__ == '__main__':
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
                         default=['L3-SMT', 'L3-SMT-cores'])
-    parser.add_argument('--cfs', dest='cfs', type=str, help="Weka file containing reduced, relevant features.")
-    parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="Which programs to use as a test set.")
     args = parser.parse_args()
 
-
-    if not args.tests:
-        runtimes = get_runtime_dataframe(args.data_directory)
-        tests = map(lambda x: [x], sorted(runtimes['A'].unique()))
-    else:
-        tests = [args.tests]
-
-    results = []
-    pool = Pool(processes=8)
+    pool = Pool(processes=6)
+    rows = []
     runtimes = get_runtime_dataframe(args.data_directory)
     for config, table in get_runtime_pivot_tables(runtimes):
         if config in args.config:
             for (A, values) in table.iterrows():
                 for (i, normalized_runtime) in enumerate(values):
                     B = table.columns[i]
+                    if B == "Alone":
+                        continue
                     res = pool.apply_async(classify, (args, A, B, config))
-                    results.append(res)
-    pool.close()
-    results_table = pd.concat(map(lambda x: x.get(), results), ignore_index=True)
-    print results_table
+                    rows.append(res)
 
+    results_table = pd.concat(map(lambda r: r.get(), rows), ignore_index=True)
+    pool.close()
     pool.join()
 
-    results_table.to_csv("svm_heatmap_training_{}.csv".format("_".join(args.config)), index=False)
+    filename = "svm_heatmap_training_{}_uncore_{}".format("_".join(args.config), args.uncore)
+    results_table.to_csv(filename + ".csv", index=False)
+
+    for (config, pivot_table) in get_pivot_tables(results_table):
+        plot_filename = filename + "_config_{}".format(config)
+        title = "Training {}, uncore {}, config {}".format("/".join(args.config), args.uncore, config)
+        heatmap(filename, pivot_table, title)
+
     #results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
     #print results_table.to_latex(index=False)
