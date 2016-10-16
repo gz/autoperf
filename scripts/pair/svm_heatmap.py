@@ -75,7 +75,7 @@ def get_training_and_test_set(args, program_of_interest, program_antagonist, con
 def classify(args, A, B, config):
     X, Y, X_test, Y_test = get_training_and_test_set(args, A, B, config)
 
-    clf = svm.SVC(kernel='linear')
+    clf = svm.SVC(kernel='poly', degree=1, class_weight='balanced')
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)
     X_test_scaled = min_max_scaler.transform(X_test)
