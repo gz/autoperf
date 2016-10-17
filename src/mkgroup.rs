@@ -29,7 +29,6 @@ static uncore_counter: &'static Map<&'static str, EventDescription> = &IVYTOWN_U
 pub fn mkgroup(ranking_file: &Path) {
     let mut res = HashMap::with_capacity(11);
     res.insert(MonitoringUnit::CPU, 4);
-    res.insert(MonitoringUnit::Offcore, 2);
     res.insert(MonitoringUnit::UBox, 2);
     res.insert(MonitoringUnit::CBox, 4);
     res.insert(MonitoringUnit::HA, 4);
@@ -73,7 +72,7 @@ pub fn mkgroup(ranking_file: &Path) {
                             println!("{}", feature_name);
                         }
                         Err(_) => {
-                            // info!("Unable to add event: {} error was: {}", event_name, e)
+                            // info!("Unable to add event: {}", event_name)
                         }
                     }
                 }
