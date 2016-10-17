@@ -43,14 +43,16 @@ pub fn mkgroup(ranking_file: &Path) {
 
     // Accuracy,Config,Error,Event,F1 score,Precision/Recall,Samples,Samples detail,Test App
 
-    type OutputRow = (f64, String, String, String, f64, String, String, String, String);
+    // Accuracy,Error,Event,F1 score,Precision,Recall,Samples Test 0,Samples Test 1,Samples Test Total,Samples Training 0,Samples Training 1,Samples Training Total,Tested Application,Training Configs
+    type OutputRow = (f64, String, String, f64, f64, f64, String, String, String, String);
     let mut rdr = csv::Reader::from_file(ranking_file).unwrap().has_headers(true);
     let mut events_added = HashMap::with_capacity(25);
 
     let mut group = PerfEventGroup::new(&res);
 
     for row in rdr.decode() {
-        let (_, _, _, feature_name, _, _, _, _, _): OutputRow = row.unwrap();
+        let (_, _, feature_name, _, _, _, _, _, _, _): OutputRow = row.unwrap();
+        // println!("{:?}", feature_name);
         let splits: Vec<&str> = feature_name.splitn(2, ".").collect();
         let event_name = String::from(splits[1]);
         let feature_name = String::from(feature_name.clone());
@@ -71,7 +73,7 @@ pub fn mkgroup(ranking_file: &Path) {
                             println!("{}", feature_name);
                         }
                         Err(_) => {
-                            //info!("Unable to add event: {} error was: {}", event_name, e)
+                            // info!("Unable to add event: {} error was: {}", event_name, e)
                         }
                     }
                 }

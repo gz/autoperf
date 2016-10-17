@@ -43,8 +43,11 @@ def get_training_and_test_set(args, program_of_interest, program_antagonist, con
 
                     classification = True if normalized_runtime > args.cutoff else False
                     if B == "Alone":
-                        #results_path = os.path.join(args.data_directory, config, "{}".format(A))
-                        continue
+                        if args.include_alone:
+                            results_path = os.path.join(args.data_directory, config, "{}".format(A))
+                            print "Include", results_path
+                        else:
+                            continue
                     else:
                         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
                     matrix_file = os.path.join(results_path, MATRIX_FILE)
@@ -146,6 +149,7 @@ def heatmap(location, data, title):
         t.tick2On = False
 
     plt.savefig(location + ".png", format='png')
+    plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
     plt.clf()
     plt.close()
 
@@ -161,7 +165,10 @@ if __name__ == '__main__':
     parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
-                        default=['L3-SMT', 'L3-SMT-cores'])
+                        default=['L3-SMT'])
+    parser.add_argument('--alone', dest='include_alone', action='store_true',
+                        default=False, help="Include alone runs.")
+
     args = parser.parse_args()
 
     pool = Pool(processes=6)
@@ -181,12 +188,12 @@ if __name__ == '__main__':
     pool.close()
     pool.join()
 
-    filename = "svm_heatmap_training_{}_uncore_{}".format("_".join(args.config), args.uncore)
+    filename = "svm_heatmap_training_{}_uncore_{}_poly1_balanced_alone".format("_".join(args.config), args.uncore)
     results_table.to_csv(filename + ".csv", index=False)
 
     for (config, pivot_table) in get_pivot_tables(results_table):
         plot_filename = filename + "_config_{}".format(config)
-        title = "Training {}, uncore {}, config {}".format("/".join(args.config), args.uncore, config)
+        title = "Training {}, uncore {}, config {} poly1, balanced, alone".format("/".join(args.config), args.uncore, config)
         heatmap(filename, pivot_table, title)
 
     #results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]

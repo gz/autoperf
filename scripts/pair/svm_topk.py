@@ -62,9 +62,12 @@ if __name__ == '__main__':
     parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
-                        default=['L3-SMT', 'L3-SMT-cores'])
+                        default=['L3-SMT'])
     parser.add_argument('--cfs', dest='cfs', type=str, help="Weka file containing reduced, relevant features.")
     parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="Which programs to use as a test set.")
+    parser.add_argument('--alone', dest='include_alone', action='store_true',
+                        default=False, help="Include alone runs.")
+
     args = parser.parse_args()
 
 
@@ -95,7 +98,7 @@ if __name__ == '__main__':
             X[event.name] = X_all[event.name]
             X_test[event.name] = X_test_all[event.name]
 
-            clf = svm.SVC(kernel='linear')
+            clf = svm.SVC(kernel='poly', degree=1, class_weight='balanced')
             min_max_scaler = preprocessing.MinMaxScaler()
             X_scaled = min_max_scaler.fit_transform(X)
             X_test_scaled = min_max_scaler.transform(X_test)

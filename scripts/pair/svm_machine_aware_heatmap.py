@@ -36,7 +36,7 @@ def classify(args, A, B, config):
     X = pd.DataFrame()
     X_test = pd.DataFrame()
 
-    cfs_default_file = os.path.join(args.data_directory, "topk_svm_{}_{}.csv".format(A, '_'.join(['L3-SMT', 'L3-SMT-cores']))) # hack, use args.config
+    cfs_default_file = os.path.join(args.data_directory, "{}_{}_topk_cfs_greedyranker.csv".format(A, '_'.join(args.config)))
     if not os.path.exists(cfs_default_file):
         print "Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)
         sys.exit(1)
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
-                        default=['L3-SMT', 'L3-SMT-cores'])
+                        default=['L3-SMT'])
     args = parser.parse_args()
 
     pool = Pool(processes=6)
@@ -95,13 +95,13 @@ if __name__ == '__main__':
     pool.close()
     pool.join()
 
-    filename = "svm_machine_aware_heatmap_training_{}_uncore_{}".format("_".join(args.config), args.uncore)
+    filename = "svm_machine_aware_heatmap_training_{}_uncore_{}_poly1_balanced".format("_".join(args.config), args.uncore)
     results_table.to_csv(filename + ".csv", index=False)
 
     for (config, pivot_table) in get_pivot_tables(results_table):
         plot_filename = filename + "_config_{}".format(config)
-        title = "Machine Aware, Training {}, uncore {}, config {}".format("/".join(args.config), args.uncore, config)
-        heatmap(filename, pivot_table, title)
+        title = "Machine Aware, Training {}, uncore {}, config {}, poly1 balanced".format("/".join(args.config), args.uncore, config)
+        heatmap(plot_filename, pivot_table, title)
 
     #results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
     #print results_table.to_latex(index=False)
