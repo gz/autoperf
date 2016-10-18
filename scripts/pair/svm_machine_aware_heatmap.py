@@ -20,7 +20,7 @@ from sklearn import preprocessing
 
 from svm import get_svm_metrics, SVM_KERNELS, get_argument_parser
 from svm_topk import get_selected_events
-from svm_heatmap import get_training_and_test_set, get_pivot_tables, heatmap
+from svm_heatmap import cellwise_training_and_test_set, get_pivot_tables, heatmap
 
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
 
@@ -31,7 +31,7 @@ def mkgroup(cfs_ranking_file):
     return lines[:-1]
 
 def classify(args, clf, A, B, config):
-    X_all, Y, X_test_all, Y_test = get_training_and_test_set(args, A, B, config)
+    X_all, Y, X_test_all, Y_test = cellwise_training_and_test_set(args, A, B, config)
 
     X = pd.DataFrame()
     X_test = pd.DataFrame()

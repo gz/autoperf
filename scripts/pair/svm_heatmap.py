@@ -26,7 +26,7 @@ from svm_topk import get_selected_events
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
 
-def get_training_and_test_set(args, program_of_interest, program_antagonist, config_of_interest):
+def cellwise_training_and_test_set(args, program_of_interest, program_antagonist, config_of_interest):
     MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
 
     X = []
@@ -77,7 +77,7 @@ def get_training_and_test_set(args, program_of_interest, program_antagonist, con
     return (pd.concat(X), pd.concat(Y), pd.concat(X_test), pd.concat(Y_test))
 
 def classify(args, clf, A, B, config):
-    X, Y, X_test, Y_test = get_training_and_test_set(args, A, B, config)
+    X, Y, X_test, Y_test = cellwise_training_and_test_set(args, A, B, config)
 
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)

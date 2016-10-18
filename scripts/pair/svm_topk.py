@@ -17,7 +17,7 @@ from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
-from svm import get_training_and_test_set, get_svm_metrics
+from svm import row_training_and_test_set, get_svm_metrics
 
 def get_selected_events(weka_cfs_ranking_file):
     df = pd.DataFrame()
@@ -88,7 +88,7 @@ if __name__ == '__main__':
         else:
             event_list = get_selected_events(args.cfs)
 
-        X_all, Y, X_test_all, Y_test = get_training_and_test_set(args, test)
+        X_all, Y, X_test_all, Y_test = row_training_and_test_set(args, test)
 
         X = pd.DataFrame()
         X_test = pd.DataFrame()
