@@ -15,6 +15,7 @@ from matplotlib import pyplot as plt, font_manager
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 
 colors = LinearSegmentedColormap.from_list('seismic', ["#ca0020", "#2ca25f"])
+plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 
 def get_runtime_dataframe(data_directory):
     runtimes_file = os.path.join(data_directory, 'runtimes.csv')
@@ -146,7 +147,6 @@ def heatmap(location, data):
     fig, ax = plt.subplots()
     label_font = font_manager.FontProperties(family='Supria Sans', size=10)
     ticks_font = font_manager.FontProperties(family='Decima Mono')
-    plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 
     ax.set_xticklabels(data.columns)
     ax.set_yticklabels(data.index)

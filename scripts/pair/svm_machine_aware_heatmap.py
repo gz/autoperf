@@ -39,7 +39,7 @@ def classify(args, A, B, config):
     cfs_default_file = os.path.join(args.data_directory, "{}_{}_topk_cfs_greedyranker.csv".format(A, '_'.join(args.config)))
     if not os.path.exists(cfs_default_file):
         print "Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)
-        sys.exit(1)
+        return None
 
     event_list = mkgroup(cfs_default_file)
 
@@ -47,7 +47,7 @@ def classify(args, A, B, config):
         X[event] = X_all[event]
         X_test[event] = X_test_all[event]
 
-    clf = svm.SVC(kernel='poly', degree=1, class_weight='balanced')
+    clf = svm.SVC(kernel='poly', degree=2, class_weight='balanced')
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)
     X_test_scaled = min_max_scaler.transform(X_test)
@@ -76,6 +76,8 @@ if __name__ == '__main__':
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
     parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
                         default=['L3-SMT'])
+    parser.add_argument('--alone', dest='include_alone', action='store_true',
+                        default=False, help="Include alone runs.")
     args = parser.parse_args()
 
     pool = Pool(processes=6)

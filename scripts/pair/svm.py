@@ -114,7 +114,7 @@ if __name__ == '__main__':
     for test in tests:
         X, Y, X_test, Y_test = get_training_and_test_set(args, test)
 
-        clf = svm.SVC(kernel='poly', degree=1, class_weight='balanced')
+        clf = svm.SVC(kernel='poly', degree=2)
         min_max_scaler = preprocessing.MinMaxScaler()
         X_scaled = min_max_scaler.fit_transform(X)
 
@@ -150,7 +150,7 @@ if __name__ == '__main__':
                 test_file_name = 'svm_test_{}_{}_uncore_{}.csv'.format('_'.join(test), '_'.join(args.config), args.uncore)
                 X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
 
-    svm_result_table_file = "svm_results_{}_uncore_{}_poly1_balanced_alone.csv".format('_'.join(args.config), args.uncore)
+    svm_result_table_file = "svm_results_{}_uncore_{}.csv".format('_'.join(args.config), args.uncore)
     results_table.to_csv(svm_result_table_file, index=False)
 
     # TODO:

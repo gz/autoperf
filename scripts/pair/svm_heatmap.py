@@ -23,6 +23,7 @@ from sklearn import preprocessing
 from svm import get_svm_metrics
 from svm_topk import get_selected_events
 
+plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
 
 def get_training_and_test_set(args, program_of_interest, program_antagonist, config_of_interest):
@@ -45,7 +46,7 @@ def get_training_and_test_set(args, program_of_interest, program_antagonist, con
                     if B == "Alone":
                         if args.include_alone:
                             results_path = os.path.join(args.data_directory, config, "{}".format(A))
-                            print "Include", results_path
+                            #print "Include", results_path
                         else:
                             continue
                     else:
@@ -106,8 +107,6 @@ def get_pivot_tables(df):
     return tables
 
 def heatmap(location, data, title):
-    plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
-
     fig, ax = plt.subplots()
     label_font = font_manager.FontProperties(family='Supria Sans', size=10)
     ticks_font = font_manager.FontProperties(family='Decima Mono')
@@ -188,12 +187,12 @@ if __name__ == '__main__':
     pool.close()
     pool.join()
 
-    filename = "svm_heatmap_training_{}_uncore_{}_poly1_balanced_alone".format("_".join(args.config), args.uncore)
+    filename = "svm_heatmap_training_{}_uncore_{}_poly1_balanced_120".format("_".join(args.config), args.uncore)
     results_table.to_csv(filename + ".csv", index=False)
 
     for (config, pivot_table) in get_pivot_tables(results_table):
         plot_filename = filename + "_config_{}".format(config)
-        title = "Training {}, uncore {}, config {} poly1, balanced, alone".format("/".join(args.config), args.uncore, config)
+        title = "Training {}, uncore {}, config {} poly1, balanced cutoff 120".format("/".join(args.config), args.uncore, config)
         heatmap(filename, pivot_table, title)
 
     #results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
