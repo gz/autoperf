@@ -187,6 +187,3 @@ if __name__ == '__main__':
             title = "Training {}, uncore {}, config {}, kernel {}, {}, {}" \
                     .format("/".join(args.config), args.uncore, config, kconfig, alone_suffix, cutoff_suffix)
             heatmap(filename, pivot_table, title)
-
-    #results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
-    #print results_table.to_latex(index=False)

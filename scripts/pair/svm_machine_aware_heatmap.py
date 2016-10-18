@@ -18,7 +18,7 @@ from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
-from svm import get_svm_metrics
+from svm import get_svm_metrics, SVM_KERNELS, get_argument_parser
 from svm_topk import get_selected_events
 from svm_heatmap import get_training_and_test_set, get_pivot_tables, heatmap
 
@@ -30,7 +30,7 @@ def mkgroup(cfs_ranking_file):
     assert lines[-1] == ''
     return lines[:-1]
 
-def classify(args, A, B, config):
+def classify(args, clf, A, B, config):
     X_all, Y, X_test_all, Y_test = get_training_and_test_set(args, A, B, config)
 
     X = pd.DataFrame()
@@ -47,7 +47,6 @@ def classify(args, A, B, config):
         X[event] = X_all[event]
         X_test[event] = X_test_all[event]
 
-    clf = svm.SVC(kernel='poly', degree=2, class_weight='balanced')
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)
     X_test_scaled = min_max_scaler.transform(X_test)
@@ -64,46 +63,39 @@ def classify(args, A, B, config):
     return pd.DataFrame([row])
 
 if __name__ == '__main__':
-    pd.set_option('display.max_rows', 37)
-    pd.set_option('display.max_columns', 15)
-    pd.set_option('display.width', 200)
 
-    parser = argparse.ArgumentParser(description='Get the SVM parameters when limiting the amount of features.')
-    parser.add_argument('--data', dest='data_directory', type=str, help="Data directory root.")
-
-    parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
-    parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
-                        default='shared', choices=['all', 'shared', 'exclusive', 'none'])
-    parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
-                        default=['L3-SMT'])
-    parser.add_argument('--alone', dest='include_alone', action='store_true',
-                        default=False, help="Include alone runs.")
+    parser = get_argument_parser("Compute predicition ability for every cell in the heatmap with limited amount of features.")
     args = parser.parse_args()
 
-    pool = Pool(processes=6)
-    rows = []
-    runtimes = get_runtime_dataframe(args.data_directory)
-    for config, table in get_runtime_pivot_tables(runtimes):
-        if config in args.config:
-            for (A, values) in table.iterrows():
-                for (i, normalized_runtime) in enumerate(values):
-                    B = table.columns[i]
-                    if B == "Alone":
-                        continue
-                    res = pool.apply_async(classify, (args, A, B, config))
-                    rows.append(res)
+    for kconfig, clf in SVM_KERNELS.iteritems():
+        print "Trying kernel", kconfig
 
-    results_table = pd.concat(map(lambda r: r.get(), rows), ignore_index=True)
-    pool.close()
-    pool.join()
+        pool = Pool(processes=6)
+        rows = []
+        runtimes = get_runtime_dataframe(args.data_directory)
+        for config, table in get_runtime_pivot_tables(runtimes):
+            if config in args.config:
+                for (A, values) in table.iterrows():
+                    for (i, normalized_runtime) in enumerate(values):
+                        B = table.columns[i]
+                        if B == "Alone":
+                            continue
+                        res = pool.apply_async(classify, (args, clf, A, B, config))
+                        rows.append(res)
 
-    filename = "svm_machine_aware_heatmap_training_{}_uncore_{}_poly1_balanced".format("_".join(args.config), args.uncore)
-    results_table.to_csv(filename + ".csv", index=False)
+        results_table = pd.concat(map(lambda r: r.get(), rows), ignore_index=True)
+        pool.close()
+        pool.join()
 
-    for (config, pivot_table) in get_pivot_tables(results_table):
-        plot_filename = filename + "_config_{}".format(config)
-        title = "Machine Aware, Training {}, uncore {}, config {}, poly1 balanced".format("/".join(args.config), args.uncore, config)
-        heatmap(plot_filename, pivot_table, title)
+        alone_suffix = "alone" if args.alone else "paironly"
+        cutoff_suffix = "{}".format(args.cutoff*100)
 
-    #results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
-    #print results_table.to_latex(index=False)
+        filename = "svm_machine_aware_heatmap_training_{}_uncore_{}_{}_{}_{}" \
+                   .format("_".join(args.config), args.uncore, kconfig, alone_suffix, cutoff_suffix)
+        results_table.to_csv(filename + ".csv", index=False)
+
+        for (config, pivot_table) in get_pivot_tables(results_table):
+            plot_filename = filename + "_config_{}".format(config)
+            title = "Machine Aware, Training {}, uncore {}, config {}, kernel {}, {}, {}" \
+                    .format("/".join(args.config), args.uncore, config, kconfig, alone_suffix, cutoff_suffix)
+            heatmap(filename, pivot_table, title)
