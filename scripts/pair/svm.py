@@ -17,13 +17,13 @@ from sklearn import preprocessing
 
 SVM_KERNELS = {
     #'linear': svm.SVC(kernel='linear'),
-    'linearbalanced': svm.SVC(kernel='linear', class_weight='balanced'),
-    'rbf1': svm.SVC(kernel='rbf', degree=1),
-    'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
-    'poly1': svm.SVC(kernel='poly', degree=1),
+    #'linearbalanced': svm.SVC(kernel='linear', class_weight='balanced'),
+    #'rbf1': svm.SVC(kernel='rbf', degree=1),
+    #'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
+    #'poly1': svm.SVC(kernel='poly', degree=1),
     'poly2': svm.SVC(kernel='poly', degree=2),
-    'poly1balanced': svm.SVC(kernel='poly', degree=1, class_weight='balanced'),
-    'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
+    #'poly1balanced': svm.SVC(kernel='poly', degree=1, class_weight='balanced'),
+    #'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
 }
 
 def get_argument_parser(desc):
@@ -46,11 +46,12 @@ def get_argument_parser(desc):
 def row_training_and_test_set(args, tests):
     MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
 
-    X = pd.DataFrame()
-    Y = pd.Series()
+    X = []
+    Y = []
+    Y_weights = []
 
-    X_test = pd.DataFrame()
-    Y_test = pd.Series()
+    X_test = []
+    Y_test = []
 
     runtimes = get_runtime_dataframe(args.data_directory)
     for config, table in get_runtime_pivot_tables(runtimes):
@@ -77,19 +78,28 @@ def row_training_and_test_set(args, tests):
 
                         if A in tests:
                             #print "Adding {} vs {} to test set".format(A, B), classification
-                            Y_test = pd.concat([Y_test, pd.Series([classification for _ in range(0, df.shape[0])])])
-                            X_test = pd.concat([X_test, df])
+                            Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
+                            X_test.append(df)
                         elif B in tests:
                             #print "Discarding {} vs {}".format(A, B), classification
                             pass
                         else:
-                            #print "Adding {} vs {} to training set".format(A, B), classification
-                            Y = pd.concat([Y, pd.Series([classification for _ in range(0, df.shape[0])])])
-                            X = pd.concat([X, df])
+                            Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
+                            if (A == "NBODY" and (B == "CNEAL" or B == "HD1400" or B == "PR700" or B == "AA700")) \
+                            or (B == "NBODY" and (A == "HD1400" or A == "CNEAL" or A == "BSCHOL")) \
+                            or (A == "TC1400" and B == "BSCHOL") \
+                            or (A == "HD1400" and (B == "SCLUS" or B == "SWAPT")):
+                                print "Give more weights to {} vs {}".format(A, B)
+                                Y_weights.append(pd.Series([6 for _ in range(0, df.shape[0])]))
+                            else:
+                                Y_weights.append(pd.Series([1 for _ in range(0, df.shape[0])]))
+                                #print "Increase weights for BSCHOL!"
+
+                            X.append(df)
                     else:
                         print "Exclude unfinished directory {}".format(results_path)
 
-    return (X, Y, X_test, Y_test)
+    return (pd.concat(X), pd.concat(Y), pd.concat(Y_weights), pd.concat(X_test), pd.concat(Y_test))
 
 def get_svm_metrics(args, test, Y, Y_test, Y_pred):
     row = {}
@@ -136,14 +146,14 @@ if __name__ == '__main__':
         results_table = pd.DataFrame()
 
         for test in tests:
-            X, Y, X_test, Y_test = row_training_and_test_set(args, test)
+            X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args, test)
             min_max_scaler = preprocessing.MinMaxScaler()
             X_scaled = min_max_scaler.fit_transform(X)
 
             if test != [None]:
                 X_test_scaled = min_max_scaler.transform(X_test)
 
-                clf.fit(X_scaled, Y)
+                clf.fit(X_scaled, Y, sample_weight=Y_weights)
                 Y_pred = clf.predict(X_test_scaled)
 
                 row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
@@ -158,7 +168,7 @@ if __name__ == '__main__':
             # TODO: Weka has a bug when the 2nd class appears late in the vector it will think this
             # file has only one class and complain. THe solutionis to make sure both class label appear
             # directly for example as first and 2nd row XD
-            X, Y, X_test, Y_test = row_training_and_test_set(args, test)
+            X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args, test)
 
             X['Y'] = Y
             X_test['Y'] = Y_test
