@@ -85,14 +85,14 @@ def row_training_and_test_set(args, tests):
                             pass
                         else:
                             Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
-                            if (A == "NBODY" and (B == "CNEAL" or B == "HD1400" or B == "PR700" or B == "AA700")) \
-                            or (B == "NBODY" and (A == "HD1400" or A == "CNEAL" or A == "BSCHOL")) \
-                            or (A == "TC1400" and B == "BSCHOL") \
-                            or (A == "HD1400" and (B == "SCLUS" or B == "SWAPT")):
-                                print "Give more weights to {} vs {}".format(A, B)
-                                Y_weights.append(pd.Series([6 for _ in range(0, df.shape[0])]))
-                            else:
-                                Y_weights.append(pd.Series([1 for _ in range(0, df.shape[0])]))
+                            #if (A == "NBODY" and (B == "CNEAL" or B == "HD1400" or B == "PR700" or B == "AA700")) \
+                            #or (B == "NBODY" and (A == "HD1400" or A == "CNEAL" or A == "BSCHOL")) \
+                            #or (A == "TC1400" and B == "BSCHOL") \
+                            #or (A == "HD1400" and (B == "SCLUS" or B == "SWAPT")):
+                                #print "Give more weights to {} vs {}".format(A, B)
+                                #Y_weights.append(pd.Series([6 for _ in range(0, df.shape[0])]))
+                            #else:
+                            Y_weights.append(pd.Series([1 for _ in range(0, df.shape[0])]))
                                 #print "Increase weights for BSCHOL!"
 
                             X.append(df)
@@ -152,8 +152,7 @@ if __name__ == '__main__':
 
             if test != [None]:
                 X_test_scaled = min_max_scaler.transform(X_test)
-
-                clf.fit(X_scaled, Y, sample_weight=Y_weights)
+                clf.fit(X_scaled, Y)
                 Y_pred = clf.predict(X_test_scaled)
 
                 row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
