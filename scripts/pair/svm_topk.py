@@ -57,8 +57,8 @@ def error_plot(args, filename, df):
 
 def classify(args, test, clf, event_list):
     """
-    This is similar to other classify methods but it will reduced
-    the X and X_test to only the events listed in event_list.
+    This is similar to the SVM classify methods but it will reduce
+    the X and X_test to only the events listed in event_list for classification.
     """
     X_all, Y, Y_weights, X_test_all, Y_test = row_training_and_test_set(args, test)
 
@@ -97,7 +97,6 @@ if __name__ == '__main__':
 
     for kconfig, clf in SVM_KERNELS.iteritems():
         print "Trying kernel", kconfig
-        results_table = pd.DataFrame()
 
         for test in tests:
             if not args.cfs:

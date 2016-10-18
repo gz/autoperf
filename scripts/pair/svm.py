@@ -21,9 +21,9 @@ SVM_KERNELS = {
     #'rbf1': svm.SVC(kernel='rbf', degree=1),
     #'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
     #'poly1': svm.SVC(kernel='poly', degree=1),
-    'poly2': svm.SVC(kernel='poly', degree=2),
+    #'poly2': svm.SVC(kernel='poly', degree=2),
     #'poly1balanced': svm.SVC(kernel='poly', degree=1, class_weight='balanced'),
-    #'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
+    'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
 }
 
 def get_argument_parser(desc):

@@ -147,7 +147,7 @@ def heatmap(location, data, title):
         t.tick2On = False
 
     plt.savefig(location + ".png", format='png')
-    plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
+    #plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
     plt.clf()
     plt.close()
 
@@ -158,7 +158,7 @@ if __name__ == '__main__':
     for kconfig, clf in SVM_KERNELS.iteritems():
         print "Trying kernel", kconfig
 
-        pool = Pool(processes=6)
+        pool = Pool(processes=8)
         rows = []
         runtimes = get_runtime_dataframe(args.data_directory)
         for config, table in get_runtime_pivot_tables(runtimes):

@@ -138,12 +138,13 @@ def violin(location, name, data):
     ax.set_title(name)
 
     plt.savefig(location + ".png", format='png')
-    plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
+    #plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
     plt.clf()
     plt.close()
 
 
 def heatmap(location, data):
+    del data['Alone'] # We don't need this in the heatmaps...
     fig, ax = plt.subplots()
     label_font = font_manager.FontProperties(family='Supria Sans', size=10)
     ticks_font = font_manager.FontProperties(family='Decima Mono')
