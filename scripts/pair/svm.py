@@ -15,6 +15,34 @@ from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
+SVM_KERNELS = {
+    'linear': svm.SVC(kernel='linear'),
+    'linearbalanced': svm.SVC(kernel='linear', class_weight='balanced'),
+    'rbf1': svm.SVC(kernel='rbf', degree=1),
+    'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
+    'poly1': svm.SVC(kernel='poly', degree=1),
+    'poly2': svm.SVC(kernel='poly', degree=2),
+    'poly1balanced': svm.SVC(kernel='poly', degree=1, class_weight='balanced'),
+    'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
+}
+
+def get_argument_parser(desc):
+    pd.set_option('display.max_rows', 37)
+    pd.set_option('display.max_columns', 15)
+    pd.set_option('display.width', 200)
+
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument('--data', dest='data_directory', type=str, help="Data directory root.")
+    parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
+    parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
+                        default='shared', choices=['all', 'shared', 'exclusive', 'none'])
+    parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
+                        default=['L3-SMT'])
+    parser.add_argument('--alone', dest='include_alone', action='store_true',
+                        default=False, help="Include alone runs.")
+
+    return parser
+
 def get_training_and_test_set(args, tests):
     MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
 
@@ -85,20 +113,7 @@ def get_svm_metrics(args, test, Y, Y_test, Y_pred):
     return row
 
 if __name__ == '__main__':
-    pd.set_option('display.max_rows', 1000)
-    pd.set_option('display.max_columns', 10)
-    pd.set_option('display.width', 160)
-
-    parser = argparse.ArgumentParser(description='Get the SVM parameters for all programs.')
-    parser.add_argument('--data', dest='data_directory', type=str, help="Data directory root.")
-    parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
-    parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
-                        default='shared', choices=['all', 'shared', 'exclusive', 'none'])
-    parser.add_argument('--alone', dest='include_alone', action='store_true',
-                        default=False, help="Include alone runs.")
-    parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
-                        default=['L3-SMT'])
-
+    parser = get_argument_parser('Get the SVM parameters for a row in the heatmap.')
     parser.add_argument('--weka', dest='weka', action='store_true', default=False, help='Save files for Weka')
     parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="List or programs to include for the test set.")
     args = parser.parse_args()
