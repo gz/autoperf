@@ -30,66 +30,52 @@ def mkgroup(cfs_ranking_file):
     return lines[:-1]
 
 if __name__ == '__main__':
-    pd.set_option('display.max_rows', 37)
-    pd.set_option('display.max_columns', 15)
-    pd.set_option('display.width', 200)
-
-    parser = argparse.ArgumentParser(description='Get the SVM parameters when limiting the amount of features.')
-    parser.add_argument('--data', dest='data_directory', type=str, help="Data directory root.")
-
-    parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
-    parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
-                        default='shared', choices=['all', 'shared', 'exclusive', 'none'])
-    parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
-                        default=['L3-SMT', 'L3-SMT-cores'])
+    parser = get_argument_parser('Get the SVM parameters when limiting the amount of features.')
+    parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="List or programs to include for the test set.")
     parser.add_argument('--cfs', dest='cfs', type=str, help="Weka file containing reduced, relevant features.")
-    parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="Which programs to use as a test set.")
     args = parser.parse_args()
 
 
     if not args.tests:
         runtimes = get_runtime_dataframe(args.data_directory)
-        tests = map(lambda x: [x], sorted(runtimes['A'].unique()))
+        tests = map(lambda x: [x], sorted(runtimes['A'].unique())) # None here means we save the whole matrix as X (no training set)
     else:
-        tests = [args.tests]
+        tests = [args.tests] # Pass the tests as a single set
 
-    results_table = pd.DataFrame()
+    for kconfig, clf in SVM_KERNELS.iteritems():
+        print "Trying kernel", kconfig
+        results_table = pd.DataFrame()
 
-    for test in tests:
-        if not args.cfs:
-            cfs_default_file = os.path.join(args.data_directory, "topk_svm_{}_{}.csv"
-                .format('_'.join(test), '_'.join(args.config)))
-            if not os.path.exists(cfs_default_file):
-                print "Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)
-                sys.exit(1)
+        for test in tests:
+            if not args.cfs:
+                cfs_default_file = os.path.join(args.data_directory, "topk_svm_{}_{}.csv"
+                    .format('_'.join(test), '_'.join(args.config)))
+                if not os.path.exists(cfs_default_file):
+                    print "Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)
+                    sys.exit(1)
 
-            event_list = mkgroup(cfs_default_file)
-        else:
-            event_list = mkgroup(args.cfs)
+                event_list = mkgroup(cfs_default_file)
+            else:
+                event_list = mkgroup(args.cfs)
 
-        X_all, Y, X_test_all, Y_test = row_training_and_test_set(args, test)
+            X_all, Y, X_test_all, Y_test = row_training_and_test_set(args, test)
 
-        X = pd.DataFrame()
-        X_test = pd.DataFrame()
+            X = pd.DataFrame()
+            X_test = pd.DataFrame()
 
-        for event in event_list:
-            X[event] = X_all[event]
-            X_test[event] = X_test_all[event]
+            for event in event_list:
+                X[event] = X_all[event]
+                X_test[event] = X_test_all[event]
 
-        clf = svm.SVC(kernel='linear')
-        min_max_scaler = preprocessing.MinMaxScaler()
-        X_scaled = min_max_scaler.fit_transform(X)
-        X_test_scaled = min_max_scaler.transform(X_test)
+            min_max_scaler = preprocessing.MinMaxScaler()
+            X_scaled = min_max_scaler.fit_transform(X)
+            X_test_scaled = min_max_scaler.transform(X_test)
 
-        clf.fit(X_scaled, Y)
-        Y_pred = clf.predict(X_test_scaled)
+            clf.fit(X_scaled, Y)
+            Y_pred = clf.predict(X_test_scaled)
 
-        row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
-        results_table = results_table.append(row, ignore_index=True)
+            row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
+            results_table = results_table.append(row, ignore_index=True)
 
-    results_table.to_csv("svm_machine_aware.csv", index=False)
-    print results_table
-
-    #TODO:
-    #results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
-    #print results_table.to_latex(index=False)
+        filename = make_result_filename("svm_results_machine_aware", args, kconfig)
+        results_table.to_csv(filename + ".csv", index=False)

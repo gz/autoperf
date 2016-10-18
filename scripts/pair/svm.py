@@ -16,7 +16,7 @@ from sklearn import metrics
 from sklearn import preprocessing
 
 SVM_KERNELS = {
-    'linear': svm.SVC(kernel='linear'),
+    #'linear': svm.SVC(kernel='linear'),
     'linearbalanced': svm.SVC(kernel='linear', class_weight='balanced'),
     'rbf1': svm.SVC(kernel='rbf', degree=1),
     'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
@@ -62,7 +62,7 @@ def row_training_and_test_set(args, tests):
                     classification = True if normalized_runtime > args.cutoff else False
                     if B == "Alone":
                         if not args.include_alone:
-                            print "Skipping the samples with {} alone".format(A)
+                            #print "Skipping the samples with {} alone".format(A)
                             continue
                         results_path = os.path.join(args.data_directory, config, "{}".format(A))
                     else:
@@ -113,10 +113,11 @@ def get_svm_metrics(args, test, Y, Y_test, Y_pred):
     return row
 
 def make_result_filename(prefix, args, kconfig):
-    alone_suffix = "alone" if args.alone else "paironly"
+    alone_suffix = "alone" if args.include_alone else "paironly"
     cutoff_suffix = "{}".format(args.cutoff*100)
-    filename = prefix + "_{}_uncore_{}_{}_{}_{}" \
+    filename = prefix + "_training_{}_uncore_{}_{}_{}_{}" \
                .format("_".join(args.config), args.uncore, kconfig, alone_suffix, cutoff_suffix)
+    return filename
 
 if __name__ == '__main__':
     parser = get_argument_parser('Get the SVM parameters for a row in the heatmap.')
@@ -124,17 +125,15 @@ if __name__ == '__main__':
     parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="List or programs to include for the test set.")
     args = parser.parse_args()
 
-    results_table = pd.DataFrame()
-
     if not args.tests:
         runtimes = get_runtime_dataframe(args.data_directory)
         tests = map(lambda x: [x], sorted(runtimes['A'].unique())) # None here means we save the whole matrix as X (no training set)
     else:
         tests = [args.tests] # Pass the tests as a single set
 
-
     for kconfig, clf in SVM_KERNELS.iteritems():
         print "Trying kernel", kconfig
+        results_table = pd.DataFrame()
 
         for test in tests:
             X, Y, X_test, Y_test = row_training_and_test_set(args, test)
@@ -153,7 +152,6 @@ if __name__ == '__main__':
 
         filename = make_result_filename("svm_results", args, kconfig)
         results_table.to_csv(filename + ".csv", index=False)
-
 
     if args.weka:
         for test in tests:

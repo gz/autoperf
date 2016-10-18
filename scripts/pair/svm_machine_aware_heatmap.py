@@ -18,7 +18,7 @@ from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
-from svm import get_svm_metrics, SVM_KERNELS, get_argument_parser
+from svm import get_svm_metrics, SVM_KERNELS, get_argument_parser, make_result_filename
 from svm_topk import get_selected_events
 from svm_heatmap import cellwise_training_and_test_set, get_pivot_tables, heatmap
 
@@ -63,7 +63,6 @@ def classify(args, clf, A, B, config):
     return pd.DataFrame([row])
 
 if __name__ == '__main__':
-
     parser = get_argument_parser("Compute predicition ability for every cell in the heatmap with limited amount of features.")
     args = parser.parse_args()
 
@@ -90,12 +89,14 @@ if __name__ == '__main__':
         alone_suffix = "alone" if args.alone else "paironly"
         cutoff_suffix = "{}".format(args.cutoff*100)
 
-        filename = "svm_machine_aware_heatmap_training_{}_uncore_{}_{}_{}_{}" \
-                   .format("_".join(args.config), args.uncore, kconfig, alone_suffix, cutoff_suffix)
+        filename = make_result_filename("svm_machine_aware_heatmap", args, kconfig)
         results_table.to_csv(filename + ".csv", index=False)
 
         for (config, pivot_table) in get_pivot_tables(results_table):
             plot_filename = filename + "_config_{}".format(config)
+            alone_suffix = "alone" if args.include_alone else "paironly"
+            cutoff_suffix = "{}".format(args.cutoff*100)
+
             title = "Machine Aware, Training {}, uncore {}, config {}, kernel {}, {}, {}" \
                     .format("/".join(args.config), args.uncore, config, kconfig, alone_suffix, cutoff_suffix)
             heatmap(filename, pivot_table, title)

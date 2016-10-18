@@ -20,7 +20,7 @@ from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
-from svm import get_svm_metrics, SVM_KERNELS, get_argument_parser
+from svm import get_svm_metrics, SVM_KERNELS, get_argument_parser, make_result_filename
 from svm_topk import get_selected_events
 
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
@@ -175,15 +175,14 @@ if __name__ == '__main__':
         pool.close()
         pool.join()
 
-        alone_suffix = "alone" if args.alone else "paironly"
-        cutoff_suffix = "{}".format(args.cutoff*100)
-
-        filename = "svm_heatmap_training_{}_uncore_{}_{}_{}_{}" \
-                   .format("_".join(args.config), args.uncore, kconfig, alone_suffix, cutoff_suffix)
+        filename = make_result_filename("svm_heatmap", args, kconfig)
         results_table.to_csv(filename + ".csv", index=False)
 
         for (config, pivot_table) in get_pivot_tables(results_table):
             plot_filename = filename + "_config_{}".format(config)
+            alone_suffix = "alone" if args.include_alone else "paironly"
+            cutoff_suffix = "{}".format(args.cutoff*100)
+
             title = "Training {}, uncore {}, config {}, kernel {}, {}, {}" \
                     .format("/".join(args.config), args.uncore, config, kconfig, alone_suffix, cutoff_suffix)
             heatmap(filename, pivot_table, title)
