@@ -43,7 +43,7 @@ def get_argument_parser(desc):
 
     return parser
 
-def get_training_and_test_set(args, tests):
+def row_training_and_test_set(args, tests):
     MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
 
     X = pd.DataFrame()
@@ -68,7 +68,6 @@ def get_training_and_test_set(args, tests):
                     else:
                         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
                     matrix_file = os.path.join(results_path, MATRIX_FILE)
-                    #print A, B, normalized_runtime, classification
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
                         if not os.path.exists(matrix_file):
@@ -77,13 +76,14 @@ def get_training_and_test_set(args, tests):
                         df = pd.read_csv(matrix_file, index_col=False)
 
                         if A in tests:
-                            print "Adding {} vs {} to test set".format(A, B), classification
+                            #print "Adding {} vs {} to test set".format(A, B), classification
                             Y_test = pd.concat([Y_test, pd.Series([classification for _ in range(0, df.shape[0])])])
                             X_test = pd.concat([X_test, df])
                         elif B in tests:
-                            print "Discarding {} vs {}".format(A, B), classification
+                            #print "Discarding {} vs {}".format(A, B), classification
+                            pass
                         else:
-                            print "Adding {} vs {} to training set".format(A, B), classification
+                            #print "Adding {} vs {} to training set".format(A, B), classification
                             Y = pd.concat([Y, pd.Series([classification for _ in range(0, df.shape[0])])])
                             X = pd.concat([X, df])
                     else:
@@ -112,6 +112,12 @@ def get_svm_metrics(args, test, Y, Y_test, Y_pred):
 
     return row
 
+def make_result_filename(prefix, args, kconfig):
+    alone_suffix = "alone" if args.alone else "paironly"
+    cutoff_suffix = "{}".format(args.cutoff*100)
+    filename = prefix + "_{}_uncore_{}_{}_{}_{}" \
+               .format("_".join(args.config), args.uncore, kconfig, alone_suffix, cutoff_suffix)
+
 if __name__ == '__main__':
     parser = get_argument_parser('Get the SVM parameters for a row in the heatmap.')
     parser.add_argument('--weka', dest='weka', action='store_true', default=False, help='Save files for Weka')
@@ -126,27 +132,36 @@ if __name__ == '__main__':
     else:
         tests = [args.tests] # Pass the tests as a single set
 
-    for test in tests:
-        X, Y, X_test, Y_test = get_training_and_test_set(args, test)
 
-        clf = svm.SVC(kernel='poly', degree=2)
-        min_max_scaler = preprocessing.MinMaxScaler()
-        X_scaled = min_max_scaler.fit_transform(X)
+    for kconfig, clf in SVM_KERNELS.iteritems():
+        print "Trying kernel", kconfig
 
-        if test != [None]:
-            X_test_scaled = min_max_scaler.transform(X_test)
+        for test in tests:
+            X, Y, X_test, Y_test = row_training_and_test_set(args, test)
+            min_max_scaler = preprocessing.MinMaxScaler()
+            X_scaled = min_max_scaler.fit_transform(X)
 
-            clf.fit(X_scaled, Y)
-            Y_pred = clf.predict(X_test_scaled)
+            if test != [None]:
+                X_test_scaled = min_max_scaler.transform(X_test)
 
-            row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
-            results_table = results_table.append(row, ignore_index=True)
-            print results_table
+                clf.fit(X_scaled, Y)
+                Y_pred = clf.predict(X_test_scaled)
 
-        if args.weka:
+                row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
+                results_table = results_table.append(row, ignore_index=True)
+                print results_table
+
+        filename = make_result_filename("svm_results", args, kconfig)
+        results_table.to_csv(filename + ".csv", index=False)
+
+
+    if args.weka:
+        for test in tests:
             # TODO: Weka has a bug when the 2nd class appears late in the vector it will think this
             # file has only one class and complain. THe solutionis to make sure both class label appear
             # directly for example as first and 2nd row XD
+            X, Y, X_test, Y_test = row_training_and_test_set(args, test)
+
             X['Y'] = Y
             X_test['Y'] = Y_test
 
@@ -164,10 +179,3 @@ if __name__ == '__main__':
             if test != [None]:
                 test_file_name = 'svm_test_{}_{}_uncore_{}.csv'.format('_'.join(test), '_'.join(args.config), args.uncore)
                 X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
-
-    svm_result_table_file = "svm_results_{}_uncore_{}.csv".format('_'.join(args.config), args.uncore)
-    results_table.to_csv(svm_result_table_file, index=False)
-
-    # TODO:
-    # results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
-    print results_table
