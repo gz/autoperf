@@ -27,24 +27,29 @@ def get_matrix_file(results_path):
         print "Unfinished directory: {}".format(results_path)
         sys.exit(1)
 
-def plot_events(args, filename, title, df):
+def plot_events(df, features, filename, title):
     fig = plt.figure()
     if title:
         fig.suptitle(title)
 
     ax1 = fig.add_subplot(1, 1, 1)
-    ax1.set_xlabel('Time [250 ms]')
+    ax1.set_xlabel('Time [s]')
     ax1.set_ylabel('Events observed [count]')
     ax1.spines['top'].set_visible(False)
     ax1.spines['right'].set_visible(False)
     ax1.get_xaxis().tick_bottom()
     ax1.get_yaxis().tick_left()
 
-    for feature in args.features:
+    for feature in features:
         ax1.plot(df[feature], label=feature)
 
+    ax1.xaxis.set_ticks(np.arange(0, len(df), 4))
+
+    val, labels = plt.xticks()
+    plt.xticks(val, map(lambda x: "{}".format(x / 4), val))
+
     ax1.set_ylim(ymin=0.0)
-    ax1.legend()
+    ax1.legend(loc='best')
 
     plt.setp(ax1.get_xticklabels(), fontproperties=ticks_font)
     plt.setp(ax1.get_yticklabels(), fontproperties=ticks_font)
@@ -52,6 +57,16 @@ def plot_events(args, filename, title, df):
     plt.savefig(filename  + ".png", format='png')
     plt.clf()
     plt.close()
+
+def make_plot(from_directory, features):
+    matrix_file = get_matrix_file(from_directory)
+    df = pd.read_csv(matrix_file, index_col=False)
+
+    path, pair = os.path.split(from_directory)
+    _, config = os.path.split(path)
+    filename = "feature_plot_{}_{}_{}".format(config, pair, "_".join(features))
+
+    plot_events(df, features, filename, "{} {}".format(config, pair))
 
 if __name__ == '__main__':
     pd.set_option('display.max_rows', 37)
@@ -65,11 +80,4 @@ if __name__ == '__main__':
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
     args = parser.parse_args()
 
-    path, pair = os.path.split(args.run)
-    _, config = os.path.split(path)
-    filename = "feature_plot_{}_{}_{}".format(config, pair, "_".join(args.features))
-
-    matrix_file = get_matrix_file(args.run)
-    df = pd.read_csv(matrix_file, index_col=False)
-
-    plot_events(args, filename, "{} {}".format(config, pair), df)
+    make_plot(args.run, args.features)
