@@ -14,6 +14,11 @@ from util import *
 from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
+from sklearn import neural_network
+from sklearn import tree
+from sklearn import neighbors
+from sklearn import ensemble
+from sklearn import linear_model
 
 SVM_KERNELS = {
     #'linear': svm.SVC(kernel='linear'),
@@ -23,7 +28,21 @@ SVM_KERNELS = {
     #'poly1': svm.SVC(kernel='poly', degree=1),
     #'poly2': svm.SVC(kernel='poly', degree=2),
     #'poly1balanced': svm.SVC(kernel='poly', degree=1, class_weight='balanced'),
-    'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
+    #'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
+    'neural': neural_network.MLPClassifier(),
+    'neuralsgd': neural_network.MLPClassifier(solver='sgd'),
+    'neuraladaptivelogistic': neural_network.MLPClassifier(activation='logistic', learning_rate='adaptive'),
+    'passiveaggr': linear_model.PassiveAggressiveClassifier(),
+    'randomforest10': ensemble.RandomForestClassifier(n_estimators=10),
+    'decision': tree.DecisionTreeClassifier(),
+    'decision5': tree.DecisionTreeClassifier(max_features=5),
+    'decision10': tree.DecisionTreeClassifier(max_features=10),
+    'decision15': tree.DecisionTreeClassifier(max_features=15),
+    'decision20': tree.DecisionTreeClassifier(max_features=20),
+    'decision25': tree.DecisionTreeClassifier(max_features=25),
+    'kneighbors': neighbors.KNeighborsClassifier(),
+    'kneighborsdistance': neighbors.KNeighborsClassifier(weights='distance'),
+    'adaboost': ensemble.AdaBoostClassifier()
 }
 
 def get_argument_parser(desc):

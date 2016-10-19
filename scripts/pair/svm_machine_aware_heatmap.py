@@ -99,4 +99,4 @@ if __name__ == '__main__':
 
             title = "Machine Aware, Training {}, uncore {}, config {}, kernel {}, {}, {}" \
                     .format("/".join(args.config), args.uncore, config, kconfig, alone_suffix, cutoff_suffix)
-            heatmap(filename, pivot_table, title)
+            heatmap(plot_filename, pivot_table, title)
