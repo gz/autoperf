@@ -21,14 +21,14 @@ from sklearn import ensemble
 from sklearn import linear_model
 
 SVM_KERNELS = {
-    #'linear': svm.SVC(kernel='linear'),
-    #'linearbalanced': svm.SVC(kernel='linear', class_weight='balanced'),
-    #'rbf1': svm.SVC(kernel='rbf', degree=1),
-    #'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
-    #'poly1': svm.SVC(kernel='poly', degree=1),
-    #'poly2': svm.SVC(kernel='poly', degree=2),
-    #'poly1balanced': svm.SVC(kernel='poly', degree=1, class_weight='balanced'),
-    #'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
+    'linear': svm.SVC(kernel='linear'),
+    'linearbalanced': svm.SVC(kernel='linear', class_weight='balanced'),
+    'rbf1': svm.SVC(kernel='rbf', degree=1),
+    'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
+    'poly1': svm.SVC(kernel='poly', degree=1),
+    'poly2': svm.SVC(kernel='poly', degree=2),
+    'poly1balanced': svm.SVC(kernel='poly', degree=1, class_weight='balanced'),
+    'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
     'neural': neural_network.MLPClassifier(),
     'neuralsgd': neural_network.MLPClassifier(solver='sgd'),
     'neuraladaptivelogistic': neural_network.MLPClassifier(activation='logistic', learning_rate='adaptive'),
@@ -51,7 +51,7 @@ def get_argument_parser(desc):
     pd.set_option('display.width', 200)
 
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument('--data', dest='data_directory', type=str, help="Data directory root.")
+    parser.add_argument('--data', dest='data_directory', type=str, help="Data directory root.", required=True)
     parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
     parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])
@@ -160,28 +160,28 @@ if __name__ == '__main__':
     else:
         tests = [args.tests] # Pass the tests as a single set
 
-    for kconfig, clf in SVM_KERNELS.iteritems():
-        print "Trying kernel", kconfig
-        results_table = pd.DataFrame()
+    if not args.weka:
+        for kconfig, clf in SVM_KERNELS.iteritems():
+            print "Trying kernel", kconfig
+            results_table = pd.DataFrame()
 
-        for test in tests:
-            X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args, test)
-            min_max_scaler = preprocessing.MinMaxScaler()
-            X_scaled = min_max_scaler.fit_transform(X)
+            for test in tests:
+                X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args, test)
+                min_max_scaler = preprocessing.MinMaxScaler()
+                X_scaled = min_max_scaler.fit_transform(X)
 
-            if test != [None]:
-                X_test_scaled = min_max_scaler.transform(X_test)
-                clf.fit(X_scaled, Y)
-                Y_pred = clf.predict(X_test_scaled)
+                if test != [None]:
+                    X_test_scaled = min_max_scaler.transform(X_test)
+                    clf.fit(X_scaled, Y)
+                    Y_pred = clf.predict(X_test_scaled)
 
-                row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
-                results_table = results_table.append(row, ignore_index=True)
-                print results_table
+                    row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
+                    results_table = results_table.append(row, ignore_index=True)
+                    print results_table
 
-        filename = make_result_filename("svm_results", args, kconfig)
-        results_table.to_csv(filename + ".csv", index=False)
-
-    if args.weka:
+            filename = make_result_filename("svm_results", args, kconfig)
+            results_table.to_csv(filename + ".csv", index=False)
+    elif args.weka:
         for test in tests:
             # TODO: Weka has a bug when the 2nd class appears late in the vector it will think this
             # file has only one class and complain. THe solutionis to make sure both class label appear
@@ -195,13 +195,17 @@ if __name__ == '__main__':
             X_test['Y'] = X_test['Y'].map(lambda x: 'Y' if x else 'N')
 
             training_file_name = "unset"
+            alone_suffix = "alone" if args.include_alone else "paironly"
+            cutoff_suffix = "{}".format(args.cutoff*100)
             if test == [None]:
-                training_file_name = 'svm_complete_{}_uncore_{}.csv'.format('_'.join(args.config), args.uncore)
+                training_file_name = 'XY_complete_{}_uncore_{}_{}_{}.csv' \
+                                     .format('_'.join(args.config), args.uncore, alone_suffix, cutoff_suffix)
             else:
-                training_file_name = 'svm_training_without_{}_{}_uncore_{}.csv'.format('_'.join(test), '_'.join(args.config), args.uncore)
+                training_file_name = 'XY_training_without_{}_training_{}_uncore_{}_{}_{}.csv' \
+                                     .format('_'.join(test), '_'.join(args.config), args.uncore, alone_suffix, cutoff_suffix)
 
             X.to_csv(os.path.join(args.data_directory, training_file_name), index=False)
-
             if test != [None]:
-                test_file_name = 'svm_test_{}_{}_uncore_{}.csv'.format('_'.join(test), '_'.join(args.config), args.uncore)
+                test_file_name = 'XY_test_{}_training_{}_uncore_{}_{}_{}.csv' \
+                                 .format('_'.join(test), '_'.join(args.config), args.uncore, alone_suffix, cutoff_suffix)
                 X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
