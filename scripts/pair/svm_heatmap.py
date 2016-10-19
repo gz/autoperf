@@ -26,12 +26,28 @@ from svm_topk import get_selected_events
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
 
-def cellwise_training_and_test_set(args, program_of_interest, program_antagonist, config_of_interest):
+def get_matrix_file(args, config, A, B):
     MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
+    if B != "Alone":
+        results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
+    else:
+        if args.include_alone:
+            results_path = os.path.join(args.data_directory, config, "{}".format(A))
+        else:
+            return None
 
-    X = []
-    Y = []
+    matrix_file = os.path.join(results_path, MATRIX_FILE)
+    if os.path.exists(os.path.join(results_path, 'completed')):
+        if os.path.exists(matrix_file):
+            return matrix_file
+        else:
+            print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
+            sys.exit(1)
+    else:
+        print "Skipping unfinished directory".format(results_path)
+        return None
 
+def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_interest):
     X_test = []
     Y_test = []
 
@@ -43,55 +59,72 @@ def cellwise_training_and_test_set(args, program_of_interest, program_antagonist
                     B = table.columns[i]
 
                     classification = True if normalized_runtime > args.cutoff else False
-                    if B == "Alone":
-                        if args.include_alone:
-                            results_path = os.path.join(args.data_directory, config, "{}".format(A))
-                            #print "Include", results_path
-                        else:
-                            continue
-                    else:
-                        results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
-                    matrix_file = os.path.join(results_path, MATRIX_FILE)
-                    #print A, B, normalized_runtime, classification
+                    matrix_file = get_matrix_file(args, config, A, B)
+                    if matrix_file == None:
+                        continue
 
-                    if os.path.exists(os.path.join(results_path, 'completed')):
-                        if not os.path.exists(matrix_file):
-                            print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
-                            sys.exit(1)
+                    if A == program_of_interest and B == program_antagonist and config == config_of_interest:
+                        print "Adding {} vs. {} in {} to test set".format(A, B, config)
                         df = pd.read_csv(matrix_file, index_col=False)
-
-                        if A == program_of_interest and B == program_antagonist and config == config_of_interest:
-                            #print "Adding {} vs. {} in {} to test set".format(A, B, config)
-                            X_test.append(df)
-                            Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
-                        elif A == program_of_interest or B == program_of_interest:
-                            #print "Discarding {} vs {} in {}".format(A, B, config)
-                            pass
-                        else:
-                            #print "Adding {} vs {} in {} to training set".format(A, B, config)
-                            Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
-                            X.append(df)
+                        X_test.append(df)
+                        Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                     else:
-                        print "Exclude unfinished directory {}".format(results_path)
+                        pass
 
-    return (pd.concat(X), pd.concat(Y), pd.concat(X_test), pd.concat(Y_test))
+    return (pd.concat(X_test), pd.concat(Y_test))
 
-def classify(args, clf, A, B, config):
-    X, Y, X_test, Y_test = cellwise_training_and_test_set(args, A, B, config)
+def rowwise_training_set(args, program_of_interest, config_of_interest):
+    X = []
+    Y = []
 
+    runtimes = get_runtime_dataframe(args.data_directory)
+    for config, table in get_runtime_pivot_tables(runtimes):
+        if config in args.config:
+            for (A, values) in table.iterrows():
+                for (i, normalized_runtime) in enumerate(values):
+                    B = table.columns[i]
+
+                    classification = True if normalized_runtime > args.cutoff else False
+                    matrix_file = get_matrix_file(args, config, A, B)
+                    if matrix_file == None:
+                        continue
+
+                    if A != program_of_interest and B != program_of_interest:
+                        print "Adding {} vs {} in {} to training set".format(A, B, config)
+                        df = pd.read_csv(matrix_file, index_col=False)
+                        Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
+                        X.append(df)
+                    else:
+                        pass
+
+    return (pd.concat(X), pd.concat(Y))
+
+
+def classify(args, clf, A, columns, config):
+    cells = []
+
+    X, Y = rowwise_training_set(args, A, config)
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)
-    X_test_scaled = min_max_scaler.transform(X_test)
 
     clf.fit(X_scaled, Y)
-    Y_pred = clf.predict(X_test_scaled)
 
-    row = get_svm_metrics(args, [A], Y, Y_test, Y_pred)
-    row['A'] = A
-    row['B'] = B
-    row['config'] = config
-    print pd.DataFrame([row])
-    return pd.DataFrame([row])
+    for B in columns:
+        if B == "Alone":
+            continue
+
+        X_test, Y_test = cellwise_test_set(args, A, B, config)
+        X_test_scaled = min_max_scaler.transform(X_test)
+        Y_pred = clf.predict(X_test_scaled)
+
+        pred = get_svm_metrics(args, [A], Y, Y_test, Y_pred)
+        pred['A'] = A
+        pred['B'] = B
+        pred['config'] = config
+        cells.append(pred)
+
+    print pd.DataFrame(cells)
+    return pd.DataFrame(cells)
 
 def get_pivot_tables(df):
     df = df.set_index('config')
@@ -164,12 +197,8 @@ if __name__ == '__main__':
         for config, table in get_runtime_pivot_tables(runtimes):
             if config in args.config:
                 for (A, values) in table.iterrows():
-                    for (i, normalized_runtime) in enumerate(values):
-                        B = table.columns[i]
-                        if B == "Alone":
-                            continue
-                        res = pool.apply_async(classify, (args, clf, A, B, config))
-                        rows.append(res)
+                    res = pool.apply_async(classify, (args, clf, A, table.columns, config))
+                    rows.append(res)
 
         results_table = pd.concat(map(lambda r: r.get(), rows), ignore_index=True)
         pool.close()
