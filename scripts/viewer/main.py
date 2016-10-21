@@ -19,7 +19,8 @@ folder = curdoc().session_context.request.arguments['folder'][0]
 
 RESULTS_BASE = '/home/zgerd/workspace/results-babybel/'
 
-df = pd.read_csv('/home/zgerd/workspace/results-babybel/{}/{}/matrix_X_uncore_shared.csv'.format(config, folder))
+df_csv = pd.read_csv(os.path.join(RESULTS_BASE, config, folder, "results_uncore_shared.csv"))
+df = pd.read_csv(os.path.join(RESULTS_BASE, config, folder, "matrix_X_uncore_shared.csv"))
 
 def get_matrix_file(results_path):
     MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
@@ -34,7 +35,6 @@ def get_matrix_file(results_path):
     else:
         print "Unfinished directory: {}".format(results_path)
         sys.exit(1)
-
 
 def get_menu():
     dirs = {'L3-SMT': [], 'L3-SMT-cores': []}
@@ -79,7 +79,28 @@ line = fig_avg.line('x', 'y', source=source_avg, line_width=5)
 fig_std = figure(title='Standard Deviation', height=300)
 line = fig_std.line('x', 'y', source=source_std, line_width=5)
 
-widgets = column(ticker, row(fig_avg, fig_std, sizing_mode='scale_width'), sizing_mode='scale_width')
+
+xs = []
+ys = []
+def get_xs_ys_for(event_name):
+    print df_csv
+    relevant_events =  df_csv[df_csv['EVENT_NAME'] == 'UOPS_EXECUTED.CORE_CYCLES_GE_2']
+
+    relevant_events.set_index('CPU')
+    for idx in relevant_events.index.values:
+        print idx
+        xs.append(relevant_events.loc[idx]['TIME'])
+        ys.append(relevant_events.loc[idx]['SAMPLE_VALUE'])
+    return xs, ys
+
+xs, ys = get_xs_ys_for('UOPS_EXECUTED.CORE_CYCLES_GE_2')
+cpus_source = ColumnDataSource(dict(xs=xs, ys=ys))
+fig_cpus = figure(title='Individual CPUs', height=300)
+cpus_plot = fig_cpus.multi_line(xs='xs', ys='ys', source=cpus_source, line_width=5)
+
+widgets = column(ticker, column(
+                            row(fig_avg, fig_std, sizing_mode='scale_width'),
+                            fig_cpus, sizing_mode='scale_width'), sizing_mode='scale_width')
 
 
 env = Environment(loader=FileSystemLoader(os.path.join(sys.path[0], "templates")))
