@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>{{ title if title else "Plot" }}</title>
+        {{ bokeh_css }}
+        {{ bokeh_js }}
+    </head>
+
+    <body>
+        <div>
+            HERE IS SOME CUSTOM STUFF
+        </div>
+        {{ plot_div|indent(8) }}
+        {{ plot_script|indent(8) }}
+    </body>
+</html>
