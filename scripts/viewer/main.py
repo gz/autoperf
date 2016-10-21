@@ -80,11 +80,11 @@ ticker.on_change('value', ticker_change)
 
 TOOLS = "box_zoom,wheel_zoom,reset"
 
-fig_avg = figure(title="Average", tools=TOOLS)
+fig_avg = figure(title="Average", tools=TOOLS, height=350)
 variation = fig_avg.quad(top='max', bottom='min', left='left', right='right', source=avg_source, color=Blues4[1], legend="Max/Min", alpha=0.5)
 line = fig_avg.line(x='x', y='average', source=avg_source, line_width=5, legend="Average", color=Blues4[0])
 
-fig_cpus = figure(title='Individual CPUs', x_range=fig_avg.x_range, y_range=fig_avg.y_range, tools=TOOLS)
+fig_cpus = figure(title='Individual CPUs', height=350, x_range=fig_avg.x_range, y_range=fig_avg.y_range, tools=TOOLS)
 cpus_plot = fig_cpus.multi_line(xs='xs', ys='ys', source=cpus_source, line_width=3, line_color='color')
 
 widgets = column(ticker, column(fig_avg, fig_cpus, sizing_mode='scale_width'), sizing_mode='scale_width')
