@@ -68,21 +68,23 @@ x, average, maximum, minimum, left, right = get_series_for(all_events[0])
 avg_source = ColumnDataSource( data=dict(x=x, average=average, max=maximum, min=minimum, left=left, right=right) )
 
 xs, ys = get_xs_ys_for(all_events[0])
-cpus_source = ColumnDataSource(dict(xs=xs, ys=ys, color=Spectral11))
+cpus_source = ColumnDataSource(dict(xs=xs, ys=ys, color=Spectral11[:len(xs)]))
 
 def ticker_change(attrname, old, new):
     x, average, maximum, minimum, left, right = get_series_for(new)
     avg_source.data = dict(x=x, average=average, max=maximum, min=minimum, left=left, right=right)
     xs, ys = get_xs_ys_for(new)
-    cpus_source.data = dict(xs=xs, ys=ys, color=Spectral11)
+    cpus_source.data = dict(xs=xs, ys=ys, color=Spectral11[:len(xs)])
 
 ticker.on_change('value', ticker_change)
 
-fig_avg = figure()
+TOOLS = "box_zoom,wheel_zoom,reset"
+
+fig_avg = figure(title="Average", tools=TOOLS)
 variation = fig_avg.quad(top='max', bottom='min', left='left', right='right', source=avg_source, color=Blues4[1], legend="Max/Min", alpha=0.5)
 line = fig_avg.line(x='x', y='average', source=avg_source, line_width=5, legend="Average", color=Blues4[0])
 
-fig_cpus = figure(title='Individual CPUs')
+fig_cpus = figure(title='Individual CPUs', x_range=fig_avg.x_range, y_range=fig_avg.y_range, tools=TOOLS)
 cpus_plot = fig_cpus.multi_line(xs='xs', ys='ys', source=cpus_source, line_width=3, line_color='color')
 
 widgets = column(ticker, column(fig_avg, fig_cpus, sizing_mode='scale_width'), sizing_mode='scale_width')
