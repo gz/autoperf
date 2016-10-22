@@ -15,10 +15,12 @@ from bokeh.palettes import Spectral11, Blues4
 
 from flask import request
 
-if curdoc().session_context.request.arguments.has_key('config'):
-    config = curdoc().session_context.request.arguments['config'][0]
-if curdoc().session_context.request.arguments.has_key('folder'):
-    folder = curdoc().session_context.request.arguments['folder'][0]
+try:
+  config = curdoc().session_context.request.arguments['config'][0]
+  folder = curdoc().session_context.request.arguments['folder'][0]
+except:
+  config = 'L3-SMT'
+  folder = 'AA700'
 
 RESULTS_BASE = '/home/gz/workspace/results-babybel/'
 
