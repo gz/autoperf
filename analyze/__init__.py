@@ -1,1 +1,1 @@
-__all__ = ["main", "clustering"]
+__name__ = 'analyze'

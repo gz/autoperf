@@ -11,8 +11,9 @@ import numpy as np
 from matplotlib import pyplot as plt, font_manager
 
 from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
-from util import *
 from svm import get_argument_parser
+from analyze.util import *
+
 
 from sklearn import svm
 from sklearn import metrics

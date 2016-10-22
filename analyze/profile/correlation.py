@@ -4,8 +4,9 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-
-from util import *
+if __name__ == "__main__":
+    sys.path.insert(1, os.path.join(sys.path[0], '..', ".."))
+    from analyze import util
 
 
 def persist_correlation(correlation_file, events, correlation_matrix):

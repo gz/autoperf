@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 
 from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
-from util import *
+from analyze.util import *
 
 from sklearn import svm
 from sklearn import metrics

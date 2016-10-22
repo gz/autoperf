@@ -31,7 +31,13 @@ def load_as_X(f, aggregate_samples='mean', remove_zero=False, cut_off_nan=True):
 
     # Aggregate all event samples from the same event at time
     if aggregate_samples:
-        if aggregate_samples == 'meanstd':
+        if aggregate_samples == 'mean':
+            grouped_df = raw_data.groupby(['EVENT_NAME', 'TIME'])
+            df_mean = grouped_df.mean()
+            df_mean.rename(lambda event: "{}".format(event), inplace=True)
+            df = pd.concat([df_mean], axis=0)
+
+        elif aggregate_samples == 'meanstd':
             grouped_df = raw_data.groupby(['EVENT_NAME', 'TIME'])
             df_mean = grouped_df.mean()
             df_mean.rename(lambda event: "AVG.{}".format(event), inplace=True)
