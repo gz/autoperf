@@ -19,11 +19,11 @@ from sklearn import ensemble
 from sklearn import linear_model
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
-
-from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from analyze.classify import get_argument_parser
+from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from analyze.util import *
 
-SVM_KERNELS = {
+CLASSIFIERS = {
     'linear': svm.SVC(kernel='linear'),
     'linearbalanced': svm.SVC(kernel='linear', class_weight='balanced'),
     'rbf1': svm.SVC(kernel='rbf', degree=1),
@@ -47,23 +47,6 @@ SVM_KERNELS = {
     'kneighborsdistance': neighbors.KNeighborsClassifier(weights='distance'),
     'adaboost': ensemble.AdaBoostClassifier()
 }
-
-def get_argument_parser(desc):
-    pd.set_option('display.max_rows', 37)
-    pd.set_option('display.max_columns', 15)
-    pd.set_option('display.width', 200)
-
-    parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument('--data', dest='data_directory', type=str, help="Data directory root.", required=True)
-    parser.add_argument('--cutoff', dest='cutoff', type=float, default=1.15, help="Cut-off for labelling the runs.")
-    parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include.",
-                        default='shared', choices=['all', 'shared', 'exclusive', 'none'])
-    parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).",
-                        default=['L3-SMT'])
-    parser.add_argument('--alone', dest='include_alone', action='store_true',
-                        default=False, help="Include alone runs.")
-
-    return parser
 
 def row_training_and_test_set(data_directory, configs, tests, uncore='shared', cutoff=1.15, include_alone=False):
     MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(uncore)
@@ -164,7 +147,7 @@ if __name__ == '__main__':
         tests = [args.tests] # Pass the tests as a single set
 
     if not args.weka:
-        for kconfig, clf in SVM_KERNELS.iteritems():
+        for kconfig, clf in CLASSIFIERS.iteritems():
             print "Trying kernel", kconfig
             results_table = pd.DataFrame()
 

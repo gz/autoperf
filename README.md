@@ -29,7 +29,7 @@ $ rustup override set nightly
 
 Python:
 ```
-$ sudo pip install pandas numpy ascii_graph scipy toml pydotplus sklearn tabulate
+$ sudo pip install pandas numpy ascii_graph scipy toml sklearn bokeh flask
 ```
 
 # Workflow

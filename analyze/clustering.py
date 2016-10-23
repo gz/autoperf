@@ -8,7 +8,12 @@ from bokeh.models import ColumnDataSource, HoverTool, LinearColorMapper
 from bokeh.plotting import figure
 from bokeh.sampledata.unemployment1948 import data
 
+from classify import get_argument_parser
+
 import util
+
+parser = get_argument_parser("autoperf Viewer arguments")
+args = parser.parse_args()
 
 try:
   config = curdoc().session_context.request.arguments['config'][0]
@@ -17,7 +22,7 @@ except:
   config = 'L3-SMT'
   folder = 'AA700'
 
-RESULTS_BASE = '/home/gz/workspace/results-babybel/'
+RESULTS_BASE = args.data_directory
 results_file = os.path.join(RESULTS_BASE, config, folder, "results_uncore_shared.csv")
 df_matrix = pd.read_csv(os.path.join(RESULTS_BASE, config, folder, "matrix_X_uncore_shared.csv"))
 
