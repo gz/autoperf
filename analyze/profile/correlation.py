@@ -4,6 +4,7 @@ import os
 import sys
 import pandas as pd
 import numpy as np
+
 if __name__ == "__main__":
     sys.path.insert(1, os.path.join(sys.path[0], '..', ".."))
     from analyze import util

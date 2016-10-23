@@ -8,7 +8,6 @@ from bokeh.models import ColumnDataSource, HoverTool, LinearColorMapper
 from bokeh.plotting import figure
 from bokeh.sampledata.unemployment1948 import data
 
-
 import util
 
 try:

@@ -8,8 +8,6 @@ import argparse
 import pandas as pd
 import numpy as np
 
-from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
-from analyze.util import *
 
 from sklearn import svm
 from sklearn import metrics
@@ -19,6 +17,11 @@ from sklearn import tree
 from sklearn import neighbors
 from sklearn import ensemble
 from sklearn import linear_model
+
+sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
+
+from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from analyze.util import *
 
 SVM_KERNELS = {
     'linear': svm.SVC(kernel='linear'),
@@ -62,8 +65,8 @@ def get_argument_parser(desc):
 
     return parser
 
-def row_training_and_test_set(args, tests):
-    MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
+def row_training_and_test_set(data_directory, configs, tests, uncore='shared', cutoff=1.15, include_alone=False):
+    MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(uncore)
 
     X = []
     Y = []
@@ -72,21 +75,21 @@ def row_training_and_test_set(args, tests):
     X_test = []
     Y_test = []
 
-    runtimes = get_runtime_dataframe(args.data_directory)
+    runtimes = get_runtime_dataframe(data_directory)
     for config, table in get_runtime_pivot_tables(runtimes):
-        if config in args.config:
+        if config in configs:
             for (A, values) in table.iterrows():
                 for (i, normalized_runtime) in enumerate(values):
                     B = table.columns[i]
 
-                    classification = True if normalized_runtime > args.cutoff else False
+                    classification = True if normalized_runtime > cutoff else False
                     if B == "Alone":
-                        if not args.include_alone:
+                        if not include_alone:
                             #print "Skipping the samples with {} alone".format(A)
                             continue
-                        results_path = os.path.join(args.data_directory, config, "{}".format(A))
+                        results_path = os.path.join(data_directory, config, "{}".format(A))
                     else:
-                        results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
+                        results_path = os.path.join(data_directory, config, "{}_vs_{}".format(A, B))
                     matrix_file = os.path.join(results_path, MATRIX_FILE)
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
@@ -166,7 +169,7 @@ if __name__ == '__main__':
             results_table = pd.DataFrame()
 
             for test in tests:
-                X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args, test)
+                X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, cutoff=args.cutoff, include_alone=args.include_alone)
                 min_max_scaler = preprocessing.MinMaxScaler()
                 X_scaled = min_max_scaler.fit_transform(X)
 
@@ -186,7 +189,7 @@ if __name__ == '__main__':
             # TODO: Weka has a bug when the 2nd class appears late in the vector it will think this
             # file has only one class and complain. THe solutionis to make sure both class label appear
             # directly for example as first and 2nd row XD
-            X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args, test)
+            X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, cutoff=args.cutoff, include_alone=args.include_alone)
 
             X['Y'] = Y
             X_test['Y'] = Y_test

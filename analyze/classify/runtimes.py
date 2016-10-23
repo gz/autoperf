@@ -15,7 +15,6 @@ from matplotlib import pyplot as plt, font_manager
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 
 colors = LinearSegmentedColormap.from_list('seismic', ["#ca0020", "#2ca25f"])
-plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 
 def get_runtime_dataframe(data_directory):
     runtimes_file = os.path.join(data_directory, 'runtimes.csv')
@@ -188,6 +187,7 @@ def heatmap(location, data):
     plt.close()
 
 if __name__ == '__main__':
+    plt.style.use([os.path.join(os.path.realpath(__file__), '..', 'ethplot.mplstyle')])
     pd.set_option('display.max_rows', 50)
     pd.set_option('display.max_columns', 30)
     pd.set_option('display.width', 160)
