@@ -77,29 +77,21 @@ def row_training_and_test_set(data_directory, configs, tests, uncore='shared', c
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
                         if not os.path.exists(matrix_file):
-                            print(("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)))
+                            print("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file))
                             sys.exit(1)
                         df = pd.read_csv(matrix_file, index_col=False)
 
                         if A in tests:
-                            #print "Adding {} vs {} to test set".format(A, B), classification
+                            #print("Adding {} vs {} to test set".format(A, B), classification)
                             Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                             X_test.append(df)
                         elif B in tests:
-                            #print "Discarding {} vs {}".format(A, B), classification
+                            #print("Discarding {} vs {}".format(A, B), classification)
                             pass
                         else:
+                            #print("Adding {} vs {} to training set".format(A, B), classification)
                             Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
-                            #if (A == "NBODY" and (B == "CNEAL" or B == "HD1400" or B == "PR700" or B == "AA700")) \
-                            #or (B == "NBODY" and (A == "HD1400" or A == "CNEAL" or A == "BSCHOL")) \
-                            #or (A == "TC1400" and B == "BSCHOL") \
-                            #or (A == "HD1400" and (B == "SCLUS" or B == "SWAPT")):
-                                #print "Give more weights to {} vs {}".format(A, B)
-                                #Y_weights.append(pd.Series([6 for _ in range(0, df.shape[0])]))
-                            #else:
                             Y_weights.append(pd.Series([1 for _ in range(0, df.shape[0])]))
-                                #print "Increase weights for BSCHOL!"
-
                             X.append(df)
                     else:
                         print(("Exclude unfinished directory {}".format(results_path)))

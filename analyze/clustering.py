@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pandas as pd
 from flask import request
@@ -8,9 +9,9 @@ from bokeh.models import ColumnDataSource, HoverTool, LinearColorMapper
 from bokeh.plotting import figure
 from bokeh.sampledata.unemployment1948 import data
 
-from .classify import get_argument_parser
-
-from . import util
+sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..'))
+from analyze.classify import get_argument_parser
+from analyze import util
 
 parser = get_argument_parser("autoperf Viewer arguments")
 args = parser.parse_args()
