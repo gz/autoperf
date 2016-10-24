@@ -14,7 +14,7 @@ from bokeh.models.widgets import DataTable, DateFormatter, TableColumn
 from bokeh.models import ColumnDataSource
 from bokeh.plotting import figure
 
-from classify import get_argument_parser, svm
+from .classify import get_argument_parser, svm
 
 parser = get_argument_parser("autoperf Viewer arguments")
 args = parser.parse_args()

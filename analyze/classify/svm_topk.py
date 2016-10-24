@@ -10,8 +10,8 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt, font_manager
 
-from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
-from svm import get_argument_parser
+from .runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from .svm import get_argument_parser
 from analyze.util import *
 
 
@@ -19,7 +19,7 @@ from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
-from svm import SVM_KERNELS, row_training_and_test_set, get_svm_metrics, make_result_filename
+from .svm import SVM_KERNELS, row_training_and_test_set, get_svm_metrics, make_result_filename
 
 ticks_font = font_manager.FontProperties(family='Decima Mono')
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
@@ -92,19 +92,19 @@ if __name__ == '__main__':
 
     if not args.tests:
         runtimes = get_runtime_dataframe(args.data_directory)
-        tests = map(lambda x: [x], sorted(runtimes['A'].unique()))
+        tests = [[x] for x in sorted(runtimes['A'].unique())]
     else:
         tests = [args.tests]
 
-    for kconfig, clf in SVM_KERNELS.iteritems():
-        print "Trying kernel", kconfig
+    for kconfig, clf in list(SVM_KERNELS.items()):
+        print(("Trying kernel", kconfig))
 
         for test in tests:
             if not args.cfs:
                 cfs_default_file = os.path.join(args.data_directory, "wekanew", "weka_{}_cfssubset_greedystepwise_{}.txt"
                     .format('_'.join(test), '_'.join(args.config)))
                 if not os.path.exists(cfs_default_file):
-                    print "Skipping {} because we didn't find the cfs file {}".format(' '.join(test), cfs_default_file)
+                    print(("Skipping {} because we didn't find the cfs file {}".format(' '.join(test), cfs_default_file)))
                     continue
                 event_list = get_selected_events(cfs_default_file)
             else:

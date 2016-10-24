@@ -20,8 +20,8 @@ def get_selected_events(weka_fold_file):
 
 if __name__ == '__main__':
     df = get_selected_events(sys.argv[1])
-    print "EVENTS"
-    print "============================="
+    print("EVENTS")
+    print("=============================")
     df_filtered = df[df.folds >= 5]
-    print df_filtered
-    print len(df_filtered)
+    print(df_filtered)
+    print(len(df_filtered))

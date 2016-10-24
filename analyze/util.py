@@ -22,11 +22,11 @@ def load_as_X(f, aggregate_samples='mean', remove_zero=False, cut_off_nan=True):
     if cut_off_nan:
         df = raw_data.groupby(['EVENT_NAME', 'TIME']).count()
         df.reset_index(level=['TIME'], inplace=True)
-        sample_lengths = map(lambda group: len(df.loc[group, :]), df.index.unique())
+        sample_lengths = [len(df.loc[group, :]) for group in df.index.unique()]
         cutoff = min(sample_lengths)
         max_samples = max(sample_lengths)
         if cutoff + 30 < max_samples:
-            print "Limiting to {} max is {}".format(cutoff, max_samples)
+            print("Limiting to {} max is {}".format(cutoff, max_samples))
 
 
     # Aggregate all event samples from the same event at time
@@ -56,7 +56,7 @@ def load_as_X(f, aggregate_samples='mean', remove_zero=False, cut_off_nan=True):
         df = df.drop(get_all_zero_events(df))
 
     df = result_to_matrix(df, cutoff)
-    for idx, has_null in df.isnull().any(axis=1).iteritems():
+    for idx, has_null in df.isnull().any(axis=1).items():
         if has_null:
             assert "found nan in ", idx
 
@@ -99,12 +99,12 @@ def minimum_nan_index(df):
       2 |      0      NaN     100          12
       3 |      0      NaN       1          99
     """
-    for idx, has_null in df.isnull().any(axis=1).iteritems():
+    for idx, has_null in df.isnull().any(axis=1).items():
         if has_null:
-            print "found nan in ", idx
-    for idx, has_null in df.isnull().any(axis=1).iteritems():
+            print("found nan in ", idx)
+    for idx, has_null in df.isnull().any(axis=1).items():
         if has_null:
-            print "nan offset", idx
+            print("nan offset", idx)
             return idx
 
 

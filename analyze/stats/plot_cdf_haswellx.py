@@ -11,7 +11,7 @@ plt.style.use([os.path.join(sys.path[0], '../ethplot.mplstyle')])
 def find_closest(items, val):
     last = 0.0
     for x, y in items:
-        print x, y
+        print(x, y)
         if y > val:
             return last
         last = y
@@ -44,7 +44,7 @@ if __name__ == '__main__':
         cum_dist = np.linspace(0.,1.,len(series))
         cdf = pd.Series(cum_dist, index=series)
 
-        items = list(cdf.iteritems())
+        items = list(cdf.items())
         x, y = idx*10, find_closest(items, idx*0.1)
 
         if line_label == "KnightsLanding": #not in ["KnightsLanding", "NehalemEP", "IvyBridgeEP", "Skylake", "Goldmont", "Broadwell" ]:

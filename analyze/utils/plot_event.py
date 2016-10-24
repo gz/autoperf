@@ -21,10 +21,10 @@ def get_matrix_file(results_path):
         if os.path.exists(matrix_file):
             return matrix_file
         else:
-            print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
+            print("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file))
             sys.exit(1)
     else:
-        print "Unfinished directory: {}".format(results_path)
+        print("Unfinished directory: {}".format(results_path))
         sys.exit(1)
 
 def plot_events(df, features, filename, title):
@@ -46,7 +46,7 @@ def plot_events(df, features, filename, title):
     ax1.xaxis.set_ticks(np.arange(0, len(df), 4))
 
     val, labels = plt.xticks()
-    plt.xticks(val, map(lambda x: "{}".format(x / 4), val))
+    plt.xticks(val, ["{}".format(x / 4) for x in val])
 
     ax1.set_ylim(ymin=0.0)
     ax1.legend(loc='best')

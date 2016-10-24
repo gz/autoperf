@@ -11,16 +11,16 @@ from multiprocessing import Pool, TimeoutError
 import pandas as pd
 import numpy as np
 
-from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from .runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from util import *
 
 from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
-from svm import get_svm_metrics, SVM_KERNELS, get_argument_parser, make_result_filename
-from svm_topk import get_selected_events
-from svm_heatmap import cellwise_training_and_test_set, get_pivot_tables, heatmap
+from .svm import get_svm_metrics, SVM_KERNELS, get_argument_parser, make_result_filename
+from .svm_topk import get_selected_events
+from .svm_heatmap import cellwise_training_and_test_set, get_pivot_tables, heatmap
 
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
 
@@ -38,7 +38,7 @@ def classify(args, clf, A, B, config):
 
     cfs_default_file = os.path.join(args.data_directory, "{}_{}_topk_cfs_greedyranker.csv".format(A, '_'.join(args.config)))
     if not os.path.exists(cfs_default_file):
-        print "Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)
+        print(("Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)))
         return None
 
     event_list = mkgroup(cfs_default_file)
@@ -59,15 +59,15 @@ def classify(args, clf, A, B, config):
     row['B'] = B
     row['config'] = config
 
-    print pd.DataFrame([row])
+    print((pd.DataFrame([row])))
     return pd.DataFrame([row])
 
 if __name__ == '__main__':
     parser = get_argument_parser("Compute predicition ability for every cell in the heatmap with limited amount of features.")
     args = parser.parse_args()
 
-    for kconfig, clf in SVM_KERNELS.iteritems():
-        print "Trying kernel", kconfig
+    for kconfig, clf in list(SVM_KERNELS.items()):
+        print(("Trying kernel", kconfig))
 
         pool = Pool(processes=6)
         rows = []
@@ -82,7 +82,7 @@ if __name__ == '__main__':
                         res = pool.apply_async(classify, (args, clf, A, B, config))
                         rows.append(res)
 
-        results_table = pd.concat(map(lambda r: r.get(), rows), ignore_index=True)
+        results_table = pd.concat([r.get() for r in rows], ignore_index=True)
         pool.close()
         pool.join()
 

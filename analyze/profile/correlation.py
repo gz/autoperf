@@ -94,7 +94,7 @@ def correlation_matrix(data_directory):
 
 
 def usage(progname):
-    print >> sys.stderr, 'usage:', progname, '[data_input_dir]'
+    print('usage:', progname, '[data_input_dir]', file=sys.stderr)
     sys.exit(0)
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ import multiprocessing
 import pandas as pd
 import numpy as np
 
-from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from .runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from util import *
 
 from sklearn import svm
@@ -56,20 +56,20 @@ if __name__ == '__main__':
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
                         if not os.path.exists(matrix_file):
-                            print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
+                            print(("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)))
                             sys.exit(1)
                         df = pd.read_csv(matrix_file, index_col=False)
                         Y = pd.concat([Y, pd.Series([classification for _ in range(0, df.shape[0])])])
                         X = pd.concat([X, df])
                     else:
-                        print "Exclude unfinished directory {}".format(results_path)
+                        print(("Exclude unfinished directory {}".format(results_path)))
 
     clf = svm.SVC(kernel='linear')
 
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)
 
-    print "Starting RFECV"
+    print("Starting RFECV")
     selector = RFECV(clf, step=1, cv=20, n_jobs=multiprocessing.cpu_count())
     selector = selector.fit(X_scaled, Y)
 
@@ -83,4 +83,4 @@ if __name__ == '__main__':
     rf_filename = 'RFECV_for_{}_uncore_{}.csv'.format('_'.join(args.config), args.uncore)
     save_to = os.path.join(args.data_directory, rf_filename)
     df.to_csv(save_to, index=False)
-    print "Just computed", save_to
+    print(("Just computed", save_to))

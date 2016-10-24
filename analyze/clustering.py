@@ -8,9 +8,9 @@ from bokeh.models import ColumnDataSource, HoverTool, LinearColorMapper
 from bokeh.plotting import figure
 from bokeh.sampledata.unemployment1948 import data
 
-from classify import get_argument_parser
+from .classify import get_argument_parser
 
-import util
+from . import util
 
 parser = get_argument_parser("autoperf Viewer arguments")
 args = parser.parse_args()

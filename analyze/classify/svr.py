@@ -8,7 +8,7 @@ import argparse
 import pandas as pd
 import numpy as np
 
-from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from .runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from analyze.util import *
 
 from sklearn import svm
@@ -35,7 +35,7 @@ def get_training_and_test_set(args, tests):
 
                     if B == "Alone":
                         if not args.include_alone:
-                            print "Skipping the samples with {} alone".format(A)
+                            print(("Skipping the samples with {} alone".format(A)))
                             continue
                         results_path = os.path.join(args.data_directory, config, "{}".format(A))
                     else:
@@ -46,7 +46,7 @@ def get_training_and_test_set(args, tests):
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
                         if not os.path.exists(matrix_file):
-                            print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
+                            print(("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)))
                             sys.exit(1)
                         df = pd.read_csv(matrix_file, index_col=False)
 
@@ -59,7 +59,7 @@ def get_training_and_test_set(args, tests):
                             Y = pd.concat([Y, pd.Series([classification for _ in range(0, df.shape[0])])])
                             X = pd.concat([X, df])
                     else:
-                        print "Exclude unfinished directory {}".format(results_path)
+                        print(("Exclude unfinished directory {}".format(results_path)))
 
     return (X, Y, X_test, Y_test)
 
@@ -101,7 +101,7 @@ if __name__ == '__main__':
 
     if not args.tests:
         runtimes = get_runtime_dataframe(args.data_directory)
-        tests = map(lambda x: [x], [None] + sorted(runtimes['A'].unique())) # None here means we save the whole matrix as X (no training set)
+        tests = [[x] for x in [None] + sorted(runtimes['A'].unique())] # None here means we save the whole matrix as X (no training set)
     else:
         tests = [args.tests] # Pass the tests as a single set
 
@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
             row = get_svc_metrics(args, test, Y, Y_test, Y_pred)
             results_table = results_table.append(row, ignore_index=True)
-            print results_table
+            print(results_table)
 
         if args.weka:
             # TODO: Weka has a bug when the 2nd class appears late in the vector it will think this
@@ -149,4 +149,4 @@ if __name__ == '__main__':
 
     # TODO:
     # results_table = results_table[['Test App', 'Samples', 'Error', 'Precision/Recall', 'F1 score']]
-    print results_table
+    print(results_table)

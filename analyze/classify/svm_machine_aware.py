@@ -11,15 +11,15 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt, font_manager
 
-from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from .runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from util import *
 
 from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
-from svm import row_training_and_test_set, get_svm_metrics
-from svm_topk import get_selected_events
+from .svm import row_training_and_test_set, get_svm_metrics
+from .svm_topk import get_selected_events
 
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
 
@@ -38,12 +38,12 @@ if __name__ == '__main__':
 
     if not args.tests:
         runtimes = get_runtime_dataframe(args.data_directory)
-        tests = map(lambda x: [x], sorted(runtimes['A'].unique())) # None here means we save the whole matrix as X (no training set)
+        tests = [[x] for x in sorted(runtimes['A'].unique())] # None here means we save the whole matrix as X (no training set)
     else:
         tests = [args.tests] # Pass the tests as a single set
 
-    for kconfig, clf in SVM_KERNELS.iteritems():
-        print "Trying kernel", kconfig
+    for kconfig, clf in list(SVM_KERNELS.items()):
+        print(("Trying kernel", kconfig))
         results_table = pd.DataFrame()
 
         for test in tests:
@@ -51,7 +51,7 @@ if __name__ == '__main__':
                 cfs_default_file = os.path.join(args.data_directory, "topk_svm_{}_{}.csv"
                     .format('_'.join(test), '_'.join(args.config)))
                 if not os.path.exists(cfs_default_file):
-                    print "Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)
+                    print(("Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)))
                     sys.exit(1)
 
                 event_list = mkgroup(cfs_default_file)

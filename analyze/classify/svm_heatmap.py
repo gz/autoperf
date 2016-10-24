@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import sys
@@ -13,15 +13,15 @@ import numpy as np
 from matplotlib import pyplot as plt, font_manager
 import matplotlib.cm as cm
 
-from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from .runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from util import *
 
 from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
-from svm import get_svm_metrics, SVM_KERNELS, get_argument_parser, make_result_filename
-from svm_topk import get_selected_events
+from .svm import get_svm_metrics, SVM_KERNELS, get_argument_parser, make_result_filename
+from .svm_topk import get_selected_events
 
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
@@ -41,10 +41,10 @@ def get_matrix_file(args, config, A, B):
         if os.path.exists(matrix_file):
             return matrix_file
         else:
-            print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
+            print(("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)))
             sys.exit(1)
     else:
-        print "Skipping unfinished directory".format(results_path)
+        print(("Skipping unfinished directory".format(results_path)))
         return None
 
 def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_interest):
@@ -123,7 +123,7 @@ def classify(args, clf, A, columns, config):
         pred['config'] = config
         cells.append(pred)
 
-    print pd.DataFrame(cells)
+    print((pd.DataFrame(cells)))
     return pd.DataFrame(cells)
 
 def get_pivot_tables(df):
@@ -188,8 +188,8 @@ if __name__ == '__main__':
     parser = get_argument_parser("Compute predicition ability for every cell in the heatmap with all features.")
     args = parser.parse_args()
 
-    for kconfig, clf in SVM_KERNELS.iteritems():
-        print "Trying kernel", kconfig
+    for kconfig, clf in list(SVM_KERNELS.items()):
+        print(("Trying kernel", kconfig))
 
         pool = Pool(processes=cpu_count())
         rows = []
@@ -200,7 +200,7 @@ if __name__ == '__main__':
                     res = pool.apply_async(classify, (args, clf, A, table.columns, config))
                     rows.append(res)
 
-        results_table = pd.concat(map(lambda r: r.get(), rows), ignore_index=True)
+        results_table = pd.concat([r.get() for r in rows], ignore_index=True)
         pool.close()
         pool.join()
 

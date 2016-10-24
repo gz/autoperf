@@ -8,11 +8,11 @@ from multiprocessing import Pool, TimeoutError
 import pandas as pd
 import numpy as np
 
-from runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from .runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from util import *
 
 def make_matrix(results_file, output_file):
-    print "Processing {}".format(results_file)
+    print(("Processing {}".format(results_file)))
     df = load_as_X(results_file, aggregate_samples='meanstd', cut_off_nan=True)
     df.to_csv(output_file, index=False)
 
@@ -56,12 +56,12 @@ if __name__ == '__main__':
                 output_file = os.path.join(results_path, OUT_FILE.format(uncore))
 
                 if not os.path.exists(output_file) or args.overwrite:
-                    print "Processing {} vs. {} ({})".format(A, B, uncore)
+                    print(("Processing {} vs. {} ({})".format(A, B, uncore)))
                     pool.apply_async(make_matrix, (results_file, output_file))
                 else:
-                    print "{} already exists, skipping.".format(output_file)
+                    print(("{} already exists, skipping.".format(output_file)))
         else:
-            print "Exclude unfinished directory {}".format(results_path)
+            print(("Exclude unfinished directory {}".format(results_path)))
 
     pool.close()
     pool.join()

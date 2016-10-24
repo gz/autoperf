@@ -22,7 +22,7 @@ def information_gain(x, y):
         return - np.sum(probs * np.log(probs))
 
     def _information_gain(feature, y):
-        print np.nonzero(feature)
+        print(np.nonzero(feature))
         feature_set_indices = np.nonzero(feature)[1]
         feature_not_set_indices = [i for i in feature_range if i not in feature_set_indices]
         entropy_x_set = _entropy(y[feature_set_indices])
@@ -32,7 +32,7 @@ def information_gain(x, y):
                                  + ((len(feature_not_set_indices) / float(feature_size)) * entropy_x_not_set))
 
     feature_size = x.shape[0]
-    feature_range = range(0, feature_size)
+    feature_range = list(range(0, feature_size))
     entropy_before = _entropy(y)
     information_gain_scores = []
 
@@ -49,13 +49,13 @@ if __name__ == '__main__':
     Y1 = ['N' for _ in range(0, raw_data1.shape[0])]
     Y2 = ['Y' for _ in range(0, raw_data2.shape[0])]
 
-    print raw_data1.shape
-    print raw_data2.shape
+    print(raw_data1.shape)
+    print(raw_data2.shape)
 
     #print Y1 + Y2
     Y = Y1 + Y2
     X = pd.concat([raw_data1, raw_data2])
-    print X.shape
+    print(X.shape)
 
     #print X.as_matrix()
     #print raw_data1.columns[139]
@@ -70,5 +70,5 @@ if __name__ == '__main__':
     #print X_new.shape
 
     X['Y'] = Y
-    print X.shape
+    print(X.shape)
     X.to_csv('classifier.csv', index=False)

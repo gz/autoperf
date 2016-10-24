@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import sys
@@ -77,7 +77,7 @@ def row_training_and_test_set(data_directory, configs, tests, uncore='shared', c
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
                         if not os.path.exists(matrix_file):
-                            print "No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)
+                            print(("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)))
                             sys.exit(1)
                         df = pd.read_csv(matrix_file, index_col=False)
 
@@ -102,7 +102,7 @@ def row_training_and_test_set(data_directory, configs, tests, uncore='shared', c
 
                             X.append(df)
                     else:
-                        print "Exclude unfinished directory {}".format(results_path)
+                        print(("Exclude unfinished directory {}".format(results_path)))
 
     return (pd.concat(X), pd.concat(Y), pd.concat(Y_weights), pd.concat(X_test), pd.concat(Y_test))
 
@@ -142,13 +142,13 @@ if __name__ == '__main__':
 
     if not args.tests:
         runtimes = get_runtime_dataframe(args.data_directory)
-        tests = map(lambda x: [x], sorted(runtimes['A'].unique())) # None here means we save the whole matrix as X (no training set)
+        tests = [[x] for x in sorted(runtimes['A'].unique())] # None here means we save the whole matrix as X (no training set)
     else:
         tests = [args.tests] # Pass the tests as a single set
 
     if not args.weka:
-        for kconfig, clf in CLASSIFIERS.iteritems():
-            print "Trying kernel", kconfig
+        for kconfig, clf in list(CLASSIFIERS.items()):
+            print(("Trying kernel", kconfig))
             results_table = pd.DataFrame()
 
             for test in tests:
@@ -163,7 +163,7 @@ if __name__ == '__main__':
 
                     row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
                     results_table = results_table.append(row, ignore_index=True)
-                    print results_table
+                    print(results_table)
 
             filename = make_result_filename("svm_results", args, kconfig)
             results_table.to_csv(filename + ".csv", index=False)

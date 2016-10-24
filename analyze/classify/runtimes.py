@@ -21,7 +21,7 @@ def get_runtime_dataframe(data_directory):
     if os.path.exists(runtimes_file):
         return pd.read_csv(os.path.join(runtimes_file))
     else:
-        print "{} does not exist yet, make sure you call scripts/pair/runtimes.py!".format(runtimes_file)
+        print(("{} does not exist yet, make sure you call scripts/pair/runtimes.py!".format(runtimes_file)))
 
 def compute_runtime_dataframe(data_directory):
     """
@@ -63,7 +63,7 @@ def compute_runtime_dataframe(data_directory):
             # Because I was stupid and called stderr stdout originally
             stderr_key = 'stdin' if 'stdin' in df.columns else 'stderr'
             if not df[stderr_key].isnull().values.all() and not row['A'] in ['SWAPT', 'SCLUS']:
-                print root, "has errors. Don't put it in the matrix!"
+                print((root, "has errors. Don't put it in the matrix!"))
                 continue
 
             runtimes = []
@@ -90,11 +90,11 @@ def compute_runtime_dataframe(data_directory):
             row['A mean'] = rseries.mean()
             row['A std'] = rseries.std()
             if row['A std'] > 1000:
-                print "{}: High standard deviation {} with mean {}.".format(root, row['A std'], row['A mean'])
+                print(("{}: High standard deviation {} with mean {}.".format(root, row['A std'], row['A mean'])))
 
             row_list.append(row)
         else:
-            print "Exclude unfinished directory {}".format(root)
+            print(("Exclude unfinished directory {}".format(root)))
 
 
     return pd.DataFrame(row_list)

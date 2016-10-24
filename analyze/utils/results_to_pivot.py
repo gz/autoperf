@@ -9,7 +9,7 @@ import numpy as np
 from util import get_all_zero_events
 
 def usage(progname):
-    print >> sys.stderr, 'usage:', progname, '[data_input_dir]'
+    print('usage:', progname, '[data_input_dir]', file=sys.stderr)
     sys.exit(0)
 
 def result_to_matrix(df):
@@ -49,8 +49,8 @@ def minimum_nan_index(df):
       2 |      0      NaN     100          12
       3 |      0      NaN       1          99
     """
-    print df.isnull().any(axis=1)
-    for idx, has_null in df.isnull().any(axis=1).iteritems():
+    print(df.isnull().any(axis=1))
+    for idx, has_null in df.isnull().any(axis=1).items():
         if has_null:
             return idx
 

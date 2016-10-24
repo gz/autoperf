@@ -2,7 +2,7 @@ import os, sys
 import numpy as np
 import pandas as pd
 import matplotlib.cm as cm
-from StringIO import StringIO
+from io import StringIO
 
 from matplotlib import pyplot as plt, font_manager
 from matplotlib.colors import Normalize, LinearSegmentedColormap
