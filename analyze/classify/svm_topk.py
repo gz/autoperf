@@ -10,16 +10,16 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt, font_manager
 
-from .runtimes import get_runtime_dataframe, get_runtime_pivot_tables
-from .svm import get_argument_parser
-from analyze.util import *
-
-
 from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
-from .svm import SVM_KERNELS, row_training_and_test_set, get_svm_metrics, make_result_filename
+sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
+from analyze.classify.svm import CLASSIFIERS, row_training_and_test_set, get_svm_metrics, make_result_filename
+from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from analyze.classify.svm import get_argument_parser
+from analyze.util import *
+
 
 ticks_font = font_manager.FontProperties(family='Decima Mono')
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
@@ -35,7 +35,7 @@ def get_selected_events(weka_cfs_ranking_file):
                 index = matches.group(2)
                 event = matches.group(3)
 
-                row = { 'index': index, 'name': event, 'goodness': goodness }
+                row = { 'index': int(index)-1, 'name': event, 'goodness': goodness }
                 df = df.append(row, ignore_index=True)
     return df
 
@@ -61,7 +61,7 @@ def classify(args, test, clf, event_list):
     This is similar to the SVM classify methods but it will reduce
     the X and X_test to only the events listed in event_list for classification.
     """
-    X_all, Y, Y_weights, X_test_all, Y_test = row_training_and_test_set(args, test)
+    X_all, Y, Y_weights, X_test_all, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, cutoff=args.cutoff, include_alone=args.include_alone)
 
     X = pd.DataFrame()
     X_test = pd.DataFrame()
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     else:
         tests = [args.tests]
 
-    for kconfig, clf in list(SVM_KERNELS.items()):
+    for kconfig, clf in list(CLASSIFIERS.items()):
         print(("Trying kernel", kconfig))
 
         for test in tests:

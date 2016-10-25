@@ -11,7 +11,7 @@ from flask import request
 from bokeh.io import curdoc, vplot
 from bokeh.layouts import gridplot
 from bokeh.models.widgets import DataTable, DateFormatter, TableColumn, Select
-from bokeh.models import ColumnDataSource
+from bokeh.models import ColumnDataSource, Range1d
 from bokeh.plotting import figure
 from bokeh.charts import Histogram
 
@@ -39,6 +39,17 @@ def get_menu():
     dirs['L3-SMT'] = sorted(set(dirs['L3-SMT']))
     dirs['L3-SMT-cores'] = sorted(set(dirs['L3-SMT-cores']))
     return dirs
+
+##def remove_banks(df):
+##    for i in range(0,8):
+##        for j in range(0,8):
+##            event = "UNC_M_WR_CAS_RANK{}.BANK{}".format(i,j)
+##            #print("Remove", event)
+##            del df["AVG." + event]
+##            del df["STD." + event]
+##            event = "UNC_M_RD_CAS_RANK{}.BANK{}".format(i,j)
+##            del df["AVG." + event]
+##            del df["STD." + event]
 
 X, Y, _, X_test, Y_test = svm.row_training_and_test_set(args.data_directory, [config], [app], cutoff=args.cutoff, uncore=args.uncore)
 clf = svm.CLASSIFIERS['linear']
@@ -108,7 +119,13 @@ for idx in weights[:10]:
     data_training, data_test = get_histogram_data(idx)
     histogram_train = Histogram(data_training, background_fill_alpha=0.5, values='value', color='class', bins=20, title="Training samples for {} weight {:.2f}".format(event_name, abs_coefs[idx]), legend='top_right', label='class')
 
-    histogram_test = Histogram(data_test, background_fill_alpha=0.5, values='value', color='class', bins=20, title="Test samples for {} weight {:.2f}".format(event_name, abs_coefs[idx]), legend='top_right', label='class')
+    colors = []
+    if 'Test Y' in data_test['class'].values:
+        colors.append('green')
+    if 'Test N' in data_test['class'].values:
+        colors.append('red')
+
+    histogram_test = Histogram(data_test, background_fill_alpha=0.5, values='value', color='class', bins=20, title="Test samples for {} weight {:.2f}".format(event_name, abs_coefs[idx]), legend='top_right', label='class', fill_alpha=0.75)
 
     histograms.append((histogram_train, histogram_test))
 
@@ -130,6 +147,7 @@ grid = gridplot([
     [histograms[8][0], histograms[8][1]],
     [histograms[9][0], histograms[9][1]]
 ], plot_width=650, plot_height=350)
+
 
 curdoc().add_root(grid)
 curdoc().title = "Distribution for high-weight SVM features"
