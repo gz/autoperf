@@ -6,6 +6,7 @@ import time
 import argparse
 import re
 import subprocess
+import math
 from multiprocessing import Pool, TimeoutError, cpu_count
 
 import pandas as pd
@@ -13,15 +14,15 @@ import numpy as np
 from matplotlib import pyplot as plt, font_manager
 import matplotlib.cm as cm
 
-from .runtimes import get_runtime_dataframe, get_runtime_pivot_tables
-from util import *
-
 from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
-from .svm import get_svm_metrics, SVM_KERNELS, get_argument_parser, make_result_filename
-from .svm_topk import get_selected_events
+sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
+from analyze.classify.svm import get_svm_metrics, CLASSIFIERS, get_argument_parser, make_result_filename
+from analyze.classify.svm_topk import get_selected_events
+from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from analyze.util import *
 
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
@@ -188,7 +189,7 @@ if __name__ == '__main__':
     parser = get_argument_parser("Compute predicition ability for every cell in the heatmap with all features.")
     args = parser.parse_args()
 
-    for kconfig, clf in list(SVM_KERNELS.items()):
+    for kconfig, clf in list(CLASSIFIERS.items()):
         print(("Trying kernel", kconfig))
 
         pool = Pool(processes=cpu_count())
@@ -208,10 +209,10 @@ if __name__ == '__main__':
         results_table.to_csv(filename + ".csv", index=False)
 
         for (config, pivot_table) in get_pivot_tables(results_table):
-            plot_filename = filename + "_config_{}".format(config)
+            plot_filename = filename + "_minmax_config_{}".format(config)
             alone_suffix = "alone" if args.include_alone else "paironly"
-            cutoff_suffix = "{}".format(args.cutoff*100)
+            cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
 
-            title = "Training {}, uncore {}, config {}, kernel {}, {}, {}" \
+            title = "Training {}, uncore {}, config {}, kernel {}, {}, {}, minmax" \
                     .format("/".join(args.config), args.uncore, config, kconfig, alone_suffix, cutoff_suffix)
             heatmap(plot_filename, pivot_table, title)

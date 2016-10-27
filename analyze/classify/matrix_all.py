@@ -8,13 +8,16 @@ from multiprocessing import Pool, TimeoutError
 import pandas as pd
 import numpy as np
 
-from .runtimes import get_runtime_dataframe, get_runtime_pivot_tables
-from util import *
+sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
+from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from analyze.util import *
 
 def make_matrix(results_file, output_file):
-    print(("Processing {}".format(results_file)))
-    df = load_as_X(results_file, aggregate_samples='meanstd', cut_off_nan=True)
+    print("Processing {}".format(results_file))
+    df = load_as_X(results_file, aggregate_samples=['mean', 'std', 'min', 'max'], cut_off_nan=True)
+    print("SAVING {}".format(output_file))
     df.to_csv(output_file, index=False)
+
 
 if __name__ == '__main__':
     pd.set_option('display.max_rows', 10)
@@ -29,11 +32,10 @@ if __name__ == '__main__':
 
 
     ## Settings:
-    PARALLELISM = 8
     RESULTS_FILE = 'results_uncore_{}.csv'
     OUT_FILE = 'matrix_X_uncore_{}.csv'
 
-    pool = Pool(processes=PARALLELISM)
+    pool = Pool(processes=4)
     num = 0
     runtimes = get_runtime_dataframe(args.data_directory)
     for row in runtimes.itertuples():

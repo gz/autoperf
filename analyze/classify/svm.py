@@ -4,10 +4,10 @@ import os
 import sys
 import time
 import argparse
+import math
 
 import pandas as pd
 import numpy as np
-
 
 from sklearn import svm
 from sklearn import metrics
@@ -24,7 +24,7 @@ from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_t
 from analyze.util import *
 
 CLASSIFIERS = {
-    'linear': svm.SVC(kernel='linear'),
+    #'linear': svm.SVC(kernel='linear'),
     #'linearbalanced': svm.SVC(kernel='linear', class_weight='balanced'),
     #'rbf1': svm.SVC(kernel='rbf', degree=1),
     #'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
@@ -32,6 +32,7 @@ CLASSIFIERS = {
     #'poly2': svm.SVC(kernel='poly', degree=2),
     #'poly1balanced': svm.SVC(kernel='poly', degree=1, class_weight='balanced'),
     'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
+    #'poly3balanced': svm.SVC(kernel='poly', degree=3, class_weight='balanced'),
     #'neural': neural_network.MLPClassifier(),
     #'neuralsgd': neural_network.MLPClassifier(solver='sgd'),
     #'neuraladaptivelogistic': neural_network.MLPClassifier(activation='logistic', learning_rate='adaptive'),
@@ -121,7 +122,7 @@ def get_svm_metrics(args, test, Y, Y_test, Y_pred):
 
 def make_result_filename(prefix, args, kconfig):
     alone_suffix = "alone" if args.include_alone else "paironly"
-    cutoff_suffix = "{}".format(args.cutoff*100)
+    cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
     filename = prefix + "_training_{}_uncore_{}_{}_{}_{}" \
                .format("_".join(args.config), args.uncore, kconfig, alone_suffix, cutoff_suffix)
     return filename
@@ -174,7 +175,7 @@ if __name__ == '__main__':
 
             training_file_name = "unset"
             alone_suffix = "alone" if args.include_alone else "paironly"
-            cutoff_suffix = "{}".format(args.cutoff*100)
+            cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
             if test == [None]:
                 training_file_name = 'XY_complete_{}_uncore_{}_{}_{}.csv' \
                                      .format('_'.join(args.config), args.uncore, alone_suffix, cutoff_suffix)

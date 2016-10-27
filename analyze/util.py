@@ -1,6 +1,6 @@
 import pandas as pd
 
-def load_as_X(f, aggregate_samples='mean', remove_zero=False, cut_off_nan=True):
+def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True):
     """
     Transform CSV file into a matrix X (used for most ML inputs).
     The rows will be different times, the columns are the events.
@@ -31,23 +31,28 @@ def load_as_X(f, aggregate_samples='mean', remove_zero=False, cut_off_nan=True):
 
     # Aggregate all event samples from the same event at time
     if aggregate_samples:
-        if aggregate_samples == 'mean':
-            grouped_df = raw_data.groupby(['EVENT_NAME', 'TIME'])
-            df_mean = grouped_df.mean()
-            df_mean.rename(lambda event: "{}".format(event), inplace=True)
-            df = pd.concat([df_mean], axis=0)
-
-        elif aggregate_samples == 'meanstd':
-            grouped_df = raw_data.groupby(['EVENT_NAME', 'TIME'])
+        aggregates = []
+        grouped_df = raw_data.groupby(['EVENT_NAME', 'TIME'])
+        if 'mean' in aggregate_samples:
             df_mean = grouped_df.mean()
             df_mean.rename(lambda event: "AVG.{}".format(event), inplace=True)
-
+            aggregates.append(df_mean)
+        if 'std' in aggregate_samples:
             df_std = grouped_df.std(ddof=0)
             df_std.rename(lambda event: "STD.{}".format(event), inplace=True)
+            aggregates.append(df_std)
+        if 'max' in aggregate_samples:
+            df_max = grouped_df.max()
+            df_max.rename(lambda event: "MAX.{}".format(event), inplace=True)
+            aggregates.append(df_max)
+        if 'min' in aggregate_samples:
+            df_min = grouped_df.min()
+            df_min.rename(lambda event: "MIN.{}".format(event), inplace=True)
+            aggregates.append(df_min)
+        if len(aggregates) == 0:
+            assert "Unknown aggregation: {}. Supported are: [mean, std, max, min].".format(aggregate_samples)
 
-            df = pd.concat([df_mean, df_std], axis=0)
-        else:
-            assert "Unknown aggregation mode: {}. Supported are: [meanstd].".format(aggregate_samples)
+        df = pd.concat(aggregates, axis=0)
 
     df.reset_index(level=['TIME'], inplace=True)
 
@@ -56,9 +61,10 @@ def load_as_X(f, aggregate_samples='mean', remove_zero=False, cut_off_nan=True):
         df = df.drop(get_all_zero_events(df))
 
     df = result_to_matrix(df, cutoff)
-    for idx, has_null in df.isnull().any(axis=1).items():
-        if has_null:
-            assert "found nan in ", idx
+    #for idx, has_null in df.isnull().any(axis=1).items():
+    #    if has_null:
+    #        print("FOUND NaN!")
+    #        assert "found nan in ", idx
 
     return df
 
