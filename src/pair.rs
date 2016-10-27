@@ -170,6 +170,7 @@ struct Program<'a> {
     args: Vec<String>,
     antagonist_args: Vec<String>,
     breakpoints: Vec<String>,
+    checkpoints: Vec<String>,
     is_openmp: bool,
     is_parsec: bool,
     use_watch_repeat: bool,
@@ -227,6 +228,13 @@ impl<'a> Program<'a> {
                 .map(|s| s.as_str().expect("program breakpoint not a string?").to_string())
                 .collect()
         });
+        let checkpoints: Vec<String> = config.get("checkpoints").map_or(Vec::new(), |cs| {
+            cs.as_slice()
+                .expect("program.checkpoints not an array?")
+                .iter()
+                .map(|s| s.as_str().expect("program checkpoint not a string?").to_string())
+                .collect()
+        });
 
         Program {
             name: name,
@@ -240,6 +248,7 @@ impl<'a> Program<'a> {
             args: args,
             antagonist_args: antagonist_args,
             breakpoints: breakpoints,
+            checkpoints: checkpoints,
         }
     }
 
@@ -322,9 +331,14 @@ impl<'a> Run<'a> {
     fn profile_a(&self) -> io::Result<()> {
         let cmd = self.a.get_cmd(false, &self.deployment.a);
         let env = self.a.get_env(false, &self.deployment.a);
-        let bps = self.a.breakpoints.iter().map(|s| s.to_string()).collect();
+        let mut bps: Vec<String> = self.a.breakpoints.iter().map(|s| s.to_string()).collect();
+        bps.extend(self.a.checkpoints.iter().map(|s| s.to_string()));
+        // let cps = self.a.checkpoints.iter().map(|s| s.to_string()).collect();
 
-        debug!("Spawning {:?} with environment {:?}", cmd, env);
+        debug!("Spawning {:?} with environment {:?} breakpoints {:?}",
+               cmd,
+               env,
+               bps);
         profile::profile(&self.output_path,
                          self.a.working_dir.as_str(),
                          cmd,
@@ -437,6 +451,7 @@ impl<'a> fmt::Display for Run<'a> {
                     self.a.get_env(false, &self.deployment.a),
                     self.a.get_cmd(false, &self.deployment.a)));
         try!(write!(f, "A Breakpoints: {:?}\n", self.a.breakpoints));
+        try!(write!(f, "A Checkpoints: {:?}\n", self.a.checkpoints));
         match self.b {
             Some(b) => {
                 try!(write!(f,
@@ -586,7 +601,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
         let skip_a = profile_only.as_ref().map_or(false, |ps| !ps.contains(&a.name));
         let skip_b = !b.is_none() &&
                      profile_only_b.as_ref().map_or(false, |ps| !ps.contains(&b.unwrap().name));
-        if skip_a && skip_b {
+        if skip_a || skip_b {
             continue;
         }
 
