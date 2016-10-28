@@ -15,7 +15,7 @@ TODO: explain manifest
 
 Dependencies:
 ```
-$ sudo apt-get install likwid cpuid hwloc numactl util-linux
+$ sudo apt-get install likwid cpuid hwloc numactl util-linux libtbb2
 For parsec binary (swaptons):
 $ sudo apt-get install libtbb2
 ```

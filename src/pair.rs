@@ -1,3 +1,4 @@
+use std::thread;
 use std::process;
 use std::io;
 use std::io::prelude::*;
@@ -409,6 +410,11 @@ impl<'a> Run<'a> {
 
         // Profile together with B
         let mut maybe_app_b: Option<Child> = self.start_b();
+        if maybe_app_b.is_some() {
+            debug!("Wait for B to warmup before starting to profile A");
+            let one_min = Duration::from_millis(60000);
+            thread::sleep(one_min);
+        }
 
         try!(self.profile_a());
 
