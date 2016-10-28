@@ -863,6 +863,37 @@ impl<'a> Profile<'a> {
     }
 }
 
+fn get_perf_command(cmd_working_dir: &str,
+                    output_path: &Path,
+                    env: &Vec<(String, String)>,
+                    breakpoints: &Vec<String>,
+                    record: bool)
+                    -> Command {
+    let mut perf = Command::new("perf");
+    perf.current_dir(cmd_working_dir);
+    let filename: String;
+    if !record {
+        perf.arg("stat");
+        perf.arg("-aA");
+        perf.arg("-I 250");
+        perf.arg("-x ;");
+    } else {
+        perf.arg("record");
+        perf.arg("--group");
+        perf.arg("-F 4");
+        perf.arg("-a");
+        perf.arg("--raw-samples");
+    }
+    // Add the environment variables:
+    for &(ref key, ref value) in env.iter() {
+        perf.env(key, value);
+    }
+    let breakpoint_args: Vec<String> = breakpoints.iter().map(|s| format!("-e \\{}", s)).collect();
+    perf.args(breakpoint_args.as_slice());
+
+    perf
+}
+
 pub fn profile(output_path: &Path,
                cmd_working_dir: &str,
                cmd: Vec<String>,
@@ -910,6 +941,13 @@ pub fn profile(output_path: &Path,
 
     let event_groups = schedule_events(get_events());
 
+    // For warm-up do a dummy run of the program with perf
+    let mut record_path = Path::new("/dev/null");
+    let mut perf = get_perf_command(cmd_working_dir, output_path, &env, &breakpoints, record);
+    perf.arg("-n"); // null run - don’t start any counters
+    let (_, _, _) = execute_perf(&mut perf, &cmd, &Vec::new(), &record_path);
+    debug!("Warmup for A complete, let's start measuring.");
+
     let mut pb = ProgressBar::new(event_groups.len() as u64);
     for group in event_groups {
         let idx = pb.inc();
@@ -917,36 +955,15 @@ pub fn profile(output_path: &Path,
         let mut event_names: Vec<&'static str> = group.get_event_names();
         let counters: Vec<String> = group.get_perf_config_strings();
 
-        let mut perf = Command::new("perf");
-        perf.current_dir(cmd_working_dir);
         let mut record_path = PathBuf::new();
-        let filename: String;
-        if !record {
-            perf.arg("stat");
-            perf.arg("-aA");
-            perf.arg("-I 250");
-            perf.arg("-x ;");
-            record_path.push(output_path);
-            filename = format!("{}_stat.csv", idx);
-            record_path.push(&filename);
-        } else {
-            perf.arg("record");
-            perf.arg("--group");
-            perf.arg("-F 4");
-            perf.arg("-a");
-            perf.arg("--raw-samples");
-            record_path.push(output_path);
-            filename = format!("{}_perf.data", idx);
-            record_path.push(&filename);
-        }
-        // Add the environment variables:
-        for &(ref key, ref value) in env.iter() {
-            perf.env(key, value);
-        }
-        let breakpoint_args: Vec<String> =
-            breakpoints.iter().map(|s| format!("-e \\{}", s)).collect();
-        perf.args(breakpoint_args.as_slice());
+        let filename = match record {
+            false => format!("{}_stat.csv", idx),
+            true => format!("{}_perf.data", idx),
+        };
+        record_path.push(output_path);
+        record_path.push(&filename);
 
+        let mut perf = get_perf_command(cmd_working_dir, output_path, &env, &breakpoints, record);
         let (executed_cmd, stdout, stdin) =
             execute_perf(&mut perf, &cmd, &counters, record_path.as_path());
         let r = wtr.encode(vec![cmd.join(" "),
