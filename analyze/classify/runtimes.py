@@ -14,6 +14,9 @@ import matplotlib.cm as cm
 from matplotlib import pyplot as plt, font_manager
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 
+sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
+from analyze.classify import get_argument_parser_basic
+
 colors = LinearSegmentedColormap.from_list('seismic', ["#ca0020", "#2ca25f"])
 
 def get_runtime_dataframe(data_directory):
@@ -187,13 +190,12 @@ def heatmap(location, data):
     plt.close()
 
 if __name__ == '__main__':
-    plt.style.use([os.path.join(os.path.realpath(__file__), '..', 'ethplot.mplstyle')])
+    plt.style.use([os.path.join(os.path.realpath(sys.path[0]), '..', 'ethplot.mplstyle')])
     pd.set_option('display.max_rows', 50)
     pd.set_option('display.max_columns', 30)
     pd.set_option('display.width', 160)
 
-    parser = argparse.ArgumentParser(description='Gather all runtimes and plot heatmaps.')
-    parser.add_argument('data_directory', type=str, help="Data directory root.")
+    parser = get_argument_parser_basic("Parse runtimes and plot heatmaps")
     args = parser.parse_args()
 
     df = compute_runtime_dataframe(args.data_directory)
