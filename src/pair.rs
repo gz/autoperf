@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::process::{Command, Child, Stdio};
 use std::str::{FromStr, from_utf8_unchecked};
 use std::fmt;
+use std::iter;
 use std::time::Duration;
 use wait_timeout::ChildExt;
 use rustc_serialize::Encodable;
@@ -179,7 +180,10 @@ struct Program<'a> {
 }
 
 impl<'a> Program<'a> {
-    fn from_toml(manifest_path: &'a Path, config: &toml::Table) -> Program<'a> {
+    fn from_toml(manifest_path: &'a Path,
+                 config: &toml::Table,
+                 alone_default: bool)
+                 -> Program<'a> {
         let name: String = config["name"]
             .as_str()
             .expect("program.binary not a string")
@@ -204,8 +208,7 @@ impl<'a> Program<'a> {
         let watch_repeat: bool = config.get("use_watch_repeat").map_or(false, |v| {
             v.as_bool().expect("'program.use_watch_repeat' should be boolean")
         });
-
-        let alone: bool = config.get("alone").map_or(true, |v| {
+        let alone: bool = config.get("alone").map_or(alone_default, |v| {
             v.as_bool().expect("'program.alone' should be boolean")
         });
         let args: Vec<String> = config["arguments"]
@@ -318,7 +321,6 @@ impl<'a> Run<'a> {
             Some(p) => out_dir.push(format!("{}_vs_{}", a.name, p.name)),
             None => out_dir.push(a.name.as_str()),
         }
-        mkdir(&out_dir);
 
         Run {
             manifest_path: manifest_path,
@@ -405,7 +407,21 @@ impl<'a> Run<'a> {
         f.write_all(format!("{}", self).as_bytes())
     }
 
+    fn is_completed(&self) -> bool {
+        // Is this run already done (in case we restart):
+        let mut completed_file: PathBuf = self.output_path.to_path_buf();
+        completed_file.push("completed");
+        if completed_file.exists() { true } else { false }
+    }
+
     fn profile(&mut self) -> io::Result<()> {
+        mkdir(&self.output_path);
+        if self.is_completed() {
+            info!("Run {} already completed, skipping.",
+                  self.output_path.to_string_lossy());
+            return Ok(());
+        }
+
         self.save_run_information();
 
         // Profile together with B
@@ -509,14 +525,14 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
         .collect();
     let run_alone: bool = experiment.get("alone")
         .map_or(true, |v| v.as_bool().expect("'alone' should be boolean"));
-    let profile_only: Option<Vec<String>> = experiment.get("profile_only")
+    let profile_only: Option<Vec<String>> = experiment.get("profile_only_a")
         .map(|progs| {
             progs.as_slice()
-                .expect("Error in manifest.toml: 'profile_only' should be a list.")
+                .expect("Error in manifest.toml: 'profile_only_a' should be a list.")
                 .into_iter()
                 .map(|p| {
                     p.as_str()
-                        .expect("profile_only elements should name programs (strings)")
+                        .expect("profile_only_a elements should name programs (strings)")
                         .to_string()
                 })
                 .collect()
@@ -540,7 +556,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
         if key.starts_with("program") {
             let program_desc: &toml::Table =
                 doc[key].as_table().expect("Error in manifest.toml: 'program' should be a table.");
-            programs.push(Program::from_toml(&canonical_manifest_path, program_desc));
+            programs.push(Program::from_toml(&canonical_manifest_path, program_desc, run_alone));
         }
     }
 
@@ -592,22 +608,23 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
         };
     }
 
-    let mut i = 0;
-    use std::iter;
-    let mut runs: Vec<(&Program, Option<&Program>)> = Vec::new();
+    // Add all possible pairs:
+    let mut pairs: Vec<(&Program, Option<&Program>)> = Vec::new();
     for p in programs.iter() {
-        runs.push((p, None));
+        pairs.push((p, None));
     }
     for (a, b) in iproduct!(programs.iter(), programs.iter()) {
-        runs.push((a, Some(b)));
+        pairs.push((a, Some(b)));
     }
 
-    // Run programs pairwise together
-    for (a, b) in runs.into_iter().skip(start).step(stepping) {
-        let skip_a = profile_only.as_ref().map_or(false, |ps| !ps.contains(&a.name));
-        let skip_b = !b.is_none() &&
-                     profile_only_b.as_ref().map_or(false, |ps| !ps.contains(&b.unwrap().name));
-        if skip_a || skip_b {
+    // Filter out the pairs we do not want to execute:
+    let mut runs: Vec<Run> = Vec::new();
+    for (a, b) in pairs.into_iter() {
+        let profile_a = profile_only.as_ref().map_or(true, |ps| ps.contains(&a.name));
+        let profile_b = !b.is_none() &&
+                        profile_only_b.as_ref()
+            .map_or(profile_a, |ps| ps.contains(&b.unwrap().name));
+        if !profile_a && !profile_b {
             continue;
         }
 
@@ -615,15 +632,19 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
             if b.is_none() && (!run_alone || !a.alone) {
                 continue;
             }
-
-            let mut run = Run::new(&canonical_manifest_path, out_dir.as_path(), a, b, d);
-            if !dryrun {
-                run.profile();
-            } else {
-                println!("{}", run);
-            }
-            i += 1;
+            runs.push(Run::new(&canonical_manifest_path, out_dir.as_path(), a, b, d));
         }
+    }
+
+    // Finally, profile the runs we are supposed to execute based on the command line args
+    let mut i = 0;
+    for run in runs.iter_mut().skip(start).step(stepping) {
+        if !dryrun {
+            run.profile();
+        } else {
+            println!("{}", run);
+        }
+        i += 1;
     }
 
     println!("{} runs completed.", i);
