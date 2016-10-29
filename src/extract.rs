@@ -184,6 +184,8 @@ fn parse_perf_csv_file(mt: &MachineTopology,
         }
     }
 
+    let mut current_index = 0;
+    let mut time_to_index: HashMap<String, usize> = HashMap::new();
     let mut is_recording: bool = start.is_none();
     let start = start.map(|s| s.to_string());
     let end = end.map(|s| s.to_string());
@@ -238,7 +240,13 @@ fn parse_perf_csv_file(mt: &MachineTopology,
             continue;
         }
 
+        if !time_to_index.contains_key(&time) {
+            time_to_index.insert(time.clone(), current_index);
+            current_index += 1;
+        }
+
         writer.encode(&[event_name.as_str(),
+                      format!("{}", *time_to_index.get(&time).unwrap()).as_str(),
                       time.as_str(),
                       socket.to_string().as_str(),
                       core.to_string().as_str(),
@@ -253,7 +261,7 @@ fn parse_perf_csv_file(mt: &MachineTopology,
 }
 
 /// Extracts the data and writes it to a CSV file that looks like this:
-/// "EVENT_NAME", "TIME", "SOCKET", "CORE", "CPU", "NODE", "UNIT", "SAMPLE_VALUE"
+/// "EVENT_NAME", "INDEX", "TIME", "SOCKET", "CORE", "CPU", "NODE", "UNIT", "SAMPLE_VALUE"
 fn parse_perf_file(path: &Path,
                    event_names: Vec<&str>,
                    writer: &mut csv::Writer<File>)
@@ -434,7 +442,7 @@ pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Pat
     // Create result.csv file:
     let mut csv_result: PathBuf = save_to.to_owned();
     let mut wrtr = csv::Writer::from_file(csv_result.as_path()).unwrap();
-    wrtr.encode(&["EVENT_NAME", "TIME", "SOCKET", "CORE", "CPU", "NODE", "UNIT", "SAMPLE_VALUE"])
+    wrtr.encode(&["EVENT_NAME", "INDEX", "TIME", "SOCKET", "CORE", "CPU", "NODE", "UNIT", "SAMPLE_VALUE"])
         .unwrap();
 
     // Write content in result.csv
