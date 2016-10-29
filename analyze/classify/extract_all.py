@@ -12,7 +12,7 @@ import argparse
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
-from analyze.classify import get_argument_parser_basic
+from analyze.classify import get_argument_parser
 
 def extract_all(data_directory, uncore, overwrite):
     for root, dirs, files in os.walk(args.data_directory):
@@ -52,7 +52,7 @@ def extract_all(data_directory, uncore, overwrite):
 
 
 if __name__ == '__main__':
-    parser = get_argument_parser_basic('Wrapper script for applying `autoperf extract` to all profiles in the data directory.')
+    parser = get_argument_parser('Wrapper script for applying `autoperf extract` to all profiles in the data directory.', arguments=['data'])
     parser.add_argument('--uncore', dest='uncore', nargs='+', type=str, help="What uncore counters to include [all, shared, exclusive, none].", default=['shared'])
     parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.")
     args = parser.parse_args()

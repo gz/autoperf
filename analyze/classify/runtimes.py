@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt, font_manager
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
-from analyze.classify import get_argument_parser_basic
+from analyze.classify import get_argument_parser
 
 colors = LinearSegmentedColormap.from_list('seismic', ["#ca0020", "#2ca25f"])
 
@@ -195,7 +195,7 @@ if __name__ == '__main__':
     pd.set_option('display.max_columns', 30)
     pd.set_option('display.width', 160)
 
-    parser = get_argument_parser_basic("Parse runtimes and plot heatmaps")
+    parser = get_argument_parser("Parse runtimes and plot heatmaps", arguments=['data'])
     args = parser.parse_args()
 
     df = compute_runtime_dataframe(args.data_directory)

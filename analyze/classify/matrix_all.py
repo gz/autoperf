@@ -10,7 +10,7 @@ import numpy as np
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
-from analyze.classify import get_argument_parser_uncore
+from analyze.classify import get_argument_parser
 from analyze.util import *
 
 def make_matrix(results_file, output_file, aggregations):
@@ -20,7 +20,7 @@ def make_matrix(results_file, output_file, aggregations):
     df.to_csv(output_file, index=False)
 
 if __name__ == '__main__':
-    parser = get_argument_parser_uncore('Generates matrix files for use with ML algorithms.')
+    parser = get_argument_parser('Generates matrix files for use with ML algorithms.', args=['data', 'uncore'])
     parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.", default=False)
     parser.add_argument('--aggregation', dest='aggregations', nargs='+', type=str,
                         help="What uncore counters to include (default mean std min max).",
