@@ -84,13 +84,17 @@ def result_to_matrix(df, cutoff):
     would indicate unstable runtimes of your algorithm.
     """
     frames = []
+    print "result to matrix"
     for idx in df.index.unique():
         series = df.loc[[idx], 'SAMPLE_VALUE'].head(cutoff)
         new_series = series.rename(idx).reset_index(drop=True)
         frames.append(new_series)
 
     # Column i is event i
-    return pd.concat(frames, axis=1)
+    print "concat"
+    matrix = pd.concat(frames, axis=1)
+    print "result to matrix done"
+    return matrix
 
 def minimum_nan_index(df):
     """
