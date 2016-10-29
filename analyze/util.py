@@ -1,5 +1,12 @@
 import pandas as pd
 
+def aggregation_matrix(prefix, series):
+    matrix = pd.DataFrame(series)
+    matrix.reset_index(inplace=True)
+    pivot_table = matrix.pivot(index='INDEX', columns='EVENT_NAME', values='SAMPLE_VALUE')
+    pivot_table.rename(columns=lambda x: "{}.{}".format(prefix, x), inplace=True)
+    return pivot_table
+
 def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True):
     """
     Transform CSV file into a matrix X (used for most ML inputs).
@@ -16,85 +23,42 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
 
     # Convert time
     time_to_ms(raw_data)
-    #print raw_data
-
-    # Cut off everything after first NaN value:
-    if cut_off_nan:
-        df = raw_data.groupby(['EVENT_NAME', 'TIME']).count()
-        df.reset_index(level=['TIME'], inplace=True)
-        sample_lengths = [len(df.loc[group, :]) for group in df.index.unique()]
-        cutoff = min(sample_lengths)
-        max_samples = max(sample_lengths)
-        if cutoff + 30 < max_samples:
-            print("Limiting to {} max is {}".format(cutoff, max_samples))
-
 
     # Aggregate all event samples from the same event at time
+    aggregates = []
     if aggregate_samples:
-        aggregates = []
-        grouped_df = raw_data.groupby(['EVENT_NAME', 'TIME'])
-        if 'mean' in aggregate_samples:
-            df_mean = grouped_df.mean()
-            df_mean.rename(lambda event: "AVG.{}".format(event), inplace=True)
-            aggregates.append(df_mean)
-        if 'std' in aggregate_samples:
-            df_std = grouped_df.std(ddof=0)
-            df_std.rename(lambda event: "STD.{}".format(event), inplace=True)
-            aggregates.append(df_std)
-        if 'max' in aggregate_samples:
-            df_max = grouped_df.max()
-            df_max.rename(lambda event: "MAX.{}".format(event), inplace=True)
-            aggregates.append(df_max)
-        if 'min' in aggregate_samples:
-            df_min = grouped_df.min()
-            df_min.rename(lambda event: "MIN.{}".format(event), inplace=True)
-            aggregates.append(df_min)
-        if len(aggregates) == 0:
-            assert "Unknown aggregation: {}. Supported are: [mean, std, max, min].".format(aggregate_samples)
+        grouped_df = raw_data.groupby(['EVENT_NAME', 'INDEX'])
+        for agg in aggregate_samples:
+            if agg == 'mean':
+                series = grouped_df['SAMPLE_VALUE'].mean()
+                aggregates.append(aggregation_matrix('AVG', series))
+            elif agg == 'std':
+                series = grouped_df['SAMPLE_VALUE'].std(ddof=0)
+                aggregates.append(aggregation_matrix('STD', series))
+            elif agg == 'max':
+                series = grouped_df['SAMPLE_VALUE'].max()
+                aggregates.append(aggregation_matrix('MAX', series))
+            elif agg == 'min':
+                series = grouped_df['SAMPLE_VALUE'].min()
+                aggregates.append(aggregation_matrix('MIN', series))
+            else:
+                assert "Unknown aggregation: {}. Supported are: [mean, std, max, min].".format(agg)
 
-        df = pd.concat(aggregates, axis=0)
-
-    df.reset_index(level=['TIME'], inplace=True)
+    df = pd.concat(aggregates, axis=1)
 
     # Remove events whose deltas are all 0:
     if remove_zero:
         df = df.drop(get_all_zero_events(df))
 
-    df = result_to_matrix(df, cutoff)
-    #for idx, has_null in df.isnull().any(axis=1).items():
-    #    if has_null:
-    #        print("FOUND NaN!")
-    #        assert "found nan in ", idx
+    # Cut off everything after first row with a NaN value
+    if cut_off_nan:
+        min_idx = minimum_nan_index(df)
+        throw_away = df.shape[0]-min_idx
+        if throw_away > df.shape[0] * (0.20):
+            print("Throwing away {} out of {} samples for {}".format(throw_away, df.shape[0], f))
+        df = df[:min_idx]
 
-    return df
-
-def result_to_matrix(df, cutoff):
-    """
-    Transform the result as read from results.csv in a matrix of the following format:
-
-    EVENT1  EVENT2  EVENT3 .... EVENTN
-    12           9       5          12
-     1           1       2           5
-     0         NaN     100          12
-     0         NaN     NaN          99
-
-    Note: NaN numbers may appear for an event at the end in case the individual events
-    can be read from different runs containing a different amount of samples.
-    Differences of just a few samples is normally not a problem. Big discrepancies
-    would indicate unstable runtimes of your algorithm.
-    """
-    frames = []
-    print "result to matrix"
-    for idx in df.index.unique():
-        series = df.loc[[idx], 'SAMPLE_VALUE'].head(cutoff)
-        new_series = series.rename(idx).reset_index(drop=True)
-        frames.append(new_series)
-
-    # Column i is event i
-    print "concat"
-    matrix = pd.concat(frames, axis=1)
-    print "result to matrix done"
-    return matrix
+    return df[1:] # Throw away the first sample because we don't know at what time the ROI started...
 
 def minimum_nan_index(df):
     """
@@ -109,14 +73,11 @@ def minimum_nan_index(df):
       2 |      0      NaN     100          12
       3 |      0      NaN       1          99
     """
-    for idx, has_null in df.isnull().any(axis=1).items():
-        if has_null:
-            print("found nan in ", idx)
-    for idx, has_null in df.isnull().any(axis=1).items():
-        if has_null:
-            print("nan offset", idx)
-            return idx
-
+    nans = pd.isnull(df).any(1).nonzero()[0]
+    if len(nans) == 0:
+        return df.shape[0]
+    else:
+        return min(nans)
 
 def get_all_zero_events(df):
     """
