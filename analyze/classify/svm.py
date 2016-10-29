@@ -83,21 +83,23 @@ def row_training_and_test_set(data_directory, configs, tests, uncore='shared', c
                         df = pd.read_csv(matrix_file, index_col=False)
 
                         if A in tests:
-                            #print("Adding {} vs {} to test set".format(A, B), classification)
+                            print("Adding {} vs {} to test set".format(A, B), classification)
                             Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                             X_test.append(df)
                         elif B in tests:
-                            #print("Discarding {} vs {}".format(A, B), classification)
+                            print("Discarding {} vs {}".format(A, B), classification)
                             pass
                         else:
-                            #print("Adding {} vs {} to training set".format(A, B), classification)
+                            print("Adding {} vs {} to training set".format(A, B), classification)
                             Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                             Y_weights.append(pd.Series([1 for _ in range(0, df.shape[0])]))
                             X.append(df)
                     else:
                         print(("Exclude unfinished directory {}".format(results_path)))
 
-    return (pd.concat(X), pd.concat(Y), pd.concat(Y_weights), pd.concat(X_test), pd.concat(Y_test))
+    return (pd.concat(X), pd.concat(Y), pd.concat(Y_weights),
+            pd.concat(X_test) if len(X_test) > 0  else None,
+            pd.concat(Y_test) if len(Y_test) > 0 else None)
 
 def get_svm_metrics(args, test, Y, Y_test, Y_pred):
     row = {}

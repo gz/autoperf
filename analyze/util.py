@@ -79,10 +79,22 @@ def minimum_nan_index(df):
     else:
         return min(nans)
 
+def get_zero_features_in_matrix(df):
+    """
+    Given a pandas DataFrame loaded from a matrix_X*.csv file,
+    return all columns (features) where the values are always zero.
+    """
+    zero_events = []
+    for col in df:
+        if not df[col].any():
+            # col.split(".", 1)[1] for getting event name
+            zero_events.append(col)
+    return zero_events
+
 def get_all_zero_events(df):
     """
     Given a pandas DataFrame loaded from a results.csv file,
-    return all event names where the samples sum up to 0
+    return all event names where the counts are always 0
     """
     event_names = []
     for idx in df.index.unique():
