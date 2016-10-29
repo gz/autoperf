@@ -167,7 +167,7 @@ fn parse_perf_csv_file(mt: &MachineTopology,
                breakpoints[0]);
     }
     if breakpoints.len() == 2 && end.is_none() {
-        error!("{:?}: We did not find a trigger for end breakpoint ({:?})",
+        warn!("{:?}: We did not find a trigger for end breakpoint ({:?})",
                path.as_os_str(),
                breakpoints[1]);
     }

@@ -17,7 +17,7 @@ from analyze.classify import get_argument_parser_basic
 def extract_all(data_directory, uncore, overwrite):
     for root, dirs, files in os.walk(args.data_directory):
         if os.path.exists(os.path.join(root, 'completed')):
-            print(("Processing", root))
+            print("Processing", root)
 
             if "uncore" in uncore:
                 filename = os.path.join(root, "results_uncore_all.csv")
