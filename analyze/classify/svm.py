@@ -31,7 +31,7 @@ CLASSIFIERS = {
     #'poly1': svm.SVC(kernel='poly', degree=1),
     #'poly2': svm.SVC(kernel='poly', degree=2),
     'poly1balanced': svm.SVC(kernel='poly', degree=1, class_weight='balanced'),
-    'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
+    #'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
     #'poly3balanced': svm.SVC(kernel='poly', degree=3, class_weight='balanced'),
     #'neural': neural_network.MLPClassifier(),
     #'neuralsgd': neural_network.MLPClassifier(solver='sgd'),
@@ -49,7 +49,12 @@ CLASSIFIERS = {
     #'adaboost': ensemble.AdaBoostClassifier()
 }
 
-def row_training_and_test_set(data_directory, configs, tests, uncore='shared', cutoff=1.15, include_alone=False):
+def drop_zero_events(data_directory, configs, uncore, df):
+    from analyze.classify.find_all_zero import zero_features
+    to_drop = zero_features(data_directory, configs, uncore)
+    df.drop(to_drop['EVENT_NAME'], axis=1, inplace=True)
+
+def row_training_and_test_set(data_directory, configs, tests, uncore='shared', cutoff=1.15, include_alone=False, drop_zero=True):
     # matrix_X_uncore_shared_aggregation_mean_std_min_max.csv
     MATRIX_FILE = 'matrix_X_uncore_{}_aggregation_mean_std_min_max.csv'.format(uncore)
 
@@ -82,6 +87,10 @@ def row_training_and_test_set(data_directory, configs, tests, uncore='shared', c
                             print("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file))
                             sys.exit(1)
                         df = pd.read_csv(matrix_file, index_col=False)
+                        print ("Shape before", df.shape)
+                        if drop_zero:
+                            drop_zero_events(data_directory, configs, uncore, df)
+                        print ("Shape after", df.shape)
 
                         if A in tests:
                             print("Adding {} vs {} to test set".format(A, B), classification)
