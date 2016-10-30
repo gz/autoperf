@@ -50,7 +50,8 @@ CLASSIFIERS = {
 }
 
 def row_training_and_test_set(data_directory, configs, tests, uncore='shared', cutoff=1.15, include_alone=False):
-    MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(uncore)
+    # matrix_X_uncore_shared_aggregation_mean_std_min_max.csv
+    MATRIX_FILE = 'matrix_X_uncore_{}_aggregation_mean_std_min_max.csv'.format(uncore)
 
     X = []
     Y = []

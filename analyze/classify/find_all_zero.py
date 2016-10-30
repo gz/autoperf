@@ -13,6 +13,10 @@ from analyze.util import get_zero_features_in_matrix
 def mkfilename(prefix, configs, uncore):
     return "{}_{}_uncore_{}.csv".format(prefix, '_'.join(configs), uncore)
 
+def all_zero_features(configs, uncore):
+    feature_filename = mkfilename("zero_features", args.config, args.uncore)
+    df.to_csv(os.path.join(args.data_directory, feature_filename), index=False)
+
 if __name__ == '__main__':
     parser = get_argument_parser('Figures out how many events are 0.', arguments=['data', 'config', 'uncore'])
     args = parser.parse_args()
@@ -22,9 +26,9 @@ if __name__ == '__main__':
     features = get_zero_features_in_matrix(X)
     df = pd.DataFrame(features)
     feature_filename = mkfilename("zero_features", args.config, args.uncore)
-    df.to_csv(os.path.join(args.data_directory, feature_filename), index=False)
+    df.to_csv(os.path.join(args.data_directory, feature_filename), index=False, header=['EVENT_NAME'])
 
     events = sorted(set([ feature.split(".", 1)[1] for feature in features ]))
     event_filename = mkfilename("zero_events", args.config, args.uncore)
     df = pd.DataFrame(events)
-    df.to_csv(os.path.join(args.data_directory, event_filename), index=False)
+    df.to_csv(os.path.join(args.data_directory, event_filename), index=False, header=['EVENT_NAME'])
