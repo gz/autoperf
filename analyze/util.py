@@ -1,5 +1,25 @@
 import pandas as pd
 
+def merge_bank_rank_events(df):
+    read = ["UNC_M_RD_CAS_RANK{}.BANK{}".format(i,j) for i in range(0,8) for j in range(0,8) ]
+    counts = []
+    for re in read:
+        counts.append(df[re])
+    df['ENG.UNC_M_RD_CAS.SUM'] = np.sum(counts)
+    df['ENG.UNC_M_RD_CAS.STD'] = np.std(counts, ddof=0)
+
+    write = ["UNC_M_WR_CAS_RANK{}.BANK{}".format(i,j) for i in range(0,8) for j in range(0,8) ]
+    counts = []
+    for we in write:
+        counts.append(df[we])
+    df['ENG.UNC_M_WR_CAS.SUM'] = np.sum(counts)
+    df['ENG.UNC_M_WR_CAS.STD'] = np.std(counts, ddof=0)
+
+    print df['ENG.UNC_M_RD_CAS.SUM']
+    print df['ENG.UNC_M_RD_CAS.STD']
+    print df['ENG.UNC_M_WR_CAS.SUM']
+    print df['ENG.UNC_M_WR_CAS.STD']
+
 def aggregation_matrix(prefix, series):
     matrix = pd.DataFrame(series)
     matrix.reset_index(inplace=True)
