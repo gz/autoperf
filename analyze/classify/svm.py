@@ -87,20 +87,18 @@ def row_training_and_test_set(data_directory, configs, tests, uncore='shared', c
                             print("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file))
                             sys.exit(1)
                         df = pd.read_csv(matrix_file, index_col=False)
-                        print ("Shape before", df.shape)
                         if drop_zero:
                             drop_zero_events(data_directory, configs, uncore, df)
-                        print ("Shape after", df.shape)
 
                         if A in tests:
-                            print("Adding {} vs {} to test set".format(A, B), classification)
+                            #print("Adding {} vs {} to test set".format(A, B), classification)
                             Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                             X_test.append(df)
                         elif B in tests:
-                            print("Discarding {} vs {}".format(A, B), classification)
+                            #print("Discarding {} vs {}".format(A, B), classification)
                             pass
                         else:
-                            print("Adding {} vs {} to training set".format(A, B), classification)
+                            #print("Adding {} vs {} to training set".format(A, B), classification)
                             Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                             Y_weights.append(pd.Series([1 for _ in range(0, df.shape[0])]))
                             X.append(df)
