@@ -15,10 +15,10 @@ def merge_bank_rank_events(df):
     df['ENG.UNC_M_WR_CAS.SUM'] = np.sum(counts)
     df['ENG.UNC_M_WR_CAS.STD'] = np.std(counts, ddof=0)
 
-    print df['ENG.UNC_M_RD_CAS.SUM']
-    print df['ENG.UNC_M_RD_CAS.STD']
-    print df['ENG.UNC_M_WR_CAS.SUM']
-    print df['ENG.UNC_M_WR_CAS.STD']
+    print (df['ENG.UNC_M_RD_CAS.SUM'])
+    print (df['ENG.UNC_M_RD_CAS.STD'])
+    print (df['ENG.UNC_M_WR_CAS.SUM'])
+    print (df['ENG.UNC_M_WR_CAS.STD'])
 
 def aggregation_matrix(prefix, series):
     matrix = pd.DataFrame(series)
@@ -53,7 +53,10 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
                 series = grouped_df['SAMPLE_VALUE'].mean()
                 aggregates.append(aggregation_matrix('AVG', series))
             elif agg == 'std':
-                series = grouped_df['SAMPLE_VALUE'].std(ddof=0)
+                series = grouped_df['SAMPLE_VALUE'].std(ddof=1)
+                print(series)
+                import sys
+                sys.exit(1)
                 aggregates.append(aggregation_matrix('STD', series))
             elif agg == 'max':
                 series = grouped_df['SAMPLE_VALUE'].max()

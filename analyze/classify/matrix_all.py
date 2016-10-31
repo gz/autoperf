@@ -32,7 +32,7 @@ if __name__ == '__main__':
     INPUT_RESULTS_FILE = 'results_uncore_{}.csv'
     OUT_FILE = 'matrix_X_uncore_{}_aggregation_{}.csv'
 
-    pool = Pool(processes=cpu_count())
+    #pool = Pool(processes=cpu_count())
     async_results = []
     runtimes = get_runtime_dataframe(args.data_directory)
     for row in runtimes.itertuples():
@@ -55,9 +55,9 @@ if __name__ == '__main__':
 
             if not os.path.exists(output_file) or args.overwrite:
                 print(("Processing {} vs. {} ({})".format(A, B, args.uncore)))
-                res = pool.apply_async(make_matrix, (results_file, output_file, args.aggregations))
-                async_results.append(res)
-                #make_matrix(results_file, output_file, args.aggregations)
+                #res = pool.apply_async(make_matrix, (results_file, output_file, args.aggregations))
+                #async_results.append(res)
+                make_matrix(results_file, output_file, args.aggregations)
             else:
                 print(("{} already exists, skipping.".format(output_file)))
         else:
