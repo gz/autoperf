@@ -374,6 +374,12 @@ impl PerfEvent {
         }
     }
 
+    fn push_arg(configs: &mut Vec<Vec<String>>, value: String) {
+        for config in configs.iter_mut() {
+            config.push(value.clone());
+        }
+    }
+
     /// Returns a set of attributes used to build the perf event description.
     ///
     /// # Arguments
@@ -396,11 +402,10 @@ impl PerfEvent {
         };
 
         let mut ret: Vec<Vec<String>> = vec![Vec::with_capacity(7)];
-        ret[0].push(format!("name={}", self.0.event_name));
         if two_configs {
             ret.push(Vec::with_capacity(7));
-            ret[1].push(format!("name={}", self.0.event_name));
         }
+        PerfEvent::push_arg(&mut ret, format!("name={}", self.0.event_name));
 
         let is_pcu = self.0.unit.map_or(false, |u| {
             return MonitoringUnit::new(u) == MonitoringUnit::PCU;
@@ -432,10 +437,7 @@ impl PerfEvent {
         if !is_pcu {
             match self.0.umask {
                 Tuple::One(mask) => {
-                    ret[0].push(format!("umask=0x{:x}", mask));
-                    if two_configs {
-                        ret[1].push(format!("umask=0x{:x}", mask));
-                    }
+                    PerfEvent::push_arg(&mut ret, format!("umask=0x{:x}", mask));
                 }
                 Tuple::Two(m1, m2) => {
                     assert!(two_configs);
@@ -446,25 +448,16 @@ impl PerfEvent {
         }
 
         if self.0.counter_mask != 0 {
-            ret[0].push(format!("cmask=0x{:x}", self.0.counter_mask));
-            if two_configs {
-                ret[1].push(format!("cmask=0x{:x}", self.0.counter_mask));
-            }
+            PerfEvent::push_arg(&mut ret, format!("cmask=0x{:x}", self.0.counter_mask));
         }
 
         if self.0.offcore {
-            ret[0].push(format!("offcore_rsp=0x{:x}", self.0.msr_value));
-            if two_configs {
-                ret[1].push(format!("offcore_rsp=0x{:x}", self.0.msr_value));
-            }
+            PerfEvent::push_arg(&mut ret, format!("offcore_rsp=0x{:x}", self.0.msr_value));
         } else {
             match self.0.msr_index {
                 MSRIndex::One(idx) => {
                     assert!(idx == 0x3F6); // Load latency MSR
-                    ret[0].push(format!("ldlat=0x{:x}", self.0.msr_value));
-                    if two_configs {
-                        ret[1].push(format!("ldlat=0x{:x}", self.0.msr_value));
-                    }
+                    PerfEvent::push_arg(&mut ret, format!("ldlat=0x{:x}", self.0.msr_value));
                 }
                 MSRIndex::Two(_, _) => {
                     unreachable!("Should not have non offcore events with two MSR index values.")
@@ -476,25 +469,34 @@ impl PerfEvent {
         }
 
         if self.0.invert {
-            ret[0].push(String::from("inv=1"));
-            if two_configs {
-                ret[1].push(String::from("inv=1"));
-            }
+            PerfEvent::push_arg(&mut ret, String::from("inv=1"));
         }
 
         if self.0.edge_detect {
-            ret[0].push(String::from("edge=1"));
-            if two_configs {
-                ret[1].push(String::from("edge=1"));
-            }
+            PerfEvent::push_arg(&mut ret, String::from("edge=1"));
         }
 
         if self.0.any_thread {
-            ret[0].push(String::from("any=1"));
-            if two_configs {
-                ret[1].push(String::from("any=1"));
-            }
+            PerfEvent::push_arg(&mut ret, String::from("any=1"));
         }
+
+        if self.match_filter("CBoFilter0[23:17]") {
+            panic!("Found CBoFilter0[23:17] (filter_state) {}", self.0);
+            PerfEvent::push_arg(&mut ret, String::from("filter_state=0x1f"));
+        }
+
+        if self.match_filter("CBoFilter1[15:0]") {
+            // TODO: Include both sockets by default -- we should probably be smarter...
+            PerfEvent::push_arg(&mut ret, String::from("filter_nid=0x3"));
+        }
+
+        if self.match_filter("CBoFilter1[28:20]") {
+            // TOR events requires filter_opc
+            // Set to: 0x192 PrefData Prefetch Data into LLC but don’t pass to L2. Includes Hints
+            PerfEvent::push_arg(&mut ret, String::from("filter_opc=0x192"));
+        }
+
+        
 
         ret
     }
@@ -505,6 +507,12 @@ impl PerfEvent {
             qualifiers.push('p');
         }
         qualifiers
+    }
+
+    pub fn match_filter(&self, filter: &str) -> bool {
+        self.0.filter.map_or(false, |f| {
+            f == filter
+        })
     }
 }
 

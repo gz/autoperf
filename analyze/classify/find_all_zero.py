@@ -29,7 +29,8 @@ def zero_features(data_directory, configs, uncore):
         df = pd.DataFrame(features)
         df.to_csv(zero_features_path, index=False, header=['EVENT_NAME'])
 
-        events = sorted(set([ feature.split(".", 1)[1] for feature in features ]))
+        avg_features = filter(lambda x: x.startswith("AVG."), features)
+        events = sorted(set([ feature.split(".", 1)[1] for feature in avg_features ]))
         df = pd.DataFrame(events)
         df.to_csv(zero_events_path, index=False, header=['EVENT_NAME'])
 
