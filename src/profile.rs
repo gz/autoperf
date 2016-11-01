@@ -433,7 +433,7 @@ impl PerfEvent {
             match self.0.umask {
                 Tuple::One(mask) => {
                     ret[0].push(format!("umask=0x{:x}", mask));
-                    if (two_configs) {
+                    if two_configs {
                         ret[1].push(format!("umask=0x{:x}", mask));
                     }
                 }
