@@ -63,16 +63,12 @@ python scripts/pair/svm_topk.py ../results-babybel --config L3-SMT L3-SMT-cores 
   * Full-SMT-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are used).
 
 # TODO
-  * Create one big SVM matrix, evaluate with one program removed [uncore: shared, exclusive, all]
-  * Put plots, SVM accuracty in the paper
-  * Add figure to paper [events]
-  * Add eval program descriptions / data size to paper
-  * Add machine description to paper
-  * put heatmaps them in the paper
+  * counter remove std measurements if we have only single sample
+  * then regen zero event file
+  * then check counters and fix incrementally
 Not today:
   * Scale out analysis
-  * Wait a bit before A starts (to warm-up b)
-  - TODO: Should probably have return codes in perf.csv and check them as well!
+  * TODO: Should probably have return codes in perf.csv and check them as well!
 
 
 # Related projects

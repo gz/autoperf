@@ -14,7 +14,7 @@ use std::fmt;
 use csv;
 use pbr::ProgressBar;
 use x86::shared::perfcnt::intel::{core_counters, uncore_counters};
-use x86::shared::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter};
+use x86::shared::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter, PebsType};
 use x86::shared::cpuid;
 
 use super::util::*;
@@ -408,6 +408,7 @@ impl PerfEvent {
 
         match self.0.event_code {
             Tuple::One(ev) => {
+                // PCU events have umasks defined but they're OR'd with event (wtf)
                 let pcu_umask = if is_pcu {
                     match self.0.umask {
                         Tuple::One(mask) => mask,
@@ -429,9 +430,13 @@ impl PerfEvent {
 
 
         if !is_pcu {
-            // PCU event have umasks defined but they're OR'd with event (wtf)
             match self.0.umask {
-                Tuple::One(mask) => ret[0].push(format!("umask=0x{:x}", mask)),
+                Tuple::One(mask) => {
+                    ret[0].push(format!("umask=0x{:x}", mask));
+                    if (two_configs) {
+                        ret[1].push(format!("umask=0x{:x}", mask));
+                    }
+                }
                 Tuple::Two(m1, m2) => {
                     assert!(two_configs);
                     ret[0].push(format!("umask=0x{:x}", m1));
@@ -484,7 +489,22 @@ impl PerfEvent {
             }
         }
 
+        if self.0.any_thread {
+            ret[0].push(String::from("any=1"));
+            if two_configs {
+                ret[1].push(String::from("any=1"));
+            }
+        }
+
         ret
+    }
+
+    pub fn perf_qualifiers(&self) -> String {
+        let mut qualifiers = String::from("S");
+        if self.0.pebs == PebsType::PebsOnly {
+            qualifiers.push('p');
+        }
+        qualifiers
     }
 }
 
@@ -706,6 +726,13 @@ impl<'o> PerfEventGroup<'o> {
         for event in self.events.iter() {
             let (devices, mut configs) = event.perf_configs();
 
+            // TODO: handle fixed counters (see ocperf)
+            //fixed_counters = {
+            //    "inst_retired.any": (0xc0, 0, 0),
+            //    "cpu_clk_unhalted.thread": (0x3c, 0, 0),
+            //    "cpu_clk_unhalted.thread_any": (0x3c, 0, 1),
+            //}
+
             // Adding offcore event:
             if event.is_offcore() {
                 assert!(devices.len() == 1);
@@ -717,7 +744,7 @@ impl<'o> PerfEventGroup<'o> {
                     true => configs.get(1).unwrap(), // Ok, as offcore implies two configs
                 };
 
-                event_strings.push(format!("{}/{}/S", devices[0], config.join(",")));
+                event_strings.push(format!("{}/{}/{}", devices[0], config.join(","), event.perf_qualifiers()));
                 have_one_offcore = true;
             }
             // Adding uncore event:
@@ -729,7 +756,7 @@ impl<'o> PerfEventGroup<'o> {
                     // Patch name in config so we know where this event was running
                     // `perf stat` just reports CPU 0 for uncore events :-(
                     configs[0][0] = format!("name={}.{}", device, event.0.event_name);
-                    event_strings.push(format!("{}/{}/S", device, configs[0].join(",")));
+                    event_strings.push(format!("{}/{}/{}", device, configs[0].join(","), event.perf_qualifiers()));
                 }
             }
             // Adding normal event:
@@ -738,7 +765,7 @@ impl<'o> PerfEventGroup<'o> {
                 assert!(configs.len() == 1);
                 assert!(devices[0] == "cpu");
 
-                event_strings.push(format!("{}/{}/S", devices[0], configs[0].join(",")));
+                event_strings.push(format!("{}/{}/{}", devices[0], configs[0].join(","), event.perf_qualifiers()));
             }
         }
 

@@ -54,10 +54,10 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
                 aggregates.append(aggregation_matrix('AVG', series))
             elif agg == 'std':
                 series = grouped_df['SAMPLE_VALUE'].std(ddof=1)
-                print(series)
-                import sys
-                sys.exit(1)
-                aggregates.append(aggregation_matrix('STD', series))
+                matrix = aggregation_matrix('STD', series)
+                # Drop the columns which are all NaN because there was only one measurement unit:
+                matrix.dropna(axis=1, how='all', inplace=True)
+                aggregates.append(matrix)
             elif agg == 'max':
                 series = grouped_df['SAMPLE_VALUE'].max()
                 aggregates.append(aggregation_matrix('MAX', series))

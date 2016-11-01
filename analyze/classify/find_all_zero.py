@@ -37,7 +37,7 @@ def zero_features(data_directory, configs, uncore):
     return pd.read_csv(zero_features_path)
 
 if __name__ == '__main__':
-    parser = get_argument_parser('Figures out how many events are 0.', arguments=['data', 'config', 'uncore'])
+    parser = get_argument_parser('Figures out what events are always 0.', arguments=['data', 'config', 'uncore'])
     args = parser.parse_args()
 
     print(zero_features(args.data_directory, args.config, args.uncore))
