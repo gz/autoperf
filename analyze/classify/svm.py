@@ -51,7 +51,7 @@ CLASSIFIERS = {
 
 def drop_zero_events(data_directory, configs, uncore, df):
     from analyze.classify.find_all_zero import zero_features
-    to_drop = zero_features(data_directory, configs, uncore)
+    to_drop = zero_features(data_directory, configs, uncore, overwrite=False)
     df.drop(to_drop['EVENT_NAME'], axis=1, inplace=True)
 
 def row_training_and_test_set(data_directory, configs, tests, uncore='shared', cutoff=1.15, include_alone=False, drop_zero=True):

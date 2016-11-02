@@ -53,10 +53,10 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
                 series = grouped_df['SAMPLE_VALUE'].mean()
                 aggregates.append(aggregation_matrix('AVG', series))
             elif agg == 'std':
-                series = grouped_df['SAMPLE_VALUE'].std(ddof=1)
+                series = grouped_df['SAMPLE_VALUE'].std(ddof=0)
                 matrix = aggregation_matrix('STD', series)
                 # Drop the columns which are all NaN because there was only one measurement unit:
-                matrix.dropna(axis=1, how='all', inplace=True)
+                # matrix.dropna(axis=1, how='all', inplace=True)
                 aggregates.append(matrix)
             elif agg == 'max':
                 series = grouped_df['SAMPLE_VALUE'].max()
@@ -81,7 +81,8 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
             print("Throwing away {} out of {} samples for {}".format(throw_away, df.shape[0], f))
         df = df[:min_idx]
 
-    return df[1:] # Throw away the first sample because we don't know at what time the ROI started...
+    return df
+
 
 def minimum_nan_index(df):
     """

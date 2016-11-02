@@ -19,7 +19,7 @@ from sklearn import metrics
 from sklearn import preprocessing
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
-from analyze.classify.svm import get_svm_metrics, CLASSIFIERS, get_argument_parser, make_result_filename
+from analyze.classify.svm import get_svm_metrics, CLASSIFIERS, get_argument_parser, make_result_filename, drop_zero_events
 from analyze.classify.svm_topk import get_selected_events
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from analyze.util import *
@@ -28,7 +28,7 @@ plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
 
 def get_matrix_file(args, config, A, B):
-    MATRIX_FILE = 'matrix_X_uncore_{}.csv'.format(args.uncore)
+    MATRIX_FILE = 'matrix_X_uncore_{}_aggregation_mean_std_min_max.csv'.format(args.uncore)
     if B != "Alone":
         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
     else:
@@ -48,7 +48,7 @@ def get_matrix_file(args, config, A, B):
         print(("Skipping unfinished directory".format(results_path)))
         return None
 
-def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_interest):
+def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_interest, drop_zero=False):
     X_test = []
     Y_test = []
 
@@ -67,6 +67,9 @@ def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_i
                     if A == program_of_interest and B == program_antagonist and config == config_of_interest:
                         #print "Adding {} vs. {} in {} to test set".format(A, B, config)
                         df = pd.read_csv(matrix_file, index_col=False)
+                        if drop_zero:
+                            drop_zero_events(args.data_directory, args.config, args.uncore, df)
+
                         X_test.append(df)
                         Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                     else:
@@ -74,7 +77,7 @@ def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_i
 
     return (pd.concat(X_test), pd.concat(Y_test))
 
-def rowwise_training_set(args, program_of_interest, config_of_interest):
+def rowwise_training_set(args, program_of_interest, config_of_interest, drop_zero=False):
     X = []
     Y = []
 
@@ -93,6 +96,9 @@ def rowwise_training_set(args, program_of_interest, config_of_interest):
                     if A != program_of_interest and B != program_of_interest:
                         #print "Adding {} vs {} in {} to training set".format(A, B, config)
                         df = pd.read_csv(matrix_file, index_col=False)
+                        if drop_zero:
+                            drop_zero_events(args.data_directory, args.config, args.uncore, df)
+
                         Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                         X.append(df)
                     else:
