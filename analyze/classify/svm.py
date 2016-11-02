@@ -162,7 +162,7 @@ if __name__ == '__main__':
             results_table = pd.DataFrame()
 
             for test in tests:
-                X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, cutoff=args.cutoff, include_alone=args.include_alone)
+                X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, cutoff=args.cutoff, include_alone=args.include_alone, drop_zero=True)
                 min_max_scaler = preprocessing.MinMaxScaler()
                 X_scaled = min_max_scaler.fit_transform(X)
 
@@ -182,7 +182,7 @@ if __name__ == '__main__':
             # TODO: Weka has a bug when the 2nd class appears late in the vector it will think this
             # file has only one class and complain. THe solutionis to make sure both class label appear
             # directly for example as first and 2nd row XD
-            X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, cutoff=args.cutoff, include_alone=args.include_alone)
+            X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, cutoff=args.cutoff, include_alone=args.include_alone, drop_zero=True)
 
             X['Y'] = Y
             X_test['Y'] = Y_test

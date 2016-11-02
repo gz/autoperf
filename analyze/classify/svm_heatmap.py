@@ -110,7 +110,7 @@ def rowwise_training_set(args, program_of_interest, config_of_interest, drop_zer
 def classify(args, clf, A, columns, config):
     cells = []
 
-    X, Y = rowwise_training_set(args, A, config, drop_zero=True)
+    X, Y = rowwise_training_set(args, A, config, drop_zero=False)
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)
 
@@ -120,7 +120,7 @@ def classify(args, clf, A, columns, config):
         if B == "Alone":
             continue
 
-        X_test, Y_test = cellwise_test_set(args, A, B, config, drop_zero=True)
+        X_test, Y_test = cellwise_test_set(args, A, B, config, drop_zero=False)
         X_test_scaled = min_max_scaler.transform(X_test)
         Y_pred = clf.predict(X_test_scaled)
 
@@ -215,7 +215,7 @@ if __name__ == '__main__':
         results_table.to_csv(filename + ".csv", index=False)
 
         for (config, pivot_table) in get_pivot_tables(results_table):
-            plot_filename = filename + "_minmax_dropzero_config_{}".format(config)
+            plot_filename = filename + "_minmax_config_{}".format(config)
             alone_suffix = "alone" if args.include_alone else "paironly"
             cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
 
