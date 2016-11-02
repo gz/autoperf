@@ -18,13 +18,13 @@ def calculate_zero_features(data_directory, configs, uncore):
     features = get_zero_features_in_matrix(X)
     return features
 
-def zero_features(data_directory, configs, uncore):
+def zero_features(data_directory, configs, uncore, overwrite):
     feature_filename = mkfilename("zero_features", configs, uncore)
     zero_features_path = os.path.join(data_directory, feature_filename)
     event_filename = mkfilename("zero_events", configs, uncore)
     zero_events_path = os.path.join(data_directory, event_filename)
 
-    if not os.path.exists(zero_features_path):
+    if not os.path.exists(zero_features_path) or overwrite:
         features = calculate_zero_features(data_directory, configs, uncore)
         df = pd.DataFrame(features)
         df.to_csv(zero_features_path, index=False, header=['EVENT_NAME'])
@@ -39,6 +39,7 @@ def zero_features(data_directory, configs, uncore):
 
 if __name__ == '__main__':
     parser = get_argument_parser('Figures out what events are always 0.', arguments=['data', 'config', 'uncore'])
+    parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.", default=False)
     args = parser.parse_args()
 
-    print(zero_features(args.data_directory, args.config, args.uncore))
+    print(zero_features(args.data_directory, args.config, args.uncore, args.overwrite))
