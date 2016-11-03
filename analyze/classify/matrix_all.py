@@ -25,7 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--aggregation', dest='aggregations', nargs='+', type=str,
                         help="What features to include (default mean std min max).",
                         default=['mean', 'std', 'min', 'max'],
-                        choices=['mean', 'std', 'min', 'max'])
+                        choices=['mean', 'std', 'min', 'max', 'rbmerge'])
     args = parser.parse_args()
 
     ## Settings:
@@ -55,9 +55,9 @@ if __name__ == '__main__':
 
             if not os.path.exists(output_file) or args.overwrite:
                 print(("Processing {} vs. {} ({})".format(A, B, args.uncore)))
-                res = pool.apply_async(make_matrix, (results_file, output_file, args.aggregations))
-                async_results.append(res)
-                #make_matrix(results_file, output_file, args.aggregations)
+                #res = pool.apply_async(make_matrix, (results_file, output_file, args.aggregations))
+                #async_results.append(res)
+                make_matrix(results_file, output_file, args.aggregations)
             else:
                 print(("{} already exists, skipping.".format(output_file)))
         else:

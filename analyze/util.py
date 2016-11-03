@@ -1,29 +1,38 @@
 import pandas as pd
+import numpy as np
+
+READ_BANK_EVENTS = ["UNC_M_RD_CAS_RANK{}.BANK{}".format(i,j) for i in range(0,8) for j in range(0,8) ]
+WRITE_BANK_EVENTS = ["UNC_M_WR_CAS_RANK{}.BANK{}".format(i,j) for i in range(0,8) for j in range(0,8) ]
 
 def merge_bank_rank_events(df):
-    read = ["UNC_M_RD_CAS_RANK{}.BANK{}".format(i,j) for i in range(0,8) for j in range(0,8) ]
-    counts = []
-    for re in read:
-        counts.append(df[re])
-    df['ENG.UNC_M_RD_CAS.SUM'] = np.sum(counts)
-    df['ENG.UNC_M_RD_CAS.STD'] = np.std(counts, ddof=0)
+    matrix = pd.DataFrame(df)
+    matrix.reset_index(inplace=True)
+    pivot_table = matrix.pivot(index='INDEX', columns='EVENT_NAME', values='SAMPLE_VALUE')
+    df = pivot_table
 
-    write = ["UNC_M_WR_CAS_RANK{}.BANK{}".format(i,j) for i in range(0,8) for j in range(0,8) ]
-    counts = []
-    for we in write:
-        counts.append(df[we])
-    df['ENG.UNC_M_WR_CAS.SUM'] = np.sum(counts)
-    df['ENG.UNC_M_WR_CAS.STD'] = np.std(counts, ddof=0)
+    read_rank_banks = pd.DataFrame()
+    for e in READ_BANK_EVENTS:
+        read_rank_banks[e] = df[e]
 
-    print (df['ENG.UNC_M_RD_CAS.SUM'])
-    print (df['ENG.UNC_M_RD_CAS.STD'])
-    print (df['ENG.UNC_M_WR_CAS.SUM'])
-    print (df['ENG.UNC_M_WR_CAS.STD'])
+    write_rank_banks = pd.DataFrame()
+    for e in WRITE_BANK_EVENTS:
+        write_rank_banks[e] = df[e]
 
-def aggregation_matrix(prefix, series):
+    merged_banks = pd.DataFrame()
+    merged_banks['SUM.UNC_M_RD_CAS.*'] = read_rank_banks.sum(axis=1)
+    merged_banks['STD.UNC_M_RD_CAS.*'] = read_rank_banks.std(axis=1, ddof=0)
+    merged_banks['SUM.UNC_M_WR_CAS.*'] = write_rank_banks.sum(axis=1)
+    merged_banks['STD.UNC_M_WR_CAS.*'] = write_rank_banks.std(axis=1, ddof=0)
+    #print(merged_banks)
+    return merged_banks
+
+def aggregation_matrix(prefix, series, drop_bank_events=False):
     matrix = pd.DataFrame(series)
     matrix.reset_index(inplace=True)
     pivot_table = matrix.pivot(index='INDEX', columns='EVENT_NAME', values='SAMPLE_VALUE')
+    if drop_bank_events:
+        pivot_table.drop(READ_BANK_EVENTS, axis=1, inplace=True)
+        pivot_table.drop(WRITE_BANK_EVENTS, axis=1, inplace=True)
     pivot_table.rename(columns=lambda x: "{}.{}".format(prefix, x), inplace=True)
     return pivot_table
 
@@ -46,26 +55,31 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
 
     # Aggregate all event samples from the same event at time
     aggregates = []
+    drop_bank_events = 'rbmerge' in aggregate_samples
+
     if aggregate_samples:
         grouped_df = raw_data.groupby(['EVENT_NAME', 'INDEX'])
         for agg in aggregate_samples:
             if agg == 'mean':
                 series = grouped_df['SAMPLE_VALUE'].mean()
-                aggregates.append(aggregation_matrix('AVG', series))
+                aggregates.append(aggregation_matrix('AVG', series, drop_bank_events=drop_bank_events))
             elif agg == 'std':
                 series = grouped_df['SAMPLE_VALUE'].std(ddof=0)
-                matrix = aggregation_matrix('STD', series)
+                matrix = aggregation_matrix('STD', series, drop_bank_events=drop_bank_events)
                 # Drop the columns which are all NaN because there was only one measurement unit:
                 # matrix.dropna(axis=1, how='all', inplace=True)
                 aggregates.append(matrix)
             elif agg == 'max':
                 series = grouped_df['SAMPLE_VALUE'].max()
-                aggregates.append(aggregation_matrix('MAX', series))
+                aggregates.append(aggregation_matrix('MAX', series, drop_bank_events=drop_bank_events))
             elif agg == 'min':
                 series = grouped_df['SAMPLE_VALUE'].min()
-                aggregates.append(aggregation_matrix('MIN', series))
+                aggregates.append(aggregation_matrix('MIN', series, drop_bank_events=drop_bank_events))
+            elif agg == 'rbmerge':
+                series = grouped_df['SAMPLE_VALUE'].mean()
+                aggregates.append(merge_bank_rank_events(series))
             else:
-                assert "Unknown aggregation: {}. Supported are: [mean, std, max, min].".format(agg)
+                assert "Unknown aggregation: {}. Supported are: [mean, std, max, min, rbmerge].".format(agg)
 
     df = pd.concat(aggregates, axis=1)
 
