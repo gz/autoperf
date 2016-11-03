@@ -91,7 +91,7 @@ def row_training_and_test_set(data_directory, configs, tests, uncore='shared', f
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
                         if not os.path.exists(matrix_file_path):
-                            print("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file_path))
+                            print("No matrix file ({}) found, run the generate_matrix.py script first!".format(matrix_file_path))
                             sys.exit(1)
                         df = pd.read_csv(matrix_file_path, index_col=False)
                         if drop_zero:

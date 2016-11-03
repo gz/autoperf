@@ -15,7 +15,7 @@ from sklearn import metrics
 from sklearn import preprocessing
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
-from analyze.classify.svm import CLASSIFIERS, row_training_and_test_set, get_svm_metrics, make_result_filename
+from analyze.classify.svm import CLASSIFIERS, row_training_and_test_set, get_svm_metrics, make_svm_result_filename
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from analyze.classify.svm import get_argument_parser
 from analyze.util import *
@@ -113,6 +113,6 @@ if __name__ == '__main__':
 
             results_table = classify(args, test, clf, event_list)
 
-            filename = make_result_filename("svm_topk_for_{}".format("_".join(test)), args, kconfig)
+            filename = make_svm_result_filename("svm_topk_for_{}".format("_".join(test)), args, kconfig)
             results_table.to_csv(filename + ".csv", index=False)
             error_plot(args, filename, results_table)

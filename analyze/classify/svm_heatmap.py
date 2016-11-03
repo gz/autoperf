@@ -19,16 +19,16 @@ from sklearn import metrics
 from sklearn import preprocessing
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
-from analyze.classify.svm import get_svm_metrics, CLASSIFIERS, get_argument_parser, make_result_filename, drop_zero_events
+from analyze.classify.svm import get_svm_metrics, CLASSIFIERS, get_argument_parser, make_svm_result_filename, drop_zero_events
 from analyze.classify.svm_topk import get_selected_events
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from analyze.classify.generate_matrix import matrix_file_name
 from analyze.util import *
 
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
-AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
 
 def get_matrix_file(args, config, A, B):
-    MATRIX_FILE = 'matrix_X_uncore_{}_aggregation_mean_std_min_max.csv'.format(args.uncore)
+    MATRIX_FILE = matrix_file_name(args.uncore, args.features)
     if B != "Alone":
         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
     else:
@@ -37,15 +37,15 @@ def get_matrix_file(args, config, A, B):
         else:
             return None
 
-    matrix_file = os.path.join(results_path, MATRIX_FILE)
+    matrix_file_path = os.path.join(results_path, MATRIX_FILE)
     if os.path.exists(os.path.join(results_path, 'completed')):
-        if os.path.exists(matrix_file):
-            return matrix_file
+        if os.path.exists(matrix_file_path):
+            return matrix_file_path
         else:
-            print(("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file)))
+            print("No matrix file ({}) found, run the generate_matrix.py script first!".format(matrix_file_path))
             sys.exit(1)
     else:
-        print(("Skipping unfinished directory".format(results_path)))
+        print("Skipping unfinished directory".format(results_path))
         return None
 
 def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_interest, drop_zero=False):
@@ -68,7 +68,7 @@ def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_i
                         #print "Adding {} vs. {} in {} to test set".format(A, B, config)
                         df = pd.read_csv(matrix_file, index_col=False)
                         if drop_zero:
-                            drop_zero_events(args.data_directory, args.config, args.uncore, df)
+                            drop_zero_events(args.data_directory, args.config, args.uncore, args.features, df)
 
                         X_test.append(df)
                         Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
@@ -97,7 +97,7 @@ def rowwise_training_set(args, program_of_interest, config_of_interest, drop_zer
                         #print "Adding {} vs {} in {} to training set".format(A, B, config)
                         df = pd.read_csv(matrix_file, index_col=False)
                         if drop_zero:
-                            drop_zero_events(args.data_directory, args.config, args.uncore, df)
+                            drop_zero_events(args.data_directory, args.config, args.uncore, args.features, df)
 
                         Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                         X.append(df)
@@ -211,14 +211,16 @@ if __name__ == '__main__':
         pool.close()
         pool.join()
 
-        filename = make_result_filename("svm_heatmap", args, kconfig)
+        filename = make_svm_result_filename("svm_heatmap", args, kconfig)
         results_table.to_csv(filename + ".csv", index=False)
 
         for (config, pivot_table) in get_pivot_tables(results_table):
-            plot_filename = filename + "_minmax_config_{}".format(config)
             alone_suffix = "alone" if args.include_alone else "paironly"
+            dropzero_suffix = "dropzero" if args.dropzero else "inczero"
             cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
+            title = "Training {}, uncore {}, features {}, config {}, kernel {}, {}, {}, {}" \
+                    .format("/".join(sorted(args.config)), args.uncore, " ".join(sorted(args.features)), \
+                            config, kconfig, alone_suffix, cutoff_suffix, dropzero_suffix)
 
-            title = "Training {}, uncore {}, config {}, kernel {}, {}, {}, minmax" \
-                    .format("/".join(args.config), args.uncore, config, kconfig, alone_suffix, cutoff_suffix)
+            plot_filename = filename + "_config_{}".format(config)
             heatmap(plot_filename, pivot_table, title)
