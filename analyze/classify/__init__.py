@@ -1,7 +1,7 @@
 import argparse
 import pandas as pd
 
-def get_argument_parser(desc, arguments=['data', 'uncore', 'cutoff', 'config', 'alone']):
+def get_argument_parser(desc, arguments=['data', 'uncore', 'cutoff', 'config', 'alone', 'features', 'dropzero']):
     pd.set_option('display.max_rows', 37)
     pd.set_option('display.max_columns', 15)
     pd.set_option('display.width', 200)
@@ -24,8 +24,9 @@ def get_argument_parser(desc, arguments=['data', 'uncore', 'cutoff', 'config', '
                             help="What features to include (default mean, std, min, max).",
                             default=['mean', 'std', 'min', 'max'],
                             choices=['mean', 'std', 'min', 'max', 'rbmerge'])
-    if 'overwrite' in arguments:
-        parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.", default=False)
     if 'dropzero' in arguments:
         parser.add_argument('--dropzero', dest='dropzero', action='store_true', help="Drop all zero features.", default=False)
+    if 'overwrite' in arguments:
+        parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.", default=False)
+
     return parser
