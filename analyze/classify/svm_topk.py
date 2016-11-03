@@ -101,7 +101,8 @@ if __name__ == '__main__':
 
         for test in tests:
             if not args.cfs:
-                cfs_default_file = os.path.join(args.data_directory, "wekanew", "weka_{}_cfssubset_greedystepwise_{}.txt"
+                cfs_default_file = os.path.join(args.data_directory, \
+                    "ranking_training_without_{}_training_{}_uncore_shared_paironly_125_dropzero.csv" \
                     .format('_'.join(test), '_'.join(args.config)))
                 if not os.path.exists(cfs_default_file):
                     print(("Skipping {} because we didn't find the cfs file {}".format(' '.join(test), cfs_default_file)))
