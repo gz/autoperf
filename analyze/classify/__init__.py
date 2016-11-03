@@ -19,5 +19,13 @@ def get_argument_parser(desc, arguments=['data', 'uncore', 'cutoff', 'config', '
         parser.add_argument('--config', dest='config', nargs='+', type=str, help="Which configs to include (L3-SMT, L3-SMT-cores, ...).", default=['L3-SMT'])
     if 'alone' in arguments:
         parser.add_argument('--alone', dest='include_alone', action='store_true', default=False, help="Include alone runs.")
-
+    if 'features' in arguments:
+        parser.add_argument('--features', dest='features', nargs='+', type=str,
+                            help="What features to include (default mean, std, min, max).",
+                            default=['mean', 'std', 'min', 'max'],
+                            choices=['mean', 'std', 'min', 'max', 'rbmerge'])
+    if 'overwrite' in arguments:
+        parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.", default=False)
+    if 'dropzero' in arguments:
+        parser.add_argument('--dropzero', dest='dropzero', action='store_true', help="Drop all zero features.", default=False)
     return parser

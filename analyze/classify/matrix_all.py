@@ -13,24 +13,19 @@ from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_t
 from analyze.classify import get_argument_parser
 from analyze.util import *
 
-def make_matrix(results_file, output_file, aggregations):
+def make_matrix(results_file, output_file, features):
     print("Processing {}".format(results_file))
-    df = load_as_X(results_file, aggregate_samples=aggregations, cut_off_nan=True)
-    print("SAVING {}".format(output_file))
+    df = load_as_X(results_file, aggregate_samples=features, cut_off_nan=True)
+    print("Saving {}".format(output_file))
     df.to_csv(output_file, index=False)
 
 if __name__ == '__main__':
-    parser = get_argument_parser('Generates matrix files for use with ML algorithms.', arguments=['data', 'uncore'])
-    parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.", default=False)
-    parser.add_argument('--aggregation', dest='aggregations', nargs='+', type=str,
-                        help="What features to include (default mean std min max).",
-                        default=['mean', 'std', 'min', 'max'],
-                        choices=['mean', 'std', 'min', 'max', 'rbmerge'])
+    parser = get_argument_parser('Generates matrix files for use with ML algorithms.', arguments=['data', 'uncore', 'features', 'overwrite'])
     args = parser.parse_args()
 
     ## Settings:
     INPUT_RESULTS_FILE = 'results_uncore_{}.csv'
-    OUT_FILE = 'matrix_X_uncore_{}_aggregation_{}.csv'
+    OUT_FILE = 'matrix_X_uncore_{}_features_{}.csv'
 
     pool = Pool(processes=cpu_count())
     async_results = []
@@ -51,13 +46,13 @@ if __name__ == '__main__':
 
         if os.path.exists(os.path.join(results_path, 'completed')):
             results_file = os.path.join(results_path, INPUT_RESULTS_FILE.format(args.uncore))
-            output_file = os.path.join(results_path, OUT_FILE.format(args.uncore, '_'.join(args.aggregations)))
+            output_file = os.path.join(results_path, OUT_FILE.format(args.uncore, '_'.join(sorted(args.features))))
 
             if not os.path.exists(output_file) or args.overwrite:
                 print(("Processing {} vs. {} ({})".format(A, B, args.uncore)))
-                #res = pool.apply_async(make_matrix, (results_file, output_file, args.aggregations))
-                #async_results.append(res)
-                make_matrix(results_file, output_file, args.aggregations)
+                res = pool.apply_async(make_matrix, (results_file, output_file, args.features))
+                async_results.append(res)
+                #make_matrix(results_file, output_file, args.features)
             else:
                 print(("{} already exists, skipping.".format(output_file)))
         else:
