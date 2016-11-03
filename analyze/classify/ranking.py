@@ -12,25 +12,25 @@ sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '.
 from analyze.classify import get_argument_parser
 
 INPUT_FILES = [
-    "XY_training_without_AA700_training_L3-SMT_uncore_shared_paironly_125.csv",
+    #"XY_training_without_AA700_training_L3-SMT_uncore_shared_paironly_125.csv",
     "XY_training_without_AA700_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    "XY_training_without_BSCHOL_training_L3-SMT_uncore_shared_paironly_125.csv",
+    #"XY_training_without_BSCHOL_training_L3-SMT_uncore_shared_paironly_125.csv",
     "XY_training_without_BSCHOL_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    "XY_training_without_CNEAL_training_L3-SMT_uncore_shared_paironly_125.csv",
+    #"XY_training_without_CNEAL_training_L3-SMT_uncore_shared_paironly_125.csv",
     "XY_training_without_CNEAL_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    "XY_training_without_FERR_training_L3-SMT_uncore_shared_paironly_125.csv",
+    #"XY_training_without_FERR_training_L3-SMT_uncore_shared_paironly_125.csv",
     "XY_training_without_FERR_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    "XY_training_without_HD1400_training_L3-SMT_uncore_shared_paironly_125.csv",
+    #"XY_training_without_HD1400_training_L3-SMT_uncore_shared_paironly_125.csv",
     "XY_training_without_HD1400_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    "XY_training_without_NBODY_training_L3-SMT_uncore_shared_paironly_125.csv",
+    #"XY_training_without_NBODY_training_L3-SMT_uncore_shared_paironly_125.csv",
     "XY_training_without_NBODY_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    "XY_training_without_PR700_training_L3-SMT_uncore_shared_paironly_125.csv",
+    #"XY_training_without_PR700_training_L3-SMT_uncore_shared_paironly_125.csv",
     "XY_training_without_PR700_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    "XY_training_without_SCLUS_training_L3-SMT_uncore_shared_paironly_125.csv",
+    #"XY_training_without_SCLUS_training_L3-SMT_uncore_shared_paironly_125.csv",
     "XY_training_without_SCLUS_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    "XY_training_without_SWAPT_training_L3-SMT_uncore_shared_paironly_125.csv",
+    #"XY_training_without_SWAPT_training_L3-SMT_uncore_shared_paironly_125.csv",
     "XY_training_without_SWAPT_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    "XY_training_without_TC1400_training_L3-SMT_uncore_shared_paironly_125.csv",
+    #"XY_training_without_TC1400_training_L3-SMT_uncore_shared_paironly_125.csv",
     "XY_training_without_TC1400_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv"
 ]
 
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.", default=False)
     args = parser.parse_args()
 
-    pool = Pool(processes=cpu_count())
+    pool = Pool(processes=4)
     results = []
     for ipf in INPUT_FILES:
         input_file = os.path.join(args.data_directory, ipf)
