@@ -21,6 +21,7 @@ from sklearn import linear_model
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
 from analyze.classify import get_argument_parser
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from analyze.classify.generate_matrix import matrix_file_name
 from analyze.util import *
 
 CLASSIFIERS = {
@@ -56,14 +57,13 @@ CLASSIFIERS = {
     #'adaboost': ensemble.AdaBoostClassifier()
 }
 
-def drop_zero_events(data_directory, configs, uncore, df):
+def drop_zero_events(data_directory, configs, uncore, features, df):
     from analyze.classify.find_all_zero import zero_features
-    to_drop = zero_features(data_directory, configs, uncore, overwrite=False)
+    to_drop = zero_features(data_directory, configs, uncore, features, overwrite=False)
     df.drop(to_drop['EVENT_NAME'], axis=1, inplace=True)
 
 def row_training_and_test_set(data_directory, configs, tests, uncore='shared', features=['mean', 'std', 'min', 'max'], cutoff=1.15, include_alone=False, drop_zero=False):
-    # matrix_X_uncore_shared_aggregation_mean_std_min_max.csv
-    MATRIX_FILE = 'matrix_X_uncore_{}_features_{}.csv'.format(uncore, '_'.join(sorted(features)))
+    MATRIX_FILE = matrix_file_name(uncore, features)
 
     X = []
     Y = []
@@ -87,15 +87,15 @@ def row_training_and_test_set(data_directory, configs, tests, uncore='shared', f
                         results_path = os.path.join(data_directory, config, "{}".format(A))
                     else:
                         results_path = os.path.join(data_directory, config, "{}_vs_{}".format(A, B))
-                    matrix_file = os.path.join(results_path, MATRIX_FILE)
+                    matrix_file_path = os.path.join(results_path, MATRIX_FILE)
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
-                        if not os.path.exists(matrix_file):
-                            print("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file))
+                        if not os.path.exists(matrix_file_path):
+                            print("No matrix file ({}) found, run the scripts/pair/matrix_all.py script first!".format(matrix_file_path))
                             sys.exit(1)
-                        df = pd.read_csv(matrix_file, index_col=False)
+                        df = pd.read_csv(matrix_file_path, index_col=False)
                         if drop_zero:
-                            drop_zero_events(data_directory, configs, uncore, df)
+                            drop_zero_events(data_directory, configs, uncore, features, df)
 
                         if A in tests:
                             #print("Adding {} vs {} to test set".format(A, B), classification)
@@ -137,14 +137,25 @@ def get_svm_metrics(args, test, Y, Y_test, Y_pred):
 
     return row
 
-def make_result_filename(prefix, args, kconfig):
+def make_svm_result_filename(prefix, args, kconfig):
     alone_suffix = "alone" if args.include_alone else "paironly"
     dropzero_suffix = "dropzero" if args.dropzero else "inczero"
     cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
+
     filename = prefix + "_training_{}_uncore_{}_features_{}_{}_{}_{}_{}" \
-               .format("_".join(sorted(args.config)), "_".join(sorted(args.features)),
-                       args.uncore, kconfig, alone_suffix, dropzero_suffix, cutoff_suffix)
+               .format("_".join(sorted(args.config)), args.uncore, "_".join(sorted(args.features)),
+                       kconfig, alone_suffix, dropzero_suffix, cutoff_suffix)
     return filename
+
+def make_weka_results_filename(prefix, args):
+    alone_suffix = "alone" if args.include_alone else "paironly"
+    dropzero_suffix = "dropzero" if args.dropzero else "inczero"
+    cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
+
+    filename = '{}_{}_uncore_{}_features_{}_{}_{}.csv'
+    return file_name.format(prefix, '_'.join(sorted(args.config)), \
+                            args.uncore, "_".join(sorted(args.features)), \
+                            alone_suffix, dropzero_suffix, cutoff_suffix)
 
 if __name__ == '__main__':
     parser = get_argument_parser('Get the SVM parameters for a row in the heatmap.')
@@ -177,7 +188,7 @@ if __name__ == '__main__':
                     results_table = results_table.append(row, ignore_index=True)
                     print(results_table)
 
-            filename = make_result_filename("svm_results", args, kconfig)
+            filename = make_svm_result_filename("svm_results", args, kconfig)
             results_table.to_csv(filename + ".csv", index=False)
     elif args.weka:
         for test in tests:
@@ -192,18 +203,12 @@ if __name__ == '__main__':
             X['Y'] = X['Y'].map(lambda x: 'Y' if x else 'N')
             X_test['Y'] = X_test['Y'].map(lambda x: 'Y' if x else 'N')
 
-            training_file_name = "unset"
-            alone_suffix = "alone" if args.include_alone else "paironly"
-            cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
             if test == [None]:
-                training_file_name = 'XY_complete_{}_uncore_{}_{}_{}.csv' \
-                                     .format('_'.join(args.config), args.uncore, alone_suffix, cutoff_suffix)
+                training_file_name = make_weka_results_filename('XY_complete', args)
             else:
-                training_file_name = 'XY_training_without_{}_training_{}_uncore_{}_{}_{}.csv' \
-                                     .format('_'.join(test), '_'.join(args.config), args.uncore, alone_suffix, cutoff_suffix)
-
+                training_file_name = make_weka_results_filename('XY_training_without_{}'.format('_'.join(sorted(test))), args)
             X.to_csv(os.path.join(args.data_directory, training_file_name), index=False)
+
             if test != [None]:
-                test_file_name = 'XY_test_{}_training_{}_uncore_{}_{}_{}.csv' \
-                                 .format('_'.join(test), '_'.join(args.config), args.uncore, alone_suffix, cutoff_suffix)
+                test_file_name = make_weka_results_filename('XY_test_{}'.format('_'.join(sorted(test))), args)
                 X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)

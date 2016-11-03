@@ -13,11 +13,15 @@ from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_t
 from analyze.classify import get_argument_parser
 from analyze.util import *
 
-def make_matrix(results_file, output_file, features):
-    print("Processing {}".format(results_file))
-    df = load_as_X(results_file, aggregate_samples=features, cut_off_nan=True)
+def make_matrix(input_file, output_file, features):
+    print("Processing {}".format(input_file))
+    df = load_as_X(input_file, aggregate_samples=features, cut_off_nan=True)
     print("Saving {}".format(output_file))
     df.to_csv(output_file, index=False)
+
+def matrix_file_name(uncore, features):
+    OUT_FILE = 'matrix_X_uncore_{}_features_{}.csv'
+    return OUT_FILE.format(uncore, '_'.join(sorted(features)))
 
 if __name__ == '__main__':
     parser = get_argument_parser('Generates matrix files for use with ML algorithms.', arguments=['data', 'uncore', 'features', 'overwrite'])
@@ -25,7 +29,6 @@ if __name__ == '__main__':
 
     ## Settings:
     INPUT_RESULTS_FILE = 'results_uncore_{}.csv'
-    OUT_FILE = 'matrix_X_uncore_{}_features_{}.csv'
 
     pool = Pool(processes=cpu_count())
     async_results = []
@@ -41,18 +44,15 @@ if __name__ == '__main__':
         else:
             results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
 
-        results_file = os.path.join(results_path, INPUT_RESULTS_FILE)
-        output_file = os.path.join(results_path, OUT_FILE)
-
         if os.path.exists(os.path.join(results_path, 'completed')):
-            results_file = os.path.join(results_path, INPUT_RESULTS_FILE.format(args.uncore))
-            output_file = os.path.join(results_path, OUT_FILE.format(args.uncore, '_'.join(sorted(args.features))))
+            input_file = os.path.join(results_path, INPUT_RESULTS_FILE.format(args.uncore))
+            output_file = os.path.join(results_path, matrix_file_name(args))
 
             if not os.path.exists(output_file) or args.overwrite:
-                print(("Processing {} vs. {} ({})".format(A, B, args.uncore)))
-                res = pool.apply_async(make_matrix, (results_file, output_file, args.features))
+                print("Processing {} vs. {} ({})".format(A, B, args.uncore))
+                res = pool.apply_async(make_matrix, (input_file, output_file, args.features))
                 async_results.append(res)
-                #make_matrix(results_file, output_file, args.features)
+                #make_matrix(input_file, output_file, args.features)
             else:
                 print(("{} already exists, skipping.".format(output_file)))
         else:
