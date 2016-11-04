@@ -19,7 +19,7 @@ from sklearn import metrics
 from sklearn import preprocessing
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
-from analyze.classify.svm import get_svm_metrics, CLASSIFIERS, get_argument_parser, make_svm_result_filename, drop_zero_events
+from analyze.classify.svm import get_svm_metrics, CLASSIFIERS, get_argument_parser, make_svm_result_filename, drop_zero_events, make_suffixes
 from analyze.classify.svm_topk import get_selected_events
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from analyze.classify.generate_matrix import matrix_file_name
@@ -48,7 +48,7 @@ def get_matrix_file(args, config, A, B):
         print("Skipping unfinished directory".format(results_path))
         return None
 
-def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_interest, drop_zero=False):
+def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_interest):
     X_test = []
     Y_test = []
 
@@ -67,7 +67,7 @@ def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_i
                     if A == program_of_interest and B == program_antagonist and config == config_of_interest:
                         #print "Adding {} vs. {} in {} to test set".format(A, B, config)
                         df = pd.read_csv(matrix_file, index_col=False)
-                        if drop_zero:
+                        if args.dropzero:
                             drop_zero_events(args.data_directory, args.config, args.uncore, args.features, df)
 
                         X_test.append(df)
@@ -77,7 +77,7 @@ def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_i
 
     return (pd.concat(X_test), pd.concat(Y_test))
 
-def rowwise_training_set(args, program_of_interest, config_of_interest, drop_zero=False):
+def rowwise_training_set(args, program_of_interest, config_of_interest):
     X = []
     Y = []
 
@@ -96,7 +96,7 @@ def rowwise_training_set(args, program_of_interest, config_of_interest, drop_zer
                     if A != program_of_interest and B != program_of_interest:
                         #print "Adding {} vs {} in {} to training set".format(A, B, config)
                         df = pd.read_csv(matrix_file, index_col=False)
-                        if drop_zero:
+                        if args.dropzero:
                             drop_zero_events(args.data_directory, args.config, args.uncore, args.features, df)
 
                         Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
@@ -110,7 +110,7 @@ def rowwise_training_set(args, program_of_interest, config_of_interest, drop_zer
 def classify(args, clf, A, columns, config):
     cells = []
 
-    X, Y = rowwise_training_set(args, A, config, drop_zero=False)
+    X, Y = rowwise_training_set(args, A, config)
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)
 
@@ -120,7 +120,7 @@ def classify(args, clf, A, columns, config):
         if B == "Alone":
             continue
 
-        X_test, Y_test = cellwise_test_set(args, A, B, config, drop_zero=False)
+        X_test, Y_test = cellwise_test_set(args, A, B, config)
         X_test_scaled = min_max_scaler.transform(X_test)
         Y_pred = clf.predict(X_test_scaled)
 
@@ -215,9 +215,7 @@ if __name__ == '__main__':
         results_table.to_csv(filename + ".csv", index=False)
 
         for (config, pivot_table) in get_pivot_tables(results_table):
-            alone_suffix = "alone" if args.include_alone else "paironly"
-            dropzero_suffix = "dropzero" if args.dropzero else "inczero"
-            cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
+            alone_suffix, dropzero_suffix, cutoff_suffix = make_suffixes(args)
             title = "Training {}, uncore {}, features {}, config {}, kernel {}, {}, {}, {}" \
                     .format("/".join(sorted(args.config)), args.uncore, " ".join(sorted(args.features)), \
                             config, kconfig, alone_suffix, cutoff_suffix, dropzero_suffix)

@@ -11,17 +11,18 @@ from multiprocessing import Pool, TimeoutError
 import pandas as pd
 import numpy as np
 
-from util import *
+
 
 from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
-from analyze.classify.svm import get_svm_metrics, CLASSIFIERS, get_argument_parser, make_svm_result_filename
+from analyze.classify.svm import get_svm_metrics, CLASSIFIERS, get_argument_parser, make_svm_result_filename, make_suffixes
 from analyze.classify.svm_topk import make_ranking_filename
-from analyze.classify.svm_heatmap import cellwise_training_and_test_set, get_pivot_tables, heatmap
+from analyze.classify.svm_heatmap import cellwise_test_set, rowwise_training_set, get_pivot_tables, heatmap
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
+from analyze.util import *
 
 def mkgroup(cfs_ranking_file):
     AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
@@ -31,6 +32,7 @@ def mkgroup(cfs_ranking_file):
     return lines[:-1]
 
 def classify(args, clf, A, B, config):
+    assert "TODO fix this"
     X_all, Y, X_test_all, Y_test = cellwise_training_and_test_set(args, A, B, config)
 
     X = pd.DataFrame()
@@ -92,9 +94,7 @@ if __name__ == '__main__':
         for (config, pivot_table) in get_pivot_tables(results_table):
             plot_filename = filename + "_config_{}".format(config)
 
-            alone_suffix = "alone" if args.include_alone else "paironly"
-            dropzero_suffix = "dropzero" if args.dropzero else "inczero"
-            cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
+            alone_suffix, dropzero_suffix, cutoff_suffix = make_suffixes(args)
             title = "MAware, Training {}, uncore {}, features {}, config {}, kernel {}, {}, {}, {}" \
                     .format("/".join(sorted(args.config)), args.uncore, " ".join(sorted(args.features)), \
                             config, kconfig, alone_suffix, cutoff_suffix, dropzero_suffix)

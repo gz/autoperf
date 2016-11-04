@@ -61,7 +61,7 @@ def classify(args, test, clf, event_list):
     This is similar to the SVM classify methods but it will reduce
     the X and X_test to only the events listed in event_list for classification.
     """
-    X_all, Y, Y_weights, X_test_all, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, cutoff=args.cutoff, include_alone=args.include_alone)
+    X_all, Y, Y_weights, X_test_all, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, features=args.features, cutoff=args.cutoff, include_alone=args.include_alone, drop_zero=args.dropzero)
 
     X = pd.DataFrame()
     X_test = pd.DataFrame()
