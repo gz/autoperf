@@ -6,6 +6,7 @@ import time
 import argparse
 import re
 import subprocess
+import logging
 
 import pandas as pd
 import numpy as np
@@ -16,7 +17,7 @@ from sklearn import metrics
 from sklearn import preprocessing
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
-from analyze.classify.svm import row_training_and_test_set, get_svm_metrics, make_svm_result_filename
+from analyze.classify.svm import CLASSIFIERS, row_training_and_test_set, get_svm_metrics, make_svm_result_filename
 from analyze.classify.svm_topk import get_selected_events, make_ranking_filename
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from analyze.classify import get_argument_parser
@@ -42,22 +43,21 @@ if __name__ == '__main__':
     else:
         tests = [args.tests] # Pass the tests as a single set
 
-    for kconfig, clf in list(SVM_KERNELS.items()):
-        print(("Trying kernel", kconfig))
+    for kconfig, clf in list(CLASSIFIERS.items()):
+        logging.info("Trying kernel {}".format(kconfig))
         results_table = pd.DataFrame()
 
         for test in tests:
             if not args.cfs:
-                cfs_default_file = os.path.join(args.data_directory, make_ranking_filename(test, args))
-                if not os.path.exists(cfs_default_file):
-                    print(("Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)))
+                ranking_file = os.path.join(args.data_directory, 'ranking', make_ranking_filename(test, args))
+                if not os.path.exists(ranking_file):
+                    logging.error(("Can't process {} because we didn't find the CFS file {}".format(' '.join(sorted(test)), ranking_file)))
                     sys.exit(1)
-
-                event_list = mkgroup(cfs_default_file)
+                event_list = mkgroup(ranking_file)
             else:
                 event_list = mkgroup(args.cfs)
 
-            X_all, Y, X_test_all, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, features=args.features, cutoff=args.cutoff, include_alone=args.include_alone, drop_zero=args.dropzero)
+            X_all, Y, X_test_all, Y_test = row_training_and_test_set(args, test)
 
             X = pd.DataFrame()
             X_test = pd.DataFrame()
