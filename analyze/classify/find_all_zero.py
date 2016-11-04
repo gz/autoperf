@@ -43,4 +43,4 @@ def zero_features(data_directory, configs, uncore, features, overwrite):
 if __name__ == '__main__':
     parser = get_argument_parser('Figures out what events are always 0.', arguments=['data', 'config', 'uncore', 'overwrite'])
     args = parser.parse_args()
-    print(zero_features(args.data_directory, args.config, args.uncore, args.overwrite))
+    print(zero_features(args.data_directory, args.config, args.uncore, args.features, args.overwrite))
