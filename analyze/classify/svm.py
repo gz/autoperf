@@ -57,13 +57,13 @@ CLASSIFIERS = {
     #'adaboost': ensemble.AdaBoostClassifier()
 }
 
-def drop_zero_events(data_directory, configs, uncore, features, df):
+def drop_zero_events(args, df):
     from analyze.classify.find_all_zero import zero_features
-    to_drop = zero_features(data_directory, configs, uncore, features, overwrite=False)
+    to_drop = zero_features(args, overwrite=False)
     df.drop(to_drop['EVENT_NAME'], axis=1, inplace=True)
 
-def row_training_and_test_set(data_directory, configs, tests, uncore='shared', features=['mean', 'std', 'min', 'max'], cutoff=1.15, include_alone=False, drop_zero=False):
-    MATRIX_FILE = matrix_file_name(uncore, features)
+def row_training_and_test_set(args, tests):
+    MATRIX_FILE = matrix_file_name(args.uncore, args.features)
 
     X = []
     Y = []
@@ -72,21 +72,21 @@ def row_training_and_test_set(data_directory, configs, tests, uncore='shared', f
     X_test = []
     Y_test = []
 
-    runtimes = get_runtime_dataframe(data_directory)
+    runtimes = get_runtime_dataframe(args.data_directory)
     for config, table in get_runtime_pivot_tables(runtimes):
-        if config in configs:
+        if config in args.config:
             for (A, values) in table.iterrows():
                 for (i, normalized_runtime) in enumerate(values):
                     B = table.columns[i]
 
-                    classification = True if normalized_runtime > cutoff else False
+                    classification = True if normalized_runtime > args.cutoff else False
                     if B == "Alone":
-                        if not include_alone:
+                        if not args.include_alone:
                             #print "Skipping the samples with {} alone".format(A)
                             continue
-                        results_path = os.path.join(data_directory, config, "{}".format(A))
+                        results_path = os.path.join(args.data_directory, config, "{}".format(A))
                     else:
-                        results_path = os.path.join(data_directory, config, "{}_vs_{}".format(A, B))
+                        results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
                     matrix_file_path = os.path.join(results_path, MATRIX_FILE)
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
@@ -94,8 +94,8 @@ def row_training_and_test_set(data_directory, configs, tests, uncore='shared', f
                             print("No matrix file ({}) found, run the generate_matrix.py script first!".format(matrix_file_path))
                             sys.exit(1)
                         df = pd.read_csv(matrix_file_path, index_col=False)
-                        if drop_zero:
-                            drop_zero_events(data_directory, configs, uncore, features, df)
+                        if args.dropzero:
+                            drop_zero_events(args, df)
 
                         if A in tests:
                             #print("Adding {} vs {} to test set".format(A, B), classification)
@@ -175,7 +175,7 @@ if __name__ == '__main__':
             results_table = pd.DataFrame()
 
             for test in tests:
-                X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, features=args.features, cutoff=args.cutoff, include_alone=args.include_alone, drop_zero=args.dropzero)
+                X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args, test)
                 min_max_scaler = preprocessing.MinMaxScaler()
                 X_scaled = min_max_scaler.fit_transform(X)
 
@@ -191,11 +191,13 @@ if __name__ == '__main__':
             filename = make_svm_result_filename("svm_results", args, kconfig)
             results_table.to_csv(filename + ".csv", index=False)
     elif args.weka:
+        os.makedirs(os.path.join(args.data_directory, "matrices"), exist_ok=True)
+
         for test in tests:
             # TODO: Weka has a bug when the 2nd class appears late in the vector it will think this
             # file has only one class and complain. THe solutionis to make sure both class label appear
             # directly for example as first and 2nd row XD
-            X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, features=args.features, cutoff=args.cutoff, include_alone=args.include_alone, drop_zero=args.dropzero)
+            X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args, test)
 
             X['Y'] = Y
             X_test['Y'] = Y_test
@@ -207,8 +209,8 @@ if __name__ == '__main__':
                 training_file_name = make_weka_results_filename('XY_complete', args)
             else:
                 training_file_name = make_weka_results_filename('XY_training_without_{}'.format('_'.join(sorted(test))), args)
-            X.to_csv(os.path.join(args.data_directory, training_file_name), index=False)
+            X.to_csv(os.path.join(args.data_directory, "matrices", training_file_name), index=False)
 
             if test != [None]:
                 test_file_name = make_weka_results_filename('XY_test_{}'.format('_'.join(sorted(test))), args)
-                X_test.to_csv(os.path.join(args.data_directory, test_file_name), index=False)
+                X_test.to_csv(os.path.join(args.data_directory, "matrices", test_file_name), index=False)

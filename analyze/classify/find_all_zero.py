@@ -13,22 +13,25 @@ def mkfilename(prefix, configs, uncore, features):
     OUT_FILE = "{}_uncore_{}_features_{}.csv"
     return OUT_FILE.format(prefix, uncore, '_'.join(sorted(features)))
 
-def calculate_zero_features(data_directory, configs, uncore, features):
-    # drop_zero has to be false, otherwise we have recursion bug
-    X, Y, Y_weights, X_test, Y_test = svm.row_training_and_test_set(data_directory, configs, [None], \
-        uncore=uncore, features=features, cutoff=1.00, \
-        include_alone=True, drop_zero=False)
+def calculate_zero_features(args):
+    args.cutoff = 1.25 # dummy cutoff doesn't matter what we choose here
+    args.dropzero = False # dropzero has to be false, otherwise we have recursion bug
+    args.include_alone = True
+    X, Y, Y_weights, X_test, Y_test = svm.row_training_and_test_set(args, [None])
     features = get_zero_features_in_matrix(X)
     return features
 
-def zero_features(data_directory, configs, uncore, features, overwrite):
-    feature_filename = mkfilename("zero_features", configs, uncore, features)
-    zero_features_path = os.path.join(data_directory, feature_filename)
-    event_filename = mkfilename("zero_events", configs, uncore, features)
-    zero_events_path = os.path.join(data_directory, event_filename)
+def zero_features(args, overwrite):
+    os.makedirs(os.path.join(args.data_directory, "zero"), exist_ok=True)
+
+    feature_filename = mkfilename("zero_features", args.config, args.uncore, args.features)
+    zero_features_path = os.path.join(args.data_directory, "zero", feature_filename)
+    event_filename = mkfilename("zero_events", args.config, args.uncore, args.features)
+    zero_events_path = os.path.join(args.data_directory, "zero", event_filename)
 
     if not os.path.exists(zero_features_path) or overwrite:
-        features = calculate_zero_features(data_directory, configs, uncore, features)
+        features = calculate_zero_features(args)
+
         df = pd.DataFrame(features)
         df.to_csv(zero_features_path, index=False, header=['EVENT_NAME'])
 
@@ -44,4 +47,4 @@ if __name__ == '__main__':
     parser = get_argument_parser('Figures out what events are always 0.',
                                  arguments=['data', 'config', 'uncore', 'features', 'overwrite'])
     args = parser.parse_args()
-    print(zero_features(args.data_directory, args.config, args.uncore, args.features, args.overwrite))
+    print(zero_features(args, args.overwrite))

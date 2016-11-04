@@ -39,13 +39,13 @@ if __name__ == '__main__':
     runtimes = get_runtime_dataframe(args.data_directory)
     tests = [[x] for x in sorted(runtimes['A'].unique())]
 
+    os.makedirs(os.path.join(args.data_directory, "ranking"), exist_ok=True)
     for test in tests:
         input_file = make_weka_results_filename('XY_training_without_{}'.format('_'.join(sorted(test))), args)
-        input_path = os.path.join(args.data_directory, input_file)
+        input_path = os.path.join(args.data_directory, "matrices", input_file)
 
         output_file = make_ranking_filename(test, args)
-        output_path = os.path.join(args.data_directory, output_file)
-
+        output_path = os.path.join(args.data_directory, "ranking", output_file)
         res = pool.apply_async(invoke_weka, (input_path, output_path))
         results.append(res)
 
