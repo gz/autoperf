@@ -137,25 +137,25 @@ def get_svm_metrics(args, test, Y, Y_test, Y_pred):
 
     return row
 
-def make_svm_result_filename(prefix, args, kconfig):
+def make_suffixes(args):
     alone_suffix = "alone" if args.include_alone else "paironly"
     dropzero_suffix = "dropzero" if args.dropzero else "inczero"
     cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
+    return (alone_suffix, dropzero_suffix, cutoff_suffix)
 
+def make_svm_result_filename(prefix, args, kconfig):
+    alone_suffix, dropzero_suffix, cutoff_suffix = make_suffixes(args)
     filename = prefix + "_training_{}_uncore_{}_features_{}_{}_{}_{}_{}" \
                .format("_".join(sorted(args.config)), args.uncore, "_".join(sorted(args.features)),
                        kconfig, alone_suffix, dropzero_suffix, cutoff_suffix)
     return filename
 
 def make_weka_results_filename(prefix, args):
-    alone_suffix = "alone" if args.include_alone else "paironly"
-    dropzero_suffix = "dropzero" if args.dropzero else "inczero"
-    cutoff_suffix = "{}".format(math.ceil(args.cutoff*100))
-
-    filename = '{}_{}_uncore_{}_features_{}_{}_{}.csv'
-    return file_name.format(prefix, '_'.join(sorted(args.config)), \
-                            args.uncore, "_".join(sorted(args.features)), \
-                            alone_suffix, dropzero_suffix, cutoff_suffix)
+    alone_suffix, dropzero_suffix, cutoff_suffix = make_suffixes(args)
+    filename = '{}_training_{}_uncore_{}_features_{}_{}_{}.csv'
+    return filename.format(prefix, '_'.join(sorted(args.config)), \
+                           args.uncore, "_".join(sorted(args.features)), \
+                           alone_suffix, dropzero_suffix, cutoff_suffix)
 
 if __name__ == '__main__':
     parser = get_argument_parser('Get the SVM parameters for a row in the heatmap.')

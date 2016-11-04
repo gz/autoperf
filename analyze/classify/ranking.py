@@ -10,29 +10,9 @@ from multiprocessing import Pool, TimeoutError, cpu_count
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
 from analyze.classify import get_argument_parser
-
-INPUT_FILES = [
-    #"XY_training_without_AA700_training_L3-SMT_uncore_shared_paironly_125.csv",
-    "XY_training_without_AA700_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    #"XY_training_without_BSCHOL_training_L3-SMT_uncore_shared_paironly_125.csv",
-    "XY_training_without_BSCHOL_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    #"XY_training_without_CNEAL_training_L3-SMT_uncore_shared_paironly_125.csv",
-    "XY_training_without_CNEAL_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    #"XY_training_without_FERR_training_L3-SMT_uncore_shared_paironly_125.csv",
-    "XY_training_without_FERR_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    #"XY_training_without_HD1400_training_L3-SMT_uncore_shared_paironly_125.csv",
-    "XY_training_without_HD1400_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    #"XY_training_without_NBODY_training_L3-SMT_uncore_shared_paironly_125.csv",
-    "XY_training_without_NBODY_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    #"XY_training_without_PR700_training_L3-SMT_uncore_shared_paironly_125.csv",
-    "XY_training_without_PR700_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    #"XY_training_without_SCLUS_training_L3-SMT_uncore_shared_paironly_125.csv",
-    "XY_training_without_SCLUS_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    #"XY_training_without_SWAPT_training_L3-SMT_uncore_shared_paironly_125.csv",
-    "XY_training_without_SWAPT_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv",
-    #"XY_training_without_TC1400_training_L3-SMT_uncore_shared_paironly_125.csv",
-    "XY_training_without_TC1400_training_L3-SMT_uncore_shared_paironly_125_dropzero.csv"
-]
+from analyze.classify.svm import make_weka_results_filename
+from analyze.classify.runtimes import get_runtime_dataframe
+from analyze.classify.svm_topk import make_ranking_filename
 
 CLASSPATH = [
     "/home/gz/Desktop/weka-3-8-0/weka.jar",
@@ -51,17 +31,22 @@ def invoke_weka(input_file, output_file):
     subprocess.call(java_cmd, shell=True)
 
 if __name__ == '__main__':
-    parser = get_argument_parser('Make weka ranking files.', arguments=['data'])
-    parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.", default=False)
+    parser = get_argument_parser('Make weka ranking files.')
     args = parser.parse_args()
 
     pool = Pool(processes=4)
     results = []
-    for ipf in INPUT_FILES:
-        input_file = os.path.join(args.data_directory, ipf)
-        output_file = os.path.join(args.data_directory, 'ranking_' + ipf.split('_', 1)[1])
-        #invoke_weka(input_file, output_file)
-        res = pool.apply_async(invoke_weka, (input_file, output_file))
+    runtimes = get_runtime_dataframe(args.data_directory)
+    tests = [[x] for x in sorted(runtimes['A'].unique())]
+
+    for test in tests:
+        input_file = make_weka_results_filename('XY_training_without_{}'.format('_'.join(sorted(test))), args)
+        input_path = os.path.join(args.data_directory, input_file)
+
+        output_file = make_ranking_filename(test, args)
+        output_path = os.path.join(args.data_directory, output_file)
+
+        res = pool.apply_async(invoke_weka, (input_path, output_path))
         results.append(res)
 
     [r.get() for r in results]

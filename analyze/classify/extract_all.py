@@ -49,12 +49,9 @@ def extract_all(data_directory, uncore, overwrite):
         else:
             print(("Exclude unfinished directory {}".format(root)))
 
-
-
 if __name__ == '__main__':
-    parser = get_argument_parser('Wrapper script for applying `autoperf extract` to all profiles in the data directory.', arguments=['data'])
+    parser = get_argument_parser('Wrapper script for applying `autoperf extract` to all profiles in the data directory.', arguments=['data', 'overwrite'])
     parser.add_argument('--uncore', dest='uncore', nargs='+', type=str, help="What uncore counters to include [all, shared, exclusive, none].", default=['shared'])
-    parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.")
     args = parser.parse_args()
 
     if not os.path.exists(AUTOPERF_PATH) and not os.path.isfile(AUTOPERF_PATH):
