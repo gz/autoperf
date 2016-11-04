@@ -5,6 +5,7 @@ import sys
 import time
 import argparse
 import math
+import logging
 
 import pandas as pd
 import numpy as np
@@ -23,6 +24,8 @@ from analyze.classify import get_argument_parser
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from analyze.classify.generate_matrix import matrix_file_name
 from analyze.util import *
+
+logging.basicConfig(level=logging.DEBUG)
 
 CLASSIFIERS = {
     #'linear': svm.SVC(kernel='linear'),
@@ -91,21 +94,22 @@ def row_training_and_test_set(args, tests):
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
                         if not os.path.exists(matrix_file_path):
-                            print("No matrix file ({}) found, run the generate_matrix.py script first!".format(matrix_file_path))
+                            logging.error("No matrix file ({}) found, run the generate_matrix.py script first!".format(matrix_file_path))
                             sys.exit(1)
                         df = pd.read_csv(matrix_file_path, index_col=False)
                         if args.dropzero:
+                            logging.debug("Dropping zero")
                             drop_zero_events(args, df)
 
                         if A in tests:
-                            #print("Adding {} vs {} to test set".format(A, B), classification)
+                            logging.debug("Adding {} vs {} to test set class={} file={}".format(A, B, classification, matrix_file_path))
                             Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                             X_test.append(df)
                         elif B in tests:
-                            #print("Discarding {} vs {}".format(A, B), classification)
+                            logging.debug("Discarding {} vs {} class={} file={}".format(A, B, classification, matrix_file_path))
                             pass
                         else:
-                            #print("Adding {} vs {} to training set".format(A, B), classification)
+                            logging.debug("Adding {} vs {} to training set class={} file={}".format(A, B, classification, matrix_file_path))
                             Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                             Y_weights.append(pd.Series([1 for _ in range(0, df.shape[0])]))
                             X.append(df)
