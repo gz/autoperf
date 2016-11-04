@@ -11,8 +11,6 @@ from multiprocessing import Pool, TimeoutError
 import pandas as pd
 import numpy as np
 
-
-
 from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing

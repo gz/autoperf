@@ -1,10 +1,12 @@
 import argparse
 import pandas as pd
+import logging
 
 def get_argument_parser(desc, arguments=['data', 'uncore', 'cutoff', 'config', 'alone', 'features', 'dropzero']):
     pd.set_option('display.max_rows', 37)
     pd.set_option('display.max_columns', 15)
     pd.set_option('display.width', 200)
+    logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
 
     parser = argparse.ArgumentParser(description=desc)
 

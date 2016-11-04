@@ -25,8 +25,6 @@ from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_t
 from analyze.classify.generate_matrix import matrix_file_name
 from analyze.util import *
 
-logging.basicConfig(level=logging.DEBUG)
-
 CLASSIFIERS = {
     #'linear': svm.SVC(kernel='linear'),
     #'linearbalanced': svm.SVC(kernel='linear', class_weight='balanced'),

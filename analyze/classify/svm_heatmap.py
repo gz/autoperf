@@ -7,6 +7,7 @@ import argparse
 import re
 import subprocess
 import math
+import logging
 from multiprocessing import Pool, TimeoutError, cpu_count
 
 import pandas as pd
@@ -42,10 +43,10 @@ def get_matrix_file(args, config, A, B):
         if os.path.exists(matrix_file_path):
             return matrix_file_path
         else:
-            print("No matrix file ({}) found, run the generate_matrix.py script first!".format(matrix_file_path))
+            logging.error("No matrix file ({}) found, run the generate_matrix.py script first!".format(matrix_file_path))
             sys.exit(1)
     else:
-        print("Skipping unfinished directory".format(results_path))
+        logging.warn("Skipping unfinished directory".format(results_path))
         return None
 
 def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_interest):
@@ -65,10 +66,10 @@ def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_i
                         continue
 
                     if A == program_of_interest and B == program_antagonist and config == config_of_interest:
-                        #print "Adding {} vs. {} in {} to test set".format(A, B, config)
+                        logging.debug("Adding {} vs. {} in {} to test set".format(A, B, config))
                         df = pd.read_csv(matrix_file, index_col=False)
                         if args.dropzero:
-                            drop_zero_events(args.data_directory, args.config, args.uncore, args.features, df)
+                            drop_zero_events(args, df)
 
                         X_test.append(df)
                         Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
@@ -94,10 +95,10 @@ def rowwise_training_set(args, program_of_interest, config_of_interest):
                         continue
 
                     if A != program_of_interest and B != program_of_interest:
-                        #print "Adding {} vs {} in {} to training set".format(A, B, config)
+                        logging.debug("Adding {} vs {} in {} to training set".format(A, B, config))
                         df = pd.read_csv(matrix_file, index_col=False)
                         if args.dropzero:
-                            drop_zero_events(args.data_directory, args.config, args.uncore, args.features, df)
+                            drop_zero_events(args, df)
 
                         Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
                         X.append(df)
