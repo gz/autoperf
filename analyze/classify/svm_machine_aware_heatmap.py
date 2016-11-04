@@ -7,7 +7,7 @@ import argparse
 import re
 import subprocess
 import logging
-from multiprocessing import Pool, TimeoutError
+from multiprocessing import Pool, TimeoutError, cpu_count
 
 import pandas as pd
 import numpy as np
@@ -31,11 +31,7 @@ def mkgroup(cfs_ranking_file):
     return lines[:-1]
 
 def classify(args, clf, A, columns, config):
-    assert "NYD"
-    X_all, Y, X_test_all, Y_test = cellwise_training_and_test_set(args, A, B, config)
-
     X = pd.DataFrame()
-    X_test = pd.DataFrame()
 
     ranking_file = os.path.join(args.data_directory, 'ranking', make_ranking_filename([A], args))
     if not os.path.exists(ranking_file):
@@ -44,21 +40,32 @@ def classify(args, clf, A, columns, config):
 
     event_list = mkgroup(ranking_file)
 
+    cells = []
+    X_all, Y = rowwise_training_set(args, A, config)
     for event in event_list:
         X[event] = X_all[event]
-        X_test[event] = X_test_all[event]
 
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)
-    X_test_scaled = min_max_scaler.transform(X_test)
-
     clf.fit(X_scaled, Y)
-    Y_pred = clf.predict(X_test_scaled)
 
-    row = get_svm_metrics(args, [A], Y, Y_test, Y_pred)
-    row['A'] = A
-    row['B'] = B
-    row['config'] = config
+    for B in columns:
+        if B == "Alone":
+            continue
+
+        X_test_all, Y_test = cellwise_test_set(args, A, B, config)
+        X_test = pd.DataFrame()
+        for event in event_list:
+            X_test[event] = X_test_all[event]
+
+        X_test_scaled = min_max_scaler.transform(X_test)
+        Y_pred = clf.predict(X_test_scaled)
+
+        pred = get_svm_metrics(args, [A], Y, Y_test, Y_pred)
+        pred['A'] = A
+        pred['B'] = B
+        pred['config'] = config
+        cells.append(pred)
 
     logging.info(pd.DataFrame([row]))
     return pd.DataFrame([row])
@@ -70,18 +77,14 @@ if __name__ == '__main__':
     for kconfig, clf in list(CLASSIFIERS.items()):
         logging.info("Trying kernel {}".format(kconfig))
 
-        pool = Pool(processes=6)
+        pool = Pool(processes=cpu_count())
         rows = []
         runtimes = get_runtime_dataframe(args.data_directory)
         for config, table in get_runtime_pivot_tables(runtimes):
             if config in args.config:
                 for (A, values) in table.iterrows():
-                    for (i, normalized_runtime) in enumerate(values):
-                        B = table.columns[i]
-                        if B == "Alone":
-                            continue
-                        res = pool.apply_async(classify, (args, clf, A, B, config))
-                        rows.append(res)
+                    res = pool.apply_async(classify, (args, clf, A, table.columns, config))
+                    rows.append(res)
 
         results_table = pd.concat([r.get() for r in rows], ignore_index=True)
         pool.close()
