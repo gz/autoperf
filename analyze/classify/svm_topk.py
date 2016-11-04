@@ -5,6 +5,7 @@ import sys
 import time
 import argparse
 import re
+import logging
 
 import pandas as pd
 import numpy as np
@@ -19,7 +20,6 @@ from analyze.classify.svm import CLASSIFIERS, row_training_and_test_set, get_svm
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from analyze.classify.svm import get_argument_parser
 from analyze.util import *
-
 
 ticks_font = font_manager.FontProperties(family='Decima Mono')
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
@@ -58,10 +58,10 @@ def error_plot(args, filename, df):
 
 def classify(args, test, clf, event_list):
     """
-    This is similar to the SVM classify methods but it will reduce
-    the X and X_test to only the events listed in event_list for classification.
+    This is similar to the svm.py classify method but it adds one feature after another
+    (specified in event_list) to the classifier and measures its performance.
     """
-    X_all, Y, Y_weights, X_test_all, Y_test = row_training_and_test_set(args.data_directory, args.config, test, uncore=args.uncore, features=args.features, cutoff=args.cutoff, include_alone=args.include_alone, drop_zero=args.dropzero)
+    X_all, Y, Y_weights, X_test_all, Y_test = row_training_and_test_set(args, test)
 
     X = pd.DataFrame()
     X_test = pd.DataFrame()
@@ -104,11 +104,9 @@ if __name__ == '__main__':
 
         for test in tests:
             if not args.cfs:
-                cfs_default_file = os.path.join(args.data_directory, \
-                    #"ranking_training_without_{}_training_{}_uncore_shared_paironly_125_dropzero.csv".format('_'.join(test), '_'.join(args.config)))
-                    make_ranking_filename(test, args))
+                cfs_default_file = os.path.join(args.data_directory, 'ranking', make_ranking_filename(test, args))
                 if not os.path.exists(cfs_default_file):
-                    print(("Skipping {} because we didn't find the cfs file {}".format(' '.join(test), cfs_default_file)))
+                    logging.warn("Skipping {} because we didn't find the ranking file: {}".format(' '.join(test), cfs_default_file))
                     continue
                 event_list = get_selected_events(cfs_default_file)
             else:
