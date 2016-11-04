@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
         if os.path.exists(os.path.join(results_path, 'completed')):
             input_file = os.path.join(results_path, INPUT_RESULTS_FILE.format(args.uncore))
-            output_file = os.path.join(results_path, matrix_file_name(args))
+            output_file = os.path.join(results_path, matrix_file_name(args.uncore, args.features))
 
             if not os.path.exists(output_file) or args.overwrite:
                 print("Processing {} vs. {} ({})".format(A, B, args.uncore))

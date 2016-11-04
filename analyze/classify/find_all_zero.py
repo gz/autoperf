@@ -41,6 +41,7 @@ def zero_features(data_directory, configs, uncore, features, overwrite):
     return pd.read_csv(zero_features_path)
 
 if __name__ == '__main__':
-    parser = get_argument_parser('Figures out what events are always 0.', arguments=['data', 'config', 'uncore', 'overwrite'])
+    parser = get_argument_parser('Figures out what events are always 0.',
+                                 arguments=['data', 'config', 'uncore', 'features', 'overwrite'])
     args = parser.parse_args()
     print(zero_features(args.data_directory, args.config, args.uncore, args.features, args.overwrite))
