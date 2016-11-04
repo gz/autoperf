@@ -66,8 +66,6 @@ def drop_zero_events(args, df):
     df.drop(to_drop['EVENT_NAME'], axis=1, inplace=True)
 
 def row_training_and_test_set(args, tests):
-    MATRIX_FILE = matrix_file_name(args.uncore, args.features)
-
     X = []
     Y = []
     Y_weights = []
@@ -90,7 +88,7 @@ def row_training_and_test_set(args, tests):
                         results_path = os.path.join(args.data_directory, config, "{}".format(A))
                     else:
                         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
-                    matrix_file_path = os.path.join(results_path, MATRIX_FILE)
+                    matrix_file_path = os.path.join(results_path, matrix_file_name(args.uncore, args.features))
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
                         if not os.path.exists(matrix_file_path):
