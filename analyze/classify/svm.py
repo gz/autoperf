@@ -79,9 +79,9 @@ def row_training_and_test_set(args, tests):
                     B = table.columns[i]
 
                     classification = True if normalized_runtime > args.cutoff else False
-                    if B == "Alone":
+                    if B == "Alone" or B == None:
                         if not args.include_alone:
-                            #print "Skipping the samples with {} alone".format(A)
+                            logging.debug("Skipping the samples with {} alone".format(A))
                             continue
                         results_path = os.path.join(args.data_directory, config, "{}".format(A))
                     else:

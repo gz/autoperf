@@ -14,6 +14,8 @@ def mkfilename(prefix, configs, uncore, features):
     return OUT_FILE.format(prefix, uncore, '_'.join(sorted(features)))
 
 def calculate_zero_features(args):
+    import copy
+    args = copy.deepcopy(args)
     args.cutoff = 1.25 # dummy cutoff doesn't matter what we choose here
     args.dropzero = False # dropzero has to be false, otherwise we have recursion bug
     args.include_alone = True
