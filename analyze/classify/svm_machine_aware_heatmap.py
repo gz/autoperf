@@ -6,6 +6,7 @@ import time
 import argparse
 import re
 import subprocess
+import logging
 from multiprocessing import Pool, TimeoutError
 
 import pandas as pd
@@ -29,19 +30,19 @@ def mkgroup(cfs_ranking_file):
     assert lines[-1] == ''
     return lines[:-1]
 
-def classify(args, clf, A, B, config):
-    assert "TODO fix this"
+def classify(args, clf, A, columns, config):
+    assert "NYD"
     X_all, Y, X_test_all, Y_test = cellwise_training_and_test_set(args, A, B, config)
 
     X = pd.DataFrame()
     X_test = pd.DataFrame()
 
-    cfs_default_file = os.path.join(args.data_directory, make_ranking_filename([A], args))
-    if not os.path.exists(cfs_default_file):
-        print(("Can't process {} because we didn't find the CFS file {}".format(A, cfs_default_file)))
+    ranking_file = os.path.join(args.data_directory, 'ranking', make_ranking_filename([A], args))
+    if not os.path.exists(ranking_file):
+        logging.error("Can't process {} because we didn't find the CFS file {}".format(A, ranking_file))
         return None
 
-    event_list = mkgroup(cfs_default_file)
+    event_list = mkgroup(ranking_file)
 
     for event in event_list:
         X[event] = X_all[event]
@@ -59,7 +60,7 @@ def classify(args, clf, A, B, config):
     row['B'] = B
     row['config'] = config
 
-    print((pd.DataFrame([row])))
+    logging.info(pd.DataFrame([row]))
     return pd.DataFrame([row])
 
 if __name__ == '__main__':
@@ -67,7 +68,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     for kconfig, clf in list(CLASSIFIERS.items()):
-        print(("Trying kernel", kconfig))
+        logging.info("Trying kernel {}".format(kconfig))
 
         pool = Pool(processes=6)
         rows = []
