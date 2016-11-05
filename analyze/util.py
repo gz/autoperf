@@ -57,6 +57,7 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
     aggregates = []
     drop_bank_events = 'rbmerge' in aggregate_samples
 
+    start_at = 0
     if aggregate_samples:
         grouped_df = raw_data.groupby(['EVENT_NAME', 'INDEX'])
         for agg in aggregate_samples:
@@ -78,8 +79,12 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
             elif agg == 'rbmerge':
                 series = grouped_df['SAMPLE_VALUE'].mean()
                 aggregates.append(merge_bank_rank_events(series))
+            elif agg == 'cut1':
+                start_at = 1
+            elif agg == 'cut2':
+                start_at = 2
             else:
-                assert "Unknown aggregation: {}. Supported are: [mean, std, max, min, rbmerge].".format(agg)
+                assert "Unknown aggregation: {}. Supported are: [mean, std, max, min, rbmerge, cut1, cut2].".format(agg)
 
     df = pd.concat(aggregates, axis=1)
 
