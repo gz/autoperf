@@ -100,7 +100,7 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
             print("Throwing away {} out of {} samples for {}".format(throw_away, df.shape[0], f))
         df = df[:min_idx]
 
-    return df
+    return df[start_at:]
 
 
 def minimum_nan_index(df):
