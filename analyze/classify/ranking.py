@@ -6,6 +6,7 @@ import time
 import argparse
 import math
 import subprocess
+import logging
 from multiprocessing import Pool, TimeoutError, cpu_count
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
@@ -30,9 +31,15 @@ def weka_cmd_svmeval(input_file, output_file):
     classpath = ':'.join(CLASSPATH)
     return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
-def invoke_weka(input_file, output_file):
+def invoke_weka(input_file, output_file, method):
     #java_cmd = weka_cmd_svmeval(input_file, output_file)
-    java_cmd = weka_cmd_cfs(input_file, output_file)
+    if method == 'svm':
+        java_cmd = weka_cmd_svmeval(input_file, output_file)
+    elif method == 'cfs':
+        java_cmd = weka_cmd_cfs(input_file, output_file)
+    else:
+        logging.error("Unknown method {}".format(method))
+        sys.exit(1)
     print ("About to execute", java_cmd)
     subprocess.call(java_cmd, shell=True)
 
@@ -40,7 +47,7 @@ if __name__ == '__main__':
     parser = get_argument_parser('Make weka ranking files.')
     args = parser.parse_args()
 
-    pool = Pool(processes=4)
+    pool = Pool(processes=cpu_count())
     results = []
     runtimes = get_runtime_dataframe(args.data_directory)
     tests = [[x] for x in sorted(runtimes['A'].unique())]
@@ -50,9 +57,10 @@ if __name__ == '__main__':
         input_file = make_weka_results_filename('XY_training_without_{}'.format('_'.join(sorted(test))), args)
         input_path = os.path.join(args.data_directory, "matrices", input_file)
 
-        output_file = make_ranking_filename(test, args)
+        method = 'svm'
+        output_file = make_ranking_filename(test, args, method)
         output_path = os.path.join(args.data_directory, "ranking", output_file)
-        res = pool.apply_async(invoke_weka, (input_path, output_path))
+        res = pool.apply_async(invoke_weka, (input_path, output_path, method))
         results.append(res)
 
     [r.get() for r in results]
