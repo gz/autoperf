@@ -83,8 +83,10 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
                 start_at = 1
             elif agg == 'cut2':
                 start_at = 2
+            elif agg == 'cut4':
+                start_at = 4
             else:
-                assert "Unknown aggregation: {}. Supported are: [mean, std, max, min, rbmerge, cut1, cut2].".format(agg)
+                assert "Unknown aggregation: {}. Supported are: [mean, std, max, min, rbmerge, cut1, cut2, cut4].".format(agg)
 
     df = pd.concat(aggregates, axis=1)
 
