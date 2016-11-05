@@ -20,13 +20,19 @@ CLASSPATH = [
     "/home/gz/wekafiles/packages/SVMAttributeEval/SVMAttributeEval.jar"
 ]
 
-def weka_cmd_line(input_file, output_file):
+def weka_cmd_cfs(input_file, output_file):
+    weka_args = 'weka.attributeSelection.CfsSubsetEval -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots 8" -P 8 -E 8 -i -h'
+    classpath = ':'.join(CLASSPATH)
+    return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
+
+def weka_cmd_svmeval(input_file, output_file):
     weka_args = 'weka.attributeSelection.SVMAttributeEval -s "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25" -X 1 -Y 0 -Z 0 -P 1.0E-25 -T 1.0E-10 -C 1.0 -N 0 -i'
     classpath = ':'.join(CLASSPATH)
     return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
 def invoke_weka(input_file, output_file):
-    java_cmd = weka_cmd_line(input_file, output_file)
+    #java_cmd = weka_cmd_svmeval(input_file, output_file)
+    java_cmd = weka_cmd_cfs(input_file, output_file)
     print ("About to execute", java_cmd)
     subprocess.call(java_cmd, shell=True)
 
