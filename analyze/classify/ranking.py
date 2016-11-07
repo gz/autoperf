@@ -48,7 +48,7 @@ def weka_cmd_corr(input_file, output_file):
     return JAVA_CMD + " -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
 def weka_cmd_svmwrap(input_file, output_file):
-    weka_args = 'weka.attributeSelection.WrapperSubsetEval -s "weka.attributeSelection.GreedyStepwise -T -1.7976931348623157E308 -N 25 -num-slots {}" -B weka.classifiers.functions.LibSVM -F 5 -T 0.01 -R 1 -E ACC -i {} -- -S 0 -K 1 -D 1 -G 0.0 -R 0.0 -N 0.5 -M 40.0 -C 0.1 -E 0.001 -P 0.1 -Z -seed 1'.format(int(cpu_count() / 2), input_file)
+    weka_args = 'weka.attributeSelection.WrapperSubsetEval -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -B weka.classifiers.functions.LibSVM -F 5 -T 0.01 -R 1 -E ACC -i {} -- -S 0 -K 1 -D 1 -G 0.0 -R 0.0 -N 0.5 -M 256.0 -C 0.1 -E 0.001 -P 0.1 -Z -seed 1'.format(int(cpu_count() / 2), input_file)
     classpath = ':'.join(CLASSPATH)
     return JAVA_CMD + " -classpath {} {} > {}".format(classpath, weka_args, output_file)
 
