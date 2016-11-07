@@ -84,8 +84,8 @@ def classify(args, test, clf, event_list):
 
     return results_table
 
-def make_ranking_filename(apps, args, method='svm'):
-    prefix = 'ranking_{}_{}'.format(method, "_".join(sorted(apps)))
+def make_ranking_filename(apps, args):
+    prefix = 'ranking_{}_{}'.format(args.ranking, "_".join(sorted(apps)))
     return make_weka_results_filename(prefix, args)
 
 if __name__ == '__main__':

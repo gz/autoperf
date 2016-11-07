@@ -40,14 +40,21 @@ def invoke_weka(input_file, output_file, method):
     else:
         logging.error("Unknown method {}".format(method))
         sys.exit(1)
-    print ("About to execute", java_cmd)
+    logging.debug("About to execute: {}".format(java_cmd))
     subprocess.call(java_cmd, shell=True)
 
 if __name__ == '__main__':
-    parser = get_argument_parser('Make weka ranking files.')
+    parser = get_argument_parser('Make weka ranking files.',
+                                  arguments=['data', 'uncore', 'cutoff', 'config',
+                                             'alone', 'features', 'dropzero',
+                                             'ranking'])
     args = parser.parse_args()
+    if args.ranking == 'svm':
+        parallelism = cpu_count()
+    else: # Rest should have built-in parallelization:
+        parallelism = 1
 
-    pool = Pool(processes=cpu_count())
+    pool = Pool(processes=parallelism)
     results = []
     runtimes = get_runtime_dataframe(args.data_directory)
     tests = [[x] for x in sorted(runtimes['A'].unique())]
@@ -57,10 +64,13 @@ if __name__ == '__main__':
         input_file = make_weka_results_filename('XY_training_without_{}'.format('_'.join(sorted(test))), args)
         input_path = os.path.join(args.data_directory, "matrices", input_file)
 
-        method = 'svm'
-        output_file = make_ranking_filename(test, args, method)
+        if not os.path.exists(input_path):
+            logging.error("{} does not exist. Run the svm.py script with the --weka argument.".format(input_path))
+            sys.exit(1)
+
+        output_file = make_ranking_filename(test, args)
         output_path = os.path.join(args.data_directory, "ranking", output_file)
-        res = pool.apply_async(invoke_weka, (input_path, output_path, method))
+        res = pool.apply_async(invoke_weka, (input_path, output_path, args.ranking))
         results.append(res)
 
     [r.get() for r in results]
