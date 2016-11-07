@@ -31,12 +31,23 @@ def weka_cmd_svmeval(input_file, output_file):
     classpath = ':'.join(CLASSPATH)
     return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
+def weka_cmd_ig(input_file, output_file):
+    weka_args = 'weka.classifiers.meta.AttributeSelectedClassifier -E "weka.attributeSelection.InfoGainAttributeEval " -S "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25"'
+    classpath = ':'.join(CLASSPATH)
+    return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
+
+def weka_cmd_corr(input_file, output_file):
+    weka_args = 'weka.filters.supervised.attribute.AttributeSelection -E "weka.attributeSelection.CorrelationAttributeEval " -S "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25"'
+    classpath = ':'.join(CLASSPATH)
+    return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
+
 def invoke_weka(input_file, output_file, method):
-    #java_cmd = weka_cmd_svmeval(input_file, output_file)
     if method == 'svm':
         java_cmd = weka_cmd_svmeval(input_file, output_file)
     elif method == 'cfs':
         java_cmd = weka_cmd_cfs(input_file, output_file)
+    elif method == 'ig':
+        java_cmd = weka_cmd_if(input_file, output_file)
     else:
         logging.error("Unknown method {}".format(method))
         sys.exit(1)
