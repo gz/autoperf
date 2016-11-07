@@ -89,8 +89,9 @@ def make_ranking_filename(apps, args):
     return make_weka_results_filename(prefix, args)
 
 if __name__ == '__main__':
-    parser = get_argument_parser('Get the SVM parameters when limiting the amount of features.')
-    parser.add_argument('--cfs', dest='cfs', type=str, help="Weka file containing reduced, relevant features.")
+    parser = get_argument_parser('Get the SVM parameters when limiting the amount of features.',
+                                 arguments=['data', 'uncore', 'cutoff', 'config', 'alone',
+                                            'features', 'dropzero', 'ranking'])
     parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="List or programs to include for the test set.")
     args = parser.parse_args()
 
@@ -101,20 +102,17 @@ if __name__ == '__main__':
         tests = [args.tests]
 
     for kconfig, clf in list(CLASSIFIERS.items()):
-        print(("Trying kernel", kconfig))
+        logging.info("Trying kernel {}".format(kconfig))
 
         for test in tests:
-            if not args.cfs:
-                cfs_default_file = os.path.join(args.data_directory, 'ranking', make_ranking_filename(test, args))
-                if not os.path.exists(cfs_default_file):
-                    logging.warn("Skipping {} because we didn't find the ranking file: {}".format(' '.join(test), cfs_default_file))
-                    continue
-                event_list = get_selected_events(cfs_default_file)
-            else:
-                event_list = get_selected_events(args.cfs)
+            cfs_default_file = os.path.join(args.data_directory, 'ranking', make_ranking_filename(test, args))
+            if not os.path.exists(cfs_default_file):
+                logging.warn("Skipping {} because we didn't find the ranking file: {}".format(' '.join(test), cfs_default_file))
+                continue
+            event_list = get_selected_events(cfs_default_file)
 
             results_table = classify(args, test, clf, event_list)
 
-            filename = make_svm_result_filename("svm_topk_for_{}".format("_".join(sorted(test))), args, kconfig)
+            filename = make_svm_result_filename("svm_topk_{}_for_{}".format(args.ranking, "_".join(sorted(test))), args, kconfig)
             results_table.to_csv(filename + ".csv", index=False)
             error_plot(args, filename, results_table)

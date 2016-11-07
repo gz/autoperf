@@ -17,12 +17,13 @@ from analyze.classify.svm_topk import make_ranking_filename
 
 CLASSPATH = [
     "/home/gz/Desktop/weka-3-8-0/weka.jar",
+    "/home/gz/wekafiles/packages/LibSVM/LibSVM.jar",
     "/home/gz/wekafiles/packages/LibSVM/lib/libsvm.jar",
     "/home/gz/wekafiles/packages/SVMAttributeEval/SVMAttributeEval.jar"
 ]
 
 def weka_cmd_cfs(input_file, output_file):
-    weka_args = 'weka.attributeSelection.CfsSubsetEval -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots 8" -P 8 -E 8 -i'
+    weka_args = 'weka.attributeSelection.CfsSubsetEval -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -P 8 -E 8 -i'.format(int(cpu_count() / 2))
     classpath = ':'.join(CLASSPATH)
     return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
@@ -32,22 +33,34 @@ def weka_cmd_svmeval(input_file, output_file):
     return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
 def weka_cmd_ig(input_file, output_file):
-    weka_args = 'weka.classifiers.meta.AttributeSelectedClassifier -E "weka.attributeSelection.InfoGainAttributeEval " -S "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25"'
+    weka_args = 'weka.attributeSelection.InfoGainAttributeEval -s "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25" -i'
     classpath = ':'.join(CLASSPATH)
     return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
 def weka_cmd_corr(input_file, output_file):
-    weka_args = 'weka.filters.supervised.attribute.AttributeSelection -E "weka.attributeSelection.CorrelationAttributeEval " -S "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25" -i'
+    weka_args = 'weka.attributeSelection.CorrelationAttributeEval -s "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25" -i'
     classpath = ':'.join(CLASSPATH)
     return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
+
+def weka_cmd_svmwrap(input_file, output_file):
+    weka_args = 'weka.attributeSelection.WrapperSubsetEval -s "weka.attributeSelection.GreedyStepwise -T -1.7976931348623157E308 -N 25 -num-slots {}" -B weka.classifiers.functions.LibSVM -F 5 -T 0.01 -R 1 -E ACC -i {} -- -S 0 -K 1 -D 1 -G 0.0 -R 0.0 -N 0.5 -M 40.0 -C 0.1 -E 0.001 -P 0.1 -Z -seed 1'.format(int(cpu_count() / 2), input_file)
+    classpath = ':'.join(CLASSPATH)
+    return "java -classpath {} {} > {}".format(classpath, weka_args, output_file)
+
+
+
+
+#15:53:09: Meta-classifier command: weka.classifiers.meta.AttributeSelectedClassifier -E "weka.attributeSelection.WrapperSubsetEval -B weka.classifiers.functions.LibSVM -F 5 -T 0.01 -R 1 -E DEFAULT -- -S 0 -K 1 -D 1 -G 0.0 -R 0.0 -N 0.5 -M 4096.0 -C 0.1 -E 0.001 -P 0.1 -Z -model /home/zgerd/Desktop/weka-3-8-0 -seed 1 -batch-size 20" -S "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots 20" -W weka.classifiers.trees.J48 -- -C 0.25 -M 2
 
 def invoke_weka(input_file, output_file, method):
     if method == 'svm':
         java_cmd = weka_cmd_svmeval(input_file, output_file)
+    elif method == 'svmwrap':
+        java_cmd = weka_cmd_svmwrap(input_file, output_file)
     elif method == 'cfs':
         java_cmd = weka_cmd_cfs(input_file, output_file)
     elif method == 'ig':
-        java_cmd = weka_cmd_if(input_file, output_file)
+        java_cmd = weka_cmd_ig(input_file, output_file)
     elif method == 'corr':
         java_cmd = weka_cmd_corr(input_file, output_file)
     else:
@@ -63,7 +76,7 @@ if __name__ == '__main__':
                                              'ranking', 'overwrite'])
     args = parser.parse_args()
     if args.ranking == 'svm':
-        parallelism = cpu_count()
+        parallelism = 4
     else: # Rest should have built-in parallelization:
         parallelism = 1
 
