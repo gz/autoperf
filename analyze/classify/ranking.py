@@ -53,9 +53,9 @@ def weka_cmd_svmwrap(input_file, output_file):
     return JAVA_CMD + " -classpath {} {} > {}".format(classpath, weka_args, output_file)
 
 def invoke_weka(input_file, output_file, method):
-    if method == 'svm':
+    if method == 'svmeval':
         java_cmd = weka_cmd_svmeval(input_file, output_file)
-    elif method == 'svmwrap':
+    elif method == 'svm':
         java_cmd = weka_cmd_svmwrap(input_file, output_file)
     elif method == 'cfs':
         java_cmd = weka_cmd_cfs(input_file, output_file)
