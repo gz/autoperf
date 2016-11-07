@@ -29,7 +29,7 @@ $ rustup override set nightly
 
 Python:
 ```
-$ sudo apt-get install python3-dev python3-tk
+$ sudo apt-get install python3-dev python3-tk python3-pip
 $ sudo -H pip3 install pandas numpy ascii_graph scipy toml sklearn bokeh flask matplotlib
 ```
 
@@ -37,6 +37,11 @@ For documentation only:
 ```
 $ apt-get install libzmq3-dev
 $ sudo -H pip install jupyter
+```
+
+For weka (ranking.py):
+```
+$ sudo apt-get install openjdk-8-jdk
 ```
 
 # Workflow
