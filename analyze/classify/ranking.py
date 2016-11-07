@@ -15,42 +15,42 @@ from analyze.classify.svm import make_weka_results_filename
 from analyze.classify.runtimes import get_runtime_dataframe
 from analyze.classify.svm_topk import make_ranking_filename
 
+MEM_BYTES = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+MEM_GIB = MEM_BYTES / (1024.**3)
+
 CLASSPATH = [
-    "/home/gz/Desktop/weka-3-8-0/weka.jar",
-    "/home/gz/wekafiles/packages/LibSVM/LibSVM.jar",
-    "/home/gz/wekafiles/packages/LibSVM/lib/libsvm.jar",
-    "/home/gz/wekafiles/packages/SVMAttributeEval/SVMAttributeEval.jar"
+    os.path.join(os.path.realpath(os.path.split(__file__)[0]), "..", "jar", "weka.jar"),
+    os.path.join(os.path.realpath(os.path.split(__file__)[0]), "..", "jar", "LibSVM.jar"),
+    os.path.join(os.path.realpath(os.path.split(__file__)[0]), "..", "jar", "libsvm.jar"),
+    os.path.join(os.path.realpath(os.path.split(__file__)[0]), "..", "jar", "SVMAttributeEval.jar")
 ]
+
+JAVA_CMD = "java -Xms2g -Xmx{}g".format(int(MEM_GIB))
 
 def weka_cmd_cfs(input_file, output_file):
     weka_args = 'weka.attributeSelection.CfsSubsetEval -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -P 8 -E 8 -i'.format(int(cpu_count() / 2))
     classpath = ':'.join(CLASSPATH)
-    return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
+    return JAVA_CMD + " -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
 def weka_cmd_svmeval(input_file, output_file):
     weka_args = 'weka.attributeSelection.SVMAttributeEval -s "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25" -X 1 -Y 0 -Z 0 -P 1.0E-25 -T 1.0E-10 -C 1.0 -N 0 -i'
     classpath = ':'.join(CLASSPATH)
-    return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
+    return JAVA_CMD + " -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
 def weka_cmd_ig(input_file, output_file):
     weka_args = 'weka.attributeSelection.InfoGainAttributeEval -s "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25" -i'
     classpath = ':'.join(CLASSPATH)
-    return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
+    return JAVA_CMD + " -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
 def weka_cmd_corr(input_file, output_file):
     weka_args = 'weka.attributeSelection.CorrelationAttributeEval -s "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25" -i'
     classpath = ':'.join(CLASSPATH)
-    return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
+    return JAVA_CMD + " -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
 def weka_cmd_svmwrap(input_file, output_file):
     weka_args = 'weka.attributeSelection.WrapperSubsetEval -s "weka.attributeSelection.GreedyStepwise -T -1.7976931348623157E308 -N 25 -num-slots {}" -B weka.classifiers.functions.LibSVM -F 5 -T 0.01 -R 1 -E ACC -i {} -- -S 0 -K 1 -D 1 -G 0.0 -R 0.0 -N 0.5 -M 40.0 -C 0.1 -E 0.001 -P 0.1 -Z -seed 1'.format(int(cpu_count() / 2), input_file)
     classpath = ':'.join(CLASSPATH)
-    return "java -classpath {} {} > {}".format(classpath, weka_args, output_file)
-
-
-
-
-#15:53:09: Meta-classifier command: weka.classifiers.meta.AttributeSelectedClassifier -E "weka.attributeSelection.WrapperSubsetEval -B weka.classifiers.functions.LibSVM -F 5 -T 0.01 -R 1 -E DEFAULT -- -S 0 -K 1 -D 1 -G 0.0 -R 0.0 -N 0.5 -M 4096.0 -C 0.1 -E 0.001 -P 0.1 -Z -model /home/zgerd/Desktop/weka-3-8-0 -seed 1 -batch-size 20" -S "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots 20" -W weka.classifiers.trees.J48 -- -C 0.25 -M 2
+    return JAVA_CMD + " -classpath {} {} > {}".format(classpath, weka_args, output_file)
 
 def invoke_weka(input_file, output_file, method):
     if method == 'svm':
