@@ -37,7 +37,7 @@ def weka_cmd_ig(input_file, output_file):
     return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
 def weka_cmd_corr(input_file, output_file):
-    weka_args = 'weka.filters.supervised.attribute.AttributeSelection -E "weka.attributeSelection.CorrelationAttributeEval " -S "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25"'
+    weka_args = 'weka.filters.supervised.attribute.AttributeSelection -E "weka.attributeSelection.CorrelationAttributeEval " -S "weka.attributeSelection.Ranker -T -1.7976931348623157E308 -N 25" -i'
     classpath = ':'.join(CLASSPATH)
     return "java -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
@@ -48,9 +48,11 @@ def invoke_weka(input_file, output_file, method):
         java_cmd = weka_cmd_cfs(input_file, output_file)
     elif method == 'ig':
         java_cmd = weka_cmd_if(input_file, output_file)
+    elif method == 'corr':
+        java_cmd = weka_cmd_corr(input_file, output_file)
     else:
         logging.error("Unknown method {}".format(method))
-        sys.exit(1)
+        return
     logging.debug("About to execute: {}".format(java_cmd))
     subprocess.call(java_cmd, shell=True)
 
@@ -58,7 +60,7 @@ if __name__ == '__main__':
     parser = get_argument_parser('Make weka ranking files.',
                                   arguments=['data', 'uncore', 'cutoff', 'config',
                                              'alone', 'features', 'dropzero',
-                                             'ranking'])
+                                             'ranking', 'overwrite'])
     args = parser.parse_args()
     if args.ranking == 'svm':
         parallelism = cpu_count()
@@ -81,6 +83,10 @@ if __name__ == '__main__':
 
         output_file = make_ranking_filename(test, args)
         output_path = os.path.join(args.data_directory, "ranking", output_file)
+        if os.path.exists(output_path) and not args.overwrite:
+            logging.error("{} already exist. Skipping.".format(output_path))
+            continue
+
         res = pool.apply_async(invoke_weka, (input_path, output_path, args.ranking))
         results.append(res)
 
