@@ -28,7 +28,7 @@ CLASSPATH = [
 JAVA_CMD = "java -Xms2g -Xmx{}g".format(int(MEM_GIB))
 
 def weka_cmd_cfs(input_file, output_file):
-    weka_args = 'weka.attributeSelection.CfsSubsetEval -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -P 8 -E 8 -i'.format(int(cpu_count() / 2))
+    weka_args = 'weka.attributeSelection.CfsSubsetEval -x 5 -n 1 -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -P {} -E {} -i'.format(cpu_count(), cpu_count(), cpu_count())
     classpath = ':'.join(CLASSPATH)
     return JAVA_CMD + " -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
@@ -75,8 +75,8 @@ if __name__ == '__main__':
                                              'alone', 'features', 'dropzero',
                                              'ranking', 'overwrite'])
     args = parser.parse_args()
-    if args.ranking == 'svm':
-        parallelism = 4
+    if args.ranking == 'svmeval':
+        parallelism = int(cpu_count() / 2)
     else: # Rest should have built-in parallelization or are pretty fast anyways
         parallelism = 1
 
