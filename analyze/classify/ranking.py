@@ -77,7 +77,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.ranking == 'svm':
         parallelism = 4
-    else: # Rest should have built-in parallelization:
+    else: # Rest should have built-in parallelization or are pretty fast anyways
         parallelism = 1
 
     pool = Pool(processes=parallelism)
