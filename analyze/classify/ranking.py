@@ -28,7 +28,7 @@ CLASSPATH = [
 JAVA_CMD = "java -Xms2g -Xmx16g"
 
 def weka_cmd_cfs(input_file, output_file):
-    weka_args = 'weka.attributeSelection.CfsSubsetEval -x 5 -n 1 -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -P {} -E {} -i'.format(cpu_count(), cpu_count(), cpu_count())
+    weka_args = 'weka.attributeSelection.CfsSubsetEval -x 5 -n 1 -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -P {} -E {} -i'.format(int(cpu_count() / 2), int(cpu_count() / 2), int(cpu_count() / 2))
     classpath = ':'.join(CLASSPATH)
     return JAVA_CMD + " -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 

@@ -81,3 +81,23 @@ Not today:
 # Related projects
   * git clone git://git.code.sf.net/p/perfmon2/perfmon2 perfmon2-perfmon2
   * git clone git://git.code.sf.net/p/perfmon2/libpfm4 perfmon2-libpfm4
+
+
+# Ranking Computation
+
+```
+rm /mnt/local/zgerd/results-babybel/ranking/*
+ rsync -av /home/gz/workspace/autoperf/ emmentaler3:/mnt/local/zgerd/autoperf/
+ rsync -av /home/gz/workspace/results-babybel/matrices/ emmentaler3:/mnt/local/zgerd/results-babybel/matrices/
+python3 analyze/classify/ranking.py --data ../results-babybel --features mean std min max rbmerge --dropzero --ranking cfs --start 0 --step 3
+
+rm /mnt/local/zgerd/results-babybel/ranking/*
+rsync -av /home/gz/workspace/autoperf/ sgs-r820-01.ethz.ch:/mnt/local/zgerd/autoperf/
+rsync -av /home/gz/workspace/results-babybel/matrices/ sgs-r820-01.ethz.ch:/mnt/local/zgerd/results-babybel/matrices/
+
+rm /home/ubuntu/results-babybel/ranking/*
+rsync -av -e "ssh -A emmentaler1 ssh" /home/gz/workspace/autoperf/ ubuntu@babybel2:/home/ubuntu/autoperf/
+rsync -av -e "ssh -A emmentaler1 ssh" /home/gz/workspace/results-babybel/matrices/ ubuntu@babybel2:/home/ubuntu/results-babybel/matrices/
+
+
+```
