@@ -25,7 +25,7 @@ CLASSPATH = [
     os.path.join(os.path.realpath(os.path.split(__file__)[0]), "..", "jar", "SVMAttributeEval.jar")
 ]
 
-JAVA_CMD = "java -Xms2g -Xmx{}g".format(int(MEM_GIB))
+JAVA_CMD = "java -Xms2g -Xmx16g"
 
 def weka_cmd_cfs(input_file, output_file):
     weka_args = 'weka.attributeSelection.CfsSubsetEval -x 5 -n 1 -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -P {} -E {} -i'.format(cpu_count(), cpu_count(), cpu_count())
@@ -74,7 +74,10 @@ if __name__ == '__main__':
                                   arguments=['data', 'uncore', 'cutoff', 'config',
                                              'alone', 'features', 'dropzero',
                                              'ranking', 'overwrite'])
+    parser.add_argument('--start', dest='start', type=int, default=0, help="Where in the list to start.")
+    parser.add_argument('--step', dest='step', type=int, default=1, help="Steps to take when going over the tests.")
     args = parser.parse_args()
+
     if args.ranking == 'svmeval':
         parallelism = int(cpu_count() / 2)
     else: # Rest should have built-in parallelization or are pretty fast anyways
@@ -86,7 +89,7 @@ if __name__ == '__main__':
     tests = [[x] for x in sorted(runtimes['A'].unique())]
 
     os.makedirs(os.path.join(args.data_directory, "ranking"), exist_ok=True)
-    for test in tests:
+    for test in tests[args.start::args.step]:
         input_file = make_weka_results_filename('XY_training_without_{}'.format('_'.join(sorted(test))), args)
         input_path = os.path.join(args.data_directory, "matrices", input_file)
 
