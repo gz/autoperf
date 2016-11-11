@@ -27,23 +27,52 @@ from analyze.util import *
 
 CLASSIFIERS = {
     #'linear': svm.SVC(kernel='linear'),
+    #'linearC0.1': svm.SVC(kernel='linear', C=0.1),
+    #'linearC0.2': svm.SVC(kernel='linear', C=0.2),
     #'linearbalanced': svm.SVC(kernel='linear', class_weight='balanced'),
+    #'linearbalancedC0.1': svm.SVC(kernel='linear', class_weight='balanced', C=0.1),
+    #'linearbalancedC0.2': svm.SVC(kernel='linear', class_weight='balanced', C=0.2),
+    #'linearbalancedC0.3': svm.SVC(kernel='linear', class_weight='balanced', C=0.3),
+    #'linearbalancedC0.5': svm.SVC(kernel='linear', class_weight='balanced', C=0.5),
+    #'linearbalancedC0.8': svm.SVC(kernel='linear', class_weight='balanced', C=0.8),
+    #'linearbalancedC0.08': svm.SVC(kernel='linear', class_weight='balanced', C=0.08),
+    #'linearbalancedC0.06': svm.SVC(kernel='linear', class_weight='balanced', C=0.06),
     #'rbf1': svm.SVC(kernel='rbf', degree=1),
     #'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
     #'poly1': svm.SVC(kernel='poly', degree=1),
     #'poly2': svm.SVC(kernel='poly', degree=2),
+    'poly2C2': svm.SVC(kernel='poly', degree=2, C=2),
+    'poly2C3': svm.SVC(kernel='poly', degree=2, C=3),
+    'poly2C4': svm.SVC(kernel='poly', degree=2, C=4),
+    'poly2C5': svm.SVC(kernel='poly', degree=2, C=5),
+    'poly2C2.1': svm.SVC(kernel='poly', degree=2, C=2.1),
+    'poly2C1.9': svm.SVC(kernel='poly', degree=2, C=1.9),
+    'poly2C2.2': svm.SVC(kernel='poly', degree=2, C=2.2),
     #'poly3': svm.SVC(kernel='poly', degree=3),
     #'poly1balanced': svm.SVC(kernel='poly', degree=1, class_weight='balanced'),
-    #'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
     #'poly1balancedC0.01': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.01),
     #'poly1balancedC0.05': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.05),
     #'poly1balancedC0.075': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.075),
-    'poly1balancedC0.1': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.1),
+    #'poly1balancedC0.1': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.1),
     #'poly1balancedC0.2': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.2),
     #'poly1balancedC0.3': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.3),
+    #'poly1balancedC2': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=2),
     #'poly1balancedC10': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=10),
     #'poly1balancedC100': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=100),
+    #'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
     #'poly2balancedC0.1': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.1),
+    #'poly2balancedC1.3': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.3),
+    #'poly2balancedC1.8': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.8),
+    #'poly2balancedC1.9': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.9),
+    #'poly2balancedC1.99': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.99),
+    #'poly2balancedC2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2),
+    #'poly2balancedC2.1': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.1),
+    #'poly2balancedC2.2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.2),
+    #'poly2balancedC2.3': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.3),
+    #'poly2balancedC2.4': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.4),
+    #'poly2balancedC3': svm.SVC(kernel='poly', degree=2, class_weight='balanced',C=3),
+    #'poly2balancedC4': svm.SVC(kernel='poly', degree=2, class_weight='balanced',C=4),
+    #'poly2balancedC5': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=5),
     #'poly2balancedC10': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=10),
     #'poly2balancedC100': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=100),
     #'poly3balanced': svm.SVC(kernel='poly', degree=3, class_weight='balanced'),
@@ -97,11 +126,11 @@ def row_training_and_test_set(args, tests):
                         if not os.path.exists(matrix_file_path):
                             logging.error("No matrix file ({}) found, run the generate_matrix.py script first!".format(matrix_file_path))
                             sys.exit(1)
+
                         df = pd.read_csv(matrix_file_path, index_col=False)
                         if args.dropzero:
-                            logging.debug("Dropping zero")
+                            #logging.debug("Dropping zero")
                             drop_zero_events(args, df)
-
                         if A in tests:
                             logging.debug("Adding {} vs {} to test set class={} file={}".format(A, B, classification, matrix_file_path))
                             Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))

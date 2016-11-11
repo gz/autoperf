@@ -4,7 +4,7 @@ import numpy as np
 READ_BANK_EVENTS = ["UNC_M_RD_CAS_RANK{}.BANK{}".format(i,j) for i in range(0,8) for j in range(0,8) ]
 WRITE_BANK_EVENTS = ["UNC_M_WR_CAS_RANK{}.BANK{}".format(i,j) for i in range(0,8) for j in range(0,8) ]
 
-def merge_bank_rank_events(df):
+def merge_bank_rank_events(df, minmax=False):
     matrix = pd.DataFrame(df)
     matrix.reset_index(inplace=True)
     pivot_table = matrix.pivot(index='INDEX', columns='EVENT_NAME', values='SAMPLE_VALUE')
@@ -23,6 +23,11 @@ def merge_bank_rank_events(df):
     merged_banks['STD.UNC_M_RD_CAS.*'] = read_rank_banks.std(axis=1, ddof=0)
     merged_banks['SUM.UNC_M_WR_CAS.*'] = write_rank_banks.sum(axis=1)
     merged_banks['STD.UNC_M_WR_CAS.*'] = write_rank_banks.std(axis=1, ddof=0)
+    if minmax:
+        merged_banks['MAX.UNC_M_WR_CAS.*'] = write_rank_banks.max(axis=1)
+        merged_banks['MIN.UNC_M_WR_CAS.*'] = write_rank_banks.min(axis=1)
+        merged_banks['MAX.UNC_M_RD_CAS.*'] = read_rank_banks.max(axis=1)
+        merged_banks['MIN.UNC_M_RD_CAS.*'] = read_rank_banks.min(axis=1)
     #print(merged_banks)
     return merged_banks
 
@@ -79,6 +84,9 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
             elif agg == 'rbmerge':
                 series = grouped_df['SAMPLE_VALUE'].mean()
                 aggregates.append(merge_bank_rank_events(series))
+            elif agg == 'rbmerge2':
+                series = grouped_df['SAMPLE_VALUE'].mean()
+                aggregates.append(merge_bank_rank_events(series, minmax=True))
             elif agg == 'cut1':
                 start_at = 1
             elif agg == 'cut2':
