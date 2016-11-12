@@ -481,7 +481,6 @@ impl PerfEvent {
         }
 
         if self.match_filter("CBoFilter0[23:17]") {
-            panic!("Found CBoFilter0[23:17] (filter_state) {}", self.0);
             PerfEvent::push_arg(&mut ret, String::from("filter_state=0x1f"));
         }
 
@@ -496,7 +495,7 @@ impl PerfEvent {
             PerfEvent::push_arg(&mut ret, String::from("filter_opc=0x192"));
         }
 
-        
+
 
         ret
     }
