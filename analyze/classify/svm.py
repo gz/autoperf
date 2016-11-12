@@ -25,7 +25,7 @@ from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_t
 from analyze.classify.generate_matrix import matrix_file_name
 from analyze.util import *
 
-C_RANGE = np.arange(0, 10, 0.5)
+C_RANGE = np.arange(0.5, 10, 0.5)
 linearsvms = dict(('linear1C{}'.format(C), svm.SVC(kernel='linear', C=C)) for C in C_RANGE )
 linearbalancedsvms = dict(('linear1C{}'.format(C), svm.SVC(kernel='linear', class_weight='balanced', C=C)) for C in C_RANGE)
 poly1svms = dict(('poly1C{}'.format(C), svm.SVC(kernel='poly', degree=1, C=C)) for C in C_RANGE )

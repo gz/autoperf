@@ -8,8 +8,10 @@ Mostly intended for sanity cecking only.
 import sys, os
 import pandas as pd
 
-from util import get_all_zero_events
 from ascii_graph import Pyasciigraph
+
+sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
+from analyze.util import get_all_zero_events
 
 def histogram(L):
     d = {}
