@@ -46,10 +46,23 @@ $ sudo apt-get install openjdk-8-jdk
 
 # Workflow
 
-python3 analyze/classify/runtimes.py
-python3 analyze/classify/extract_all.py
-python3 analyze/classify/generate_matrix.py --features max mean min std --uncore shared --overwrite --data ../results-babybel
-python3 analyze/classify/find_all_zero.py --data ../results-babybel
+Generate result files after set-up:
+```
+python3 analyze/classify/runtimes.py --data ../results
+python3 analyze/classify/extract_all.py --uncore shared --data ../results
+python3 analyze/classify/generate_matrix.py --uncore shared --features max mean min rbmerge2 std --data ../results --overwrite
+python3 analyze/classify/find_all_zero.py --uncore shared --features max mean min rbmerge2 std --data ../results
+python3 analyze/classify/svm.py --uncore shared --features max mean min rbmerge2 std --data ../results --weka
+# TODO: python3 scripts/pair/ranking.py
+```
+
+Evaluation:
+```
+python3 analyze/classify/svm_heatmap.py  --uncore shared --features max mean min rbmerge2 std --data ../results
+python3 analyze/classify/svm.py  --uncore shared --features max mean min rbmerge2 --data ../results
+
+python3 analyze/classify/svm_topk.py ../results-babybel --config L3-SMT L3-SMT-cores  --features
+```
 
 python3 scripts/pair/svm_topk.py ../results-babybel --config L3-SMT L3-SMT-cores  --features ../results-babybel/weka_cross_validated_cfssubset_bestfirst_L3-SMT_L3-SMT-cores.txt --ranking ../results-babybel/weka_correlation_ranking_L3-SMT_L3-SMT-cores.txt
 
