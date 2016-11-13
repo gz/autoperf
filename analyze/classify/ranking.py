@@ -28,7 +28,7 @@ CLASSPATH = [
     os.path.join(os.path.realpath(os.path.split(__file__)[0]), "..", "jar", "SVMAttributeEval.jar")
 ]
 
-JAVA_CMD = "java -Xms2g -Xmx16g"
+JAVA_CMD = "java -Xms2g -Xmx500g"
 
 def weka_cmd_cfs(input_file, output_file):
     weka_args = 'weka.attributeSelection.CfsSubsetEval -x 5 -n 1 -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -P {} -E {} -i'.format(int(cpu_count() / 2), int(cpu_count() / 2), int(cpu_count() / 2))
@@ -60,8 +60,8 @@ def weka_cmd_svmwrap(input_file, output_file):
         weights_ordered = [weights[0], weights[1]]
     else:
         weights_ordered = [weights[1], weights[0]]
-
-    weka_args = 'weka.attributeSelection.WrapperSubsetEval -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -B weka.classifiers.functions.LibSVM -F 2 -T 0.25 -R 1 -E ACC -i {} -- -S 0 -K 1 -D 2 -G 0.0 -R 0.0 -N 0.5 -M 40.0 -C 1.5 -E 0.001 -P 0.1 -Z -W \"{} {}\" -seed 1'.format(int(cpu_count() / 2), input_file, weights_ordered[0], weights_ordered[1])
+    print(weights_ordered)
+    weka_args = 'weka.attributeSelection.WrapperSubsetEval -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -B weka.classifiers.functions.LibSVM -F 2 -T 0.35 -R 1 -E ACC -i {} -- -S 0 -K 1 -D 2 -G 0.0 -R 0.0 -N 0.5 -M 40.0 -C 1.5 -E 0.001 -P 0.1 -Z -W \"{} {}\" -seed 1'.format(int(cpu_count() / 2), input_file, weights_ordered[0], weights_ordered[1])
     classpath = ':'.join(CLASSPATH)
     return JAVA_CMD + " -classpath {} {} > {}".format(classpath, weka_args, output_file)
 
