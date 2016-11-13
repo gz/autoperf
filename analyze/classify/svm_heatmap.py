@@ -195,6 +195,8 @@ def heatmap(location, data, title):
 if __name__ == '__main__':
     parser = get_argument_parser("Compute predicition ability for every cell in the heatmap with all features.")
     args = parser.parse_args()
+    output_directory = os.path.join(args.data_directory, "results_svm_heatmap")
+    os.makedirs(output_directory, exist_ok=True)
 
     for kconfig, clf in list(CLASSIFIERS.items()):
         print(("Trying kernel", kconfig))
@@ -213,7 +215,7 @@ if __name__ == '__main__':
         pool.join()
 
         filename = make_svm_result_filename("svm_heatmap", args, kconfig)
-        results_table.to_csv(filename + ".csv", index=False)
+        results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
 
         for (config, pivot_table) in get_pivot_tables(results_table):
             alone_suffix, dropzero_suffix, cutoff_suffix = make_suffixes(args)
@@ -222,4 +224,4 @@ if __name__ == '__main__':
                             config, kconfig, alone_suffix, cutoff_suffix, dropzero_suffix)
 
             plot_filename = filename + "_config_{}".format(config)
-            heatmap(plot_filename, pivot_table, title)
+            heatmap(os.path.join(output_directory, plot_filename), pivot_table, title)

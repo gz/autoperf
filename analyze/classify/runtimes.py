@@ -88,7 +88,7 @@ def compute_runtime_dataframe(data_directory):
 
             rseries = pd.Series(runtimes)
             name = "{}_vs_{}".format(row['A'], row['B'])
-            violin("violin_{}_{}".format(config, name), name, rseries)
+            violin(data_directory, "violin_{}_{}".format(config, name), name, rseries)
 
             row['A mean'] = rseries.mean()
             row['A std'] = rseries.std()
@@ -133,14 +133,15 @@ def get_runtime_pivot_tables(df):
 
     return tables
 
-def violin(location, name, data):
+def violin(data_directory, location, name, data):
+    output_directory = os.path.join(os.path.join(data_directory, "violin"))
+    os.makedirs(output_directory, exist_ok=True)
     fig, ax = plt.subplots()
 
     ax.violinplot(data, points=20, widths=0.1, showmeans=True, showextrema=True, showmedians=True)
     ax.set_title(name)
 
-    plt.savefig(location + ".png", format='png')
-    #plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
+    plt.savefig(os.path.join(output_directory, location + ".png"), format='png')
     plt.clf()
     plt.close()
 
@@ -191,10 +192,6 @@ def heatmap(location, data):
 
 if __name__ == '__main__':
     plt.style.use([os.path.join(os.path.realpath(sys.path[0]), '..', 'ethplot.mplstyle')])
-    pd.set_option('display.max_rows', 50)
-    pd.set_option('display.max_columns', 30)
-    pd.set_option('display.width', 160)
-
     parser = get_argument_parser("Parse runtimes and plot heatmaps", arguments=['data'])
     args = parser.parse_args()
 
