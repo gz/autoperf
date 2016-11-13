@@ -38,6 +38,7 @@ def aggregation_matrix(prefix, series, drop_bank_events=False):
     if drop_bank_events:
         pivot_table.drop(READ_BANK_EVENTS, axis=1, inplace=True)
         pivot_table.drop(WRITE_BANK_EVENTS, axis=1, inplace=True)
+
     pivot_table.rename(columns=lambda x: "{}.{}".format(prefix, x), inplace=True)
     return pivot_table
 
@@ -60,26 +61,25 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
 
     # Aggregate all event samples from the same event at time
     aggregates = []
-    drop_bank_events = 'rbmerge' in aggregate_samples
+    drop_bank_events = 'rbmerge' in aggregate_samples or 'rbmerge2' in aggregate_samples
 
     start_at = 0
     if aggregate_samples:
         grouped_df = raw_data.groupby(['EVENT_NAME', 'INDEX'])
+        grouped_df_multiple = grouped_df.filter(lambda x: len(x) > 1).groupby(['EVENT_NAME', 'INDEX'])
         for agg in aggregate_samples:
             if agg == 'mean':
                 series = grouped_df['SAMPLE_VALUE'].mean()
                 aggregates.append(aggregation_matrix('AVG', series, drop_bank_events=drop_bank_events))
             elif agg == 'std':
-                series = grouped_df['SAMPLE_VALUE'].std(ddof=0)
+                series = grouped_df_multiple['SAMPLE_VALUE'].std(ddof=0)
                 matrix = aggregation_matrix('STD', series, drop_bank_events=drop_bank_events)
-                # Drop the columns which are all NaN because there was only one measurement unit:
-                # matrix.dropna(axis=1, how='all', inplace=True)
                 aggregates.append(matrix)
             elif agg == 'max':
-                series = grouped_df['SAMPLE_VALUE'].max()
+                series = grouped_df_multiple['SAMPLE_VALUE'].max()
                 aggregates.append(aggregation_matrix('MAX', series, drop_bank_events=drop_bank_events))
             elif agg == 'min':
-                series = grouped_df['SAMPLE_VALUE'].min()
+                series = grouped_df_multiple['SAMPLE_VALUE'].min()
                 aggregates.append(aggregation_matrix('MIN', series, drop_bank_events=drop_bank_events))
             elif agg == 'rbmerge':
                 series = grouped_df['SAMPLE_VALUE'].mean()
@@ -95,7 +95,6 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
                 start_at = 4
             else:
                 assert "Unknown aggregation: {}. Supported are: [mean, std, max, min, rbmerge, cut1, cut2, cut4].".format(agg)
-
     df = pd.concat(aggregates, axis=1)
 
     # Remove events whose deltas are all 0:

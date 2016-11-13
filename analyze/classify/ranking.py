@@ -9,6 +9,9 @@ import subprocess
 import logging
 from multiprocessing import Pool, TimeoutError, cpu_count
 
+import pandas as pd
+import numpy as np
+
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
 from analyze.classify import get_argument_parser
 from analyze.classify.svm import make_weka_results_filename
@@ -48,7 +51,17 @@ def weka_cmd_corr(input_file, output_file):
     return JAVA_CMD + " -classpath {} {} {} > {}".format(classpath, weka_args, input_file, output_file)
 
 def weka_cmd_svmwrap(input_file, output_file):
-    weka_args = 'weka.attributeSelection.WrapperSubsetEval -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -B weka.classifiers.functions.LibSVM -F 5 -T 0.01 -R 1 -E ACC -i {} -- -S 0 -K 1 -D 1 -G 0.0 -R 0.0 -N 0.5 -M 256.0 -C 0.1 -E 0.001 -P 0.1 -Z -seed 1'.format(int(cpu_count() / 2), input_file)
+    df = pd.read_csv(input_file)
+    n_classes = 2
+    n_samples = len(df[['Y']])
+    y = df['Y'].map(lambda x: 1 if x == 'Y' else 0)
+    weights = n_samples / (n_classes * np.bincount(y))
+    if df['Y'][0] == 0:
+        weights_ordered = [weights[0], weights[1]]
+    else:
+        weights_ordered = [weights[1], weights[0]]
+
+    weka_args = 'weka.attributeSelection.WrapperSubsetEval -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -B weka.classifiers.functions.LibSVM -F 2 -T 0.25 -R 1 -E ACC -i {} -- -S 0 -K 1 -D 2 -G 0.0 -R 0.0 -N 0.5 -M 40.0 -C 1.5 -E 0.001 -P 0.1 -Z -W \"{} {}\" -seed 1'.format(int(cpu_count() / 2), input_file, weights_ordered[0], weights_ordered[1])
     classpath = ':'.join(CLASSPATH)
     return JAVA_CMD + " -classpath {} {} > {}".format(classpath, weka_args, output_file)
 
