@@ -51,28 +51,29 @@ CLASSIFIERS = {
     'decision5': tree.DecisionTreeClassifier(max_features=5),
     'decision10': tree.DecisionTreeClassifier(max_features=10),
     'decision15': tree.DecisionTreeClassifier(max_features=15),
-    'decision20': tree.DecisionTreeClassifier(max_features=15),
+    'decision20': tree.DecisionTreeClassifier(max_features=20),
+    'decision120': tree.DecisionTreeClassifier(max_features=120),
     'kneighbors': neighbors.KNeighborsClassifier(),
     'kneighborsdistance': neighbors.KNeighborsClassifier(weights='distance'),
     'adaboost': ensemble.AdaBoostClassifier()
 }
 
-C_RANGE = np.arange(0.1, 4.0, 0.2)
-CLASSIFIERS.update(dict(('linearC{}'.format(C), svm.SVC(kernel='linear', C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly0C{}'.format(C), svm.SVC(kernel='poly', degree=0, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly0balancedC{}'.format(C), svm.SVC(kernel='poly', degree=0, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly1C{}'.format(C), svm.SVC(kernel='poly', degree=1, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly1balancedC{}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=1, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly2C{}'.format(C), svm.SVC(kernel='poly', degree=2, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly2balancedC{}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=2, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly3C{}'.format(C), svm.SVC(kernel='poly', degree=3, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly3balancedC{}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=3, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('rbf1C{}'.format(C), svm.SVC(kernel='rbf', degree=1, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('rbf1balancedC{}'.format(C), svm.SVC(kernel='rbf', class_weight='balanced', degree=1, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('rbf2C{}'.format(C), svm.SVC(kernel='rbf', degree=2, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('rbf2balancedC{}'.format(C), svm.SVC(kernel='rbf', class_weight='balanced', degree=2, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('rbf3C{}'.format(C), svm.SVC(kernel='rbf', degree=3, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('rbf3balancedC{}'.format(C), svm.SVC(kernel='rbf', class_weight='balanced', degree=3, C=C)) for C in C_RANGE))
+C_RANGE = np.arange(0.1, 4.0, 0.3)
+CLASSIFIERS.update(dict(('linear{:.2f}'.format(C), svm.SVC(kernel='linear', C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('poly0{:.2f}'.format(C), svm.SVC(kernel='poly', degree=0, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('poly0balanced{:.2f}'.format(C), svm.SVC(kernel='poly', degree=0, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('poly1{:.2f}'.format(C), svm.SVC(kernel='poly', degree=1, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('poly1balanced{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=1, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('poly2{:.2f}'.format(C), svm.SVC(kernel='poly', degree=2, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('poly2balanced{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=2, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('poly3{:.2f}'.format(C), svm.SVC(kernel='poly', degree=3, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('poly3balanced{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=3, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('rbf1{:.2f}'.format(C), svm.SVC(kernel='rbf', degree=1, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('rbf1balanced{:.2f}'.format(C), svm.SVC(kernel='rbf', class_weight='balanced', degree=1, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('rbf2{:.2f}'.format(C), svm.SVC(kernel='rbf', degree=2, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('rbf2balanced{:.2f}'.format(C), svm.SVC(kernel='rbf', class_weight='balanced', degree=2, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('rbf3{:.2f}'.format(C), svm.SVC(kernel='rbf', degree=3, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('rbf3balanced{:.2f}'.format(C), svm.SVC(kernel='rbf', class_weight='balanced', degree=3, C=C)) for C in C_RANGE))
 
 def drop_zero_events(args, df):
     from analyze.classify.find_all_zero import zero_features
