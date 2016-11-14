@@ -35,7 +35,7 @@ CLASSIFIERS = {
     #'poly1balancedC0.1': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.1),
     #'poly1balancedC0.5': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.5),
     #'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
-    #'poly2balancedC1.5': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.5),
+    'poly2balancedC1.5': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.5),
     'poly2balancedC2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2),
     #'poly3balanced': svm.SVC(kernel='poly', degree=3, class_weight='balanced'),
     #'rbf1': svm.SVC(kernel='rbf', degree=1),

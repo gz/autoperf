@@ -32,6 +32,6 @@ def get_argument_parser(desc, arguments=['data', 'uncore', 'cutoff', 'config', '
         parser.add_argument('--overwrite', dest='overwrite', action='store_true', help="Overwrite the file if it already exists.", default=False)
     if 'ranking' in arguments:
         parser.add_argument('--ranking', dest='ranking', type=str, help="What ranking method to use (default corr).",
-                        default='shared', choices=['ig', 'corr', 'cfs', 'svm', 'svmeval'])
+                        default='shared', choices=['ig', 'corr', 'cfs', 'svm', 'svmeval', 'sfs'])
 
     return parser

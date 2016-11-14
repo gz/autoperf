@@ -30,7 +30,7 @@ $ rustup override set nightly
 Python:
 ```
 $ sudo apt-get install python3-dev python3-tk python3-pip
-$ sudo -H pip3 install pandas numpy ascii_graph scipy toml sklearn bokeh flask matplotlib
+$ sudo -H pip3 install pandas numpy ascii_graph scipy toml sklearn bokeh flask matplotlib mlxtend
 ```
 
 For documentation only:
