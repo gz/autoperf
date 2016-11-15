@@ -496,7 +496,6 @@ impl PerfEvent {
         }
 
 
-
         ret
     }
 
@@ -508,10 +507,14 @@ impl PerfEvent {
         qualifiers
     }
 
-    pub fn match_filter(&self, filter: &str) -> bool {
-        self.0.filter.map_or(false, |f| {
-            f == filter
+    fn filters(&self) -> Vec<&str> {
+        self.0.filter.map_or(Vec::new(), |value| {
+            value.split(",").map(|x| x.trim()).filter(|x| x.len() > 0).collect()
         })
+    }
+
+    pub fn match_filter(&self, filter: &str) -> bool {
+        self.filters().contains(&filter)
     }
 }
 
@@ -520,6 +523,7 @@ pub enum AddEventError {
     OffcoreCapacityReached,
     UnitCapacityReached(MonitoringUnit),
     CounterConstraintConflict,
+    FilterConstraintConflict,
     ErrataConflict,
     TakenAloneConflict,
     IsolatedEventConflict,
@@ -533,6 +537,7 @@ impl fmt::Display for AddEventError {
                 write!(f, "Unit '{}' capacity for reached.", u)
             }
             AddEventError::CounterConstraintConflict => write!(f, "Counter constraints conflict."),
+            AddEventError::FilterConstraintConflict => write!(f, "Filter constraints conflict."),
             AddEventError::ErrataConflict => write!(f, "Errata conflict."),
             AddEventError::TakenAloneConflict => write!(f, "Group contains a taken alone counter."),
             AddEventError::IsolatedEventConflict => write!(f, "Group contains an isolated event."),
@@ -546,6 +551,7 @@ impl error::Error for AddEventError {
             AddEventError::OffcoreCapacityReached => "Offcore event limit reached.",
             AddEventError::UnitCapacityReached(_) => "Unit capacity reached.",
             AddEventError::CounterConstraintConflict => "Counter constraints conflict.",
+            AddEventError::FilterConstraintConflict => "Filter constraints conflict.",
             AddEventError::ErrataConflict => "Errata conflict.",
             AddEventError::TakenAloneConflict => "Group contains a taken alone counter.",
             AddEventError::IsolatedEventConflict => "Group contains an isolated event.",
@@ -664,6 +670,24 @@ impl<'o> PerfEventGroup<'o> {
         PerfEventGroup::find_counter_assignment(0, unit_limit, events, Vec::new()).is_none()
     }
 
+    /// Check if this events conflicts with the filter requirements of
+    /// events already in this group
+    fn has_filter_constraint_conflicts(&self, new_event: &PerfEvent) -> bool {
+        let unit = new_event.unit();
+        let mut events: Vec<&PerfEvent> = self.events_by_unit(unit);
+
+        for event in events.iter() {
+            for filter in event.filters() {
+                if new_event.filters().contains(&filter) {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
+
     /// Try to add an event to an event group.
     ///
     /// Returns true if the event can be added to the group, false if we would be Unable
@@ -696,6 +720,10 @@ impl<'o> PerfEventGroup<'o> {
         // that would conflict when running together with the new `event`:
         if self.has_counter_constraint_conflicts(&event) {
             return Err(AddEventError::CounterConstraintConflict);
+        }
+
+        if self.has_filter_constraint_conflicts(&event) {
+            return Err(AddEventError::FilterConstraintConflict);
         }
 
         // 4. Isolate things that have erratas to not screw other events (see HSW30)
@@ -734,11 +762,11 @@ impl<'o> PerfEventGroup<'o> {
             let (devices, mut configs) = event.perf_configs();
 
             // TODO: handle fixed counters (see ocperf)
-            //fixed_counters = {
+            // fixed_counters = {
             //    "inst_retired.any": (0xc0, 0, 0),
             //    "cpu_clk_unhalted.thread": (0x3c, 0, 0),
             //    "cpu_clk_unhalted.thread_any": (0x3c, 0, 1),
-            //}
+            // }
 
             // Adding offcore event:
             if event.is_offcore() {
@@ -751,7 +779,10 @@ impl<'o> PerfEventGroup<'o> {
                     true => configs.get(1).unwrap(), // Ok, as offcore implies two configs
                 };
 
-                event_strings.push(format!("{}/{}/{}", devices[0], config.join(","), event.perf_qualifiers()));
+                event_strings.push(format!("{}/{}/{}",
+                                           devices[0],
+                                           config.join(","),
+                                           event.perf_qualifiers()));
                 have_one_offcore = true;
             }
             // Adding uncore event:
@@ -763,7 +794,10 @@ impl<'o> PerfEventGroup<'o> {
                     // Patch name in config so we know where this event was running
                     // `perf stat` just reports CPU 0 for uncore events :-(
                     configs[0][0] = format!("name={}.{}", device, event.0.event_name);
-                    event_strings.push(format!("{}/{}/{}", device, configs[0].join(","), event.perf_qualifiers()));
+                    event_strings.push(format!("{}/{}/{}",
+                                               device,
+                                               configs[0].join(","),
+                                               event.perf_qualifiers()));
                 }
             }
             // Adding normal event:
@@ -772,7 +806,10 @@ impl<'o> PerfEventGroup<'o> {
                 assert!(configs.len() == 1);
                 assert!(devices[0] == "cpu");
 
-                event_strings.push(format!("{}/{}/{}", devices[0], configs[0].join(","), event.perf_qualifiers()));
+                event_strings.push(format!("{}/{}/{}",
+                                           devices[0],
+                                           configs[0].join(","),
+                                           event.perf_qualifiers()));
             }
         }
 
