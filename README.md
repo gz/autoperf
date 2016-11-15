@@ -50,7 +50,7 @@ Generate result files after set-up:
 ```
 python3 analyze/classify/runtimes.py --data ../results
 python3 analyze/classify/extract_all.py --uncore shared --data ../results
-python3 analyze/classify/generate_matrix.py --uncore shared --features max mean min rbmerge2 std --data ../results --overwrite
+python3 analyze/classify/generate_matrix.py --uncore shared --features max mean min rbmerge2 std --data ../results
 python3 analyze/classify/find_all_zero.py --uncore shared --features max mean min rbmerge2 std --data ../results
 python3 analyze/classify/svm.py --uncore shared --features max mean min rbmerge2 std --data ../results --weka
 # TODO: python3 scripts/pair/ranking.py
@@ -58,8 +58,8 @@ python3 analyze/classify/svm.py --uncore shared --features max mean min rbmerge2
 
 Evaluation:
 ```
-python3 analyze/classify/svm_heatmap.py  --uncore shared --features max mean min rbmerge2 std --data ../results
-python3 analyze/classify/svm.py  --uncore shared --features max mean min rbmerge2 --data ../results
+python3 analyze/classify/svm_heatmap.py  --uncore shared --features max mean min rbmerge2 std --dropzero --data ../results
+python3 analyze/classify/svm.py  --uncore shared --features max mean min rbmerge2 --dropzero --data ../results
 
 python3 analyze/classify/svm_topk.py ../results-babybel --config L3-SMT L3-SMT-cores  --features
 ```

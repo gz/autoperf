@@ -34,7 +34,6 @@ if __name__ == '__main__':
 
         min_max_scaler = preprocessing.MinMaxScaler()
         X_scaled = min_max_scaler.fit_transform(X)
-
         sfs = SFS(clf, k_features=25, forward=True, floating=False, scoring='accuracy', verbose=2,
                   cv=3, n_jobs=int(multiprocessing.cpu_count() / 2))
         sfs = sfs.fit(X_scaled, Y)

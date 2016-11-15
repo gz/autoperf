@@ -327,9 +327,9 @@ impl PerfEvent {
 
         // We can have no devices if we don't understand how to match the unit name to perf names:
         if devices.len() == 0 {
-            info!("Event '{}' in unit {:?} currently not supported, ignored.",
-                  self.0.event_name,
-                  self.unit());
+            debug!("Event '{}' in unit {:?} not supported on this architecture, ignored.",
+                   self.0.event_name,
+                   self.unit());
         }
 
         for args in self.perf_args() {
@@ -679,12 +679,12 @@ impl<'o> PerfEventGroup<'o> {
         for event in events.iter() {
             for filter in event.filters() {
                 if new_event.filters().contains(&filter) {
-                    return false;
+                    return true;
                 }
             }
         }
 
-        true
+        false
     }
 
 
