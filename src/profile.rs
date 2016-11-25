@@ -946,7 +946,7 @@ fn get_perf_command(cmd_working_dir: &str,
     if !record {
         perf.arg("stat");
         perf.arg("-aA");
-        perf.arg("-I 250");
+        perf.arg("-I 125");
         perf.arg("-x ;");
     } else {
         perf.arg("record");
