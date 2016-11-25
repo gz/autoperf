@@ -2,7 +2,7 @@ import argparse
 import pandas as pd
 import logging
 
-def get_argument_parser(desc, arguments=['data', 'uncore', 'cutoff', 'config', 'alone', 'features', 'dropzero']):
+def get_argument_parser(desc, arguments=['data', 'core', 'uncore', 'cutoff', 'config', 'alone', 'features', 'dropzero']):
     pd.set_option('display.max_rows', 37)
     pd.set_option('display.max_columns', 15)
     pd.set_option('display.width', 200)
@@ -12,6 +12,9 @@ def get_argument_parser(desc, arguments=['data', 'uncore', 'cutoff', 'config', '
 
     if 'data' in arguments:
         parser.add_argument('--data', dest='data_directory', type=str, help="Data directory root.", required=True)
+    if 'core' in arguments:
+        parser.add_argument('--core', dest='core', type=str, help="What core counters to include [all, exclusive, none].",
+                        default='exclusive', choices=['all', 'exclusive', 'none'])
     if 'uncore' in arguments:
         parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include (default 'shared').",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])

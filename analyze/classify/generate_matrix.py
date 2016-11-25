@@ -19,16 +19,16 @@ def make_matrix(input_file, output_file, features):
     print("Saving {}".format(output_file))
     df.to_csv(output_file, index=False)
 
-def matrix_file_name(uncore, features):
-    OUT_FILE = 'matrix_X_uncore_{}_features_{}.csv'
-    return OUT_FILE.format(uncore, '_'.join(sorted(features)))
+def matrix_file_name(core, uncore, features):
+    OUT_FILE = 'matrix_X_core_{}_uncore_{}_features_{}.csv'
+    return OUT_FILE.format(core, uncore, '_'.join(sorted(features)))
 
 if __name__ == '__main__':
-    parser = get_argument_parser('Generates matrix files for use with ML algorithms.', arguments=['data', 'uncore', 'features', 'overwrite'])
+    parser = get_argument_parser('Generates matrix files for use with ML algorithms.', arguments=['data', 'uncore', 'core', 'features', 'overwrite'])
     args = parser.parse_args()
 
     ## Settings:
-    INPUT_RESULTS_FILE = 'results_uncore_{}.csv'
+    INPUT_RESULTS_FILE = 'results_core_{}_uncore_{}.csv'
 
     pool = Pool(processes=cpu_count())
     async_results = []
@@ -45,8 +45,8 @@ if __name__ == '__main__':
             results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
 
         if os.path.exists(os.path.join(results_path, 'completed')):
-            input_file = os.path.join(results_path, INPUT_RESULTS_FILE.format(args.uncore))
-            output_file = os.path.join(results_path, matrix_file_name(args.uncore, args.features))
+            input_file = os.path.join(results_path, INPUT_RESULTS_FILE.format(args.core, args.uncore))
+            output_file = os.path.join(results_path, matrix_file_name(args.core, args.uncore, args.features))
 
             if not os.path.exists(output_file) or args.overwrite:
                 print("Processing {} vs. {} ({})".format(A, B, args.uncore))

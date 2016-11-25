@@ -18,6 +18,7 @@ import matplotlib.cm as cm
 from sklearn import svm
 from sklearn import metrics
 from sklearn import preprocessing
+from sklearn.feature_selection import VarianceThreshold
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
 from analyze.classify.svm import get_svm_metrics, CLASSIFIERS, get_argument_parser, make_svm_result_filename, drop_zero_events, make_suffixes
@@ -29,7 +30,7 @@ from analyze.util import *
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 
 def get_matrix_file(args, config, A, B):
-    MATRIX_FILE = matrix_file_name(args.uncore, args.features)
+    MATRIX_FILE = matrix_file_name(args.core, args.uncore, args.features)
     if B != "Alone":
         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
     else:
@@ -195,6 +196,7 @@ def heatmap(location, data, title):
 if __name__ == '__main__':
     parser = get_argument_parser("Compute predicition ability for every cell in the heatmap with all features.")
     args = parser.parse_args()
+
     output_directory = os.path.join(args.data_directory, "results_svm_heatmap")
     os.makedirs(output_directory, exist_ok=True)
 

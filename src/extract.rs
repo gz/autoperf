@@ -168,8 +168,8 @@ fn parse_perf_csv_file(mt: &MachineTopology,
     }
     if breakpoints.len() == 2 && end.is_none() {
         warn!("{:?}: We did not find a trigger for end breakpoint ({:?})",
-               path.as_os_str(),
-               breakpoints[1]);
+              path.as_os_str(),
+              breakpoints[1]);
     }
     if breakpoints.len() == 2 && end.is_some() && start.is_some() {
         let start_s = start.unwrap_or(0.0);
@@ -226,8 +226,6 @@ fn parse_perf_csv_file(mt: &MachineTopology,
                 Filter::Shared => unreachable!(), // Only for uncore events
                 Filter::None => false,
             }
-        } else if unit.trim().starts_with("uncore_cbox") {
-            sockets.contains(&socket) && cpus.iter().any(|c| c.cbox(mt) == unit.trim())
         } else if unit.starts_with("uncore") {
             sockets.contains(&socket)
         } else {
@@ -442,7 +440,15 @@ pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Pat
     // Create result.csv file:
     let mut csv_result: PathBuf = save_to.to_owned();
     let mut wrtr = csv::Writer::from_file(csv_result.as_path()).unwrap();
-    wrtr.encode(&["EVENT_NAME", "INDEX", "TIME", "SOCKET", "CORE", "CPU", "NODE", "UNIT", "SAMPLE_VALUE"])
+    wrtr.encode(&["EVENT_NAME",
+                  "INDEX",
+                  "TIME",
+                  "SOCKET",
+                  "CORE",
+                  "CPU",
+                  "NODE",
+                  "UNIT",
+                  "SAMPLE_VALUE"])
         .unwrap();
 
     // Write content in result.csv

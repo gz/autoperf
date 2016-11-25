@@ -31,23 +31,42 @@ CLASSIFIERS = {
     #'poly1': svm.SVC(kernel='poly', degree=1),
     #'poly2': svm.SVC(kernel='poly', degree=2),
     #'poly3': svm.SVC(kernel='poly', degree=3),
-    #'poly1balanced': svm.SVC(kernel='poly', degree=1, class_weight='balanced'),
-    #'poly1balancedC0.1': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.1),
-    #'poly1balancedC0.5': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.5),
-    #'poly2balanced': svm.SVC(kernel='poly', degree=2, class_weight='balanced'),
-    #'poly2balancedC1.5': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.5),
+    'poly1balancedC1.00': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=1.0),
+    #'poly1balancedC1.5': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=1.5),
+    'poly1balancedC0.01': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.01),
+    #'poly1balancedC0.05': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.05),
+    #'poly1balancedC0.06': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.06),
+    #'poly1balancedC0.07': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.07),
+    #'poly1balancedC0.08': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.07),
+    'poly1balancedC0.10': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.1),
+    #'poly1balancedC0.20': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.2),
+    #'poly1balancedC0.30': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.3),
+    'poly1balancedC0.50': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.5),
+    #'poly2balancedC0.10': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.1),
+    'poly2balancedC0.50': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.5),
+    'poly2balancedC1.00': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.00),
+    #'poly2balancedC1.2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.2),
+    'poly2balancedC1.50': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.50),
     #'poly2balancedC1.1': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.1),
     #'poly2balancedC1.2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.2),
     #'poly2balancedC1.3': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.3),
     #'poly2balancedC1.6': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.6),
     #'poly2balancedC1.8': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.8),
     #'poly2balancedC1.9': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.9),
-    'poly2balancedC2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2),
+    'poly2balancedC2.00': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.00),
     #'poly2balancedC2.1': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.1),
     #'poly2balancedC2.2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.2),
     #'poly2balancedC2.3': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.3),
     #'poly2balancedC2.4': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.4),
-    #'poly2balancedC2.5': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.5),
+    #'poly2balancedC2.50': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.5),
+    #'poly2balancedC0.10': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.1),
+    #'poly2balancedC0.01': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.01),
+    #'poly2balancedC3.5': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=3.5),
+    #'poly2balancedC4.5': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=4.5),
+    #'poly2balancedC5.5': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=5.5),
+    #'poly2balancedC10': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=10),
+    #'poly2balancedC20': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=20),
+    #'poly2balancedC100': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=100),
     #'poly3balanced': svm.SVC(kernel='poly', degree=3, class_weight='balanced'),
     #'rbf1': svm.SVC(kernel='rbf', degree=1),
     #'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
@@ -72,7 +91,11 @@ CLASSIFIERS = {
     #'adaboost': ensemble.AdaBoostClassifier()
 }
 
-#C_RANGE = np.arange(0.1, 2.6, 0.5)
+#C_RANGE = np.arange(0.01, 2.5, 0.5)
+
+#CLASSIFIERS.update(dict(('poly1balancedC{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=1, C=C)) for C in C_RANGE))
+#CLASSIFIERS.update(dict(('poly2balancedC{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=2, C=C)) for C in C_RANGE))
+
 #CLASSIFIERS.update(dict(('linear{:.2f}'.format(C), svm.SVC(kernel='linear', C=C)) for C in C_RANGE))
 #CLASSIFIERS.update(dict(('poly0{:.2f}'.format(C), svm.SVC(kernel='poly', degree=0, C=C)) for C in C_RANGE))
 #CLASSIFIERS.update(dict(('poly0balanced{:.2f}'.format(C), svm.SVC(kernel='poly', degree=0, C=C)) for C in C_RANGE))
@@ -117,7 +140,7 @@ def row_training_and_test_set(args, tests):
                         results_path = os.path.join(args.data_directory, config, "{}".format(A))
                     else:
                         results_path = os.path.join(args.data_directory, config, "{}_vs_{}".format(A, B))
-                    matrix_file_path = os.path.join(results_path, matrix_file_name(args.uncore, args.features))
+                    matrix_file_path = os.path.join(results_path, matrix_file_name(args.core, args.uncore, args.features))
 
                     if os.path.exists(os.path.join(results_path, 'completed')):
                         if not os.path.exists(matrix_file_path):
@@ -176,16 +199,17 @@ def make_suffixes(args):
 
 def make_svm_result_filename(prefix, args, kconfig):
     alone_suffix, dropzero_suffix, cutoff_suffix = make_suffixes(args)
-    filename = prefix + "_training_{}_uncore_{}_features_{}_{}_{}_{}_{}" \
-               .format("_".join(sorted(args.config)), args.uncore, "_".join(sorted(args.features)),
+
+    filename = prefix + "_training_{}_core_{}_uncore_{}_features_{}_{}_{}_{}_{}" \
+               .format("_".join(sorted(args.config)), args.core, args.uncore, "_".join(sorted(args.features)),
                        kconfig, alone_suffix, dropzero_suffix, cutoff_suffix)
     return filename
 
 def make_weka_results_filename(prefix, args):
     alone_suffix, dropzero_suffix, cutoff_suffix = make_suffixes(args)
-    filename = '{}_training_{}_uncore_{}_features_{}_{}_{}.csv'
+    filename = '{}_training_{}_core_{}_uncore_{}_features_{}_{}_{}.csv'
     return filename.format(prefix, '_'.join(sorted(args.config)), \
-                           args.uncore, "_".join(sorted(args.features)), \
+                           args.core, args.uncore, "_".join(sorted(args.features)), \
                            alone_suffix, dropzero_suffix, cutoff_suffix)
 
 if __name__ == '__main__':

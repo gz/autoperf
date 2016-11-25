@@ -9,9 +9,9 @@ from analyze.classify import get_argument_parser
 from analyze.classify import svm
 from analyze.util import get_zero_features_in_matrix
 
-def mkfilename(prefix, configs, uncore, features):
-    OUT_FILE = "{}_uncore_{}_features_{}.csv"
-    return OUT_FILE.format(prefix, uncore, '_'.join(sorted(features)))
+def mkfilename(prefix, configs, core, uncore, features):
+    OUT_FILE = "{}_core_{}_uncore_{}_features_{}.csv"
+    return OUT_FILE.format(prefix, core, uncore, '_'.join(sorted(features)))
 
 def calculate_zero_features(args):
     import copy
@@ -26,9 +26,9 @@ def calculate_zero_features(args):
 def zero_features(args, overwrite):
     os.makedirs(os.path.join(args.data_directory, "zero"), exist_ok=True)
 
-    feature_filename = mkfilename("zero_features", args.config, args.uncore, args.features)
+    feature_filename = mkfilename("zero_features", args.config, args.core, args.uncore, args.features)
     zero_features_path = os.path.join(args.data_directory, "zero", feature_filename)
-    event_filename = mkfilename("zero_events", args.config, args.uncore, args.features)
+    event_filename = mkfilename("zero_events", args.config, args.core, args.uncore, args.features)
     zero_events_path = os.path.join(args.data_directory, "zero", event_filename)
 
     if not os.path.exists(zero_features_path) or overwrite:
@@ -47,6 +47,6 @@ def zero_features(args, overwrite):
 
 if __name__ == '__main__':
     parser = get_argument_parser('Figures out what events are always 0.',
-                                 arguments=['data', 'config', 'uncore', 'features', 'overwrite'])
+                                 arguments=['data', 'config', 'core', 'uncore', 'features', 'overwrite'])
     args = parser.parse_args()
     print(zero_features(args, args.overwrite))

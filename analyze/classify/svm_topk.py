@@ -109,7 +109,11 @@ if __name__ == '__main__':
             if not os.path.exists(cfs_default_file):
                 logging.warn("Skipping {} because we didn't find the ranking file: {}".format(' '.join(test), cfs_default_file))
                 continue
-            event_list = get_selected_events(cfs_default_file)
+            if args.ranking != 'sfs':
+                event_list = get_selected_events(cfs_default_file)
+            else:
+                event_list = pd.read_csv(cfs_default_file)
+                print(event_list)
 
             results_table = classify(args, test, clf, event_list)
 

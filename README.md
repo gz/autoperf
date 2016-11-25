@@ -58,9 +58,8 @@ python3 analyze/classify/svm.py --uncore shared --features max mean min rbmerge2
 
 Evaluation:
 ```
-python3 analyze/classify/svm_heatmap.py  --uncore shared --features max mean min rbmerge2 std --dropzero --data ../results
+python3 analyze/classify/svm_heatmap.py --uncore shared --features max mean min rbmerge2 std --dropzero --data ../results
 python3 analyze/classify/svm.py  --uncore shared --features max mean min rbmerge2 --dropzero --data ../results
-
 python3 analyze/classify/svm_topk.py ../results-babybel --config L3-SMT L3-SMT-cores  --features
 ```
 
