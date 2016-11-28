@@ -31,29 +31,29 @@ CLASSIFIERS = {
     #'poly1': svm.SVC(kernel='poly', degree=1),
     #'poly2': svm.SVC(kernel='poly', degree=2),
     #'poly3': svm.SVC(kernel='poly', degree=3),
-    'poly1balancedC1.00': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=1.0),
+    #'poly1balancedC1.00': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=1.0),
     #'poly1balancedC1.5': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=1.5),
-    'poly1balancedC0.01': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.01),
+    #'poly1balancedC0.01': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.01),
     #'poly1balancedC0.05': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.05),
     #'poly1balancedC0.06': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.06),
     #'poly1balancedC0.07': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.07),
     #'poly1balancedC0.08': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.07),
-    'poly1balancedC0.10': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.1),
+    #'poly1balancedC0.10': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.1),
     #'poly1balancedC0.20': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.2),
     #'poly1balancedC0.30': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.3),
-    'poly1balancedC0.50': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.5),
+    #'poly1balancedC0.50': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.5),
     #'poly2balancedC0.10': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.1),
-    'poly2balancedC0.50': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.5),
-    'poly2balancedC1.00': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.00),
+    #'poly2balancedC0.50': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.5),
+    #'poly2balancedC1.00': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.00),
     #'poly2balancedC1.2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.2),
-    'poly2balancedC1.50': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.50),
+    #'poly2balancedC1.50': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.50),
     #'poly2balancedC1.1': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.1),
     #'poly2balancedC1.2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.2),
     #'poly2balancedC1.3': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.3),
     #'poly2balancedC1.6': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.6),
     #'poly2balancedC1.8': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.8),
     #'poly2balancedC1.9': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.9),
-    'poly2balancedC2.00': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.00),
+    #'poly2balancedC2.00': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.00),
     #'poly2balancedC2.1': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.1),
     #'poly2balancedC2.2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.2),
     #'poly2balancedC2.3': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.3),
@@ -80,7 +80,7 @@ CLASSIFIERS = {
     #'randomforest10': ensemble.RandomForestClassifier(n_estimators=10),
     #'randomforest20': ensemble.RandomForestClassifier(n_estimators=20),
     #'randomforest30': ensemble.RandomForestClassifier(n_estimators=30),
-    #'decision': tree.DecisionTreeClassifier(),
+    'decision': tree.DecisionTreeClassifier(),
     #'decision5': tree.DecisionTreeClassifier(max_features=5),
     #'decision10': tree.DecisionTreeClassifier(max_features=10),
     #'decision15': tree.DecisionTreeClassifier(max_features=15),
@@ -92,10 +92,8 @@ CLASSIFIERS = {
 }
 
 #C_RANGE = np.arange(0.01, 2.5, 0.5)
-
 #CLASSIFIERS.update(dict(('poly1balancedC{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=1, C=C)) for C in C_RANGE))
 #CLASSIFIERS.update(dict(('poly2balancedC{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=2, C=C)) for C in C_RANGE))
-
 #CLASSIFIERS.update(dict(('linear{:.2f}'.format(C), svm.SVC(kernel='linear', C=C)) for C in C_RANGE))
 #CLASSIFIERS.update(dict(('poly0{:.2f}'.format(C), svm.SVC(kernel='poly', degree=0, C=C)) for C in C_RANGE))
 #CLASSIFIERS.update(dict(('poly0balanced{:.2f}'.format(C), svm.SVC(kernel='poly', degree=0, C=C)) for C in C_RANGE))

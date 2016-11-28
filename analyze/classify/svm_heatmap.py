@@ -53,6 +53,7 @@ def get_matrix_file(args, config, A, B):
 def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_interest):
     X_test = []
     Y_test = []
+    runtime = 0.0
 
     runtimes = get_runtime_dataframe(args.data_directory)
     for config, table in get_runtime_pivot_tables(runtimes):
@@ -61,12 +62,12 @@ def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_i
                 for (i, normalized_runtime) in enumerate(values):
                     B = table.columns[i]
 
-                    classification = True if normalized_runtime > args.cutoff else False
-                    matrix_file = get_matrix_file(args, config, A, B)
-                    if matrix_file == None:
-                        continue
-
                     if A == program_of_interest and B == program_antagonist and config == config_of_interest:
+                        classification = True if normalized_runtime > args.cutoff else False
+                        matrix_file = get_matrix_file(args, config, A, B)
+                        if matrix_file == None:
+                            continue
+
                         logging.debug("Adding {} vs. {} in {} to test set".format(A, B, config))
                         df = pd.read_csv(matrix_file, index_col=False)
                         if args.dropzero:
@@ -74,10 +75,10 @@ def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_i
 
                         X_test.append(df)
                         Y_test.append(pd.Series([classification for _ in range(0, df.shape[0])]))
+
+                        return (pd.concat(X_test), pd.concat(Y_test), normalized_runtime)
                     else:
                         pass
-
-    return (pd.concat(X_test), pd.concat(Y_test))
 
 def rowwise_training_set(args, program_of_interest, config_of_interest):
     X = []
@@ -122,11 +123,12 @@ def classify(args, clf, A, columns, config):
         if B == "Alone":
             continue
 
-        X_test, Y_test = cellwise_test_set(args, A, B, config)
+        X_test, Y_test, runtime = cellwise_test_set(args, A, B, config)
         X_test_scaled = min_max_scaler.transform(X_test)
         Y_pred = clf.predict(X_test_scaled)
 
         pred = get_svm_metrics(args, [A], Y, Y_test, Y_pred)
+        pred['NormalizedRuntime'] = runtime
         pred['A'] = A
         pred['B'] = B
         pred['config'] = config
@@ -135,24 +137,34 @@ def classify(args, clf, A, columns, config):
     print((pd.DataFrame(cells)))
     return pd.DataFrame(cells)
 
-def get_pivot_tables(df):
+def get_pivot_table(df, idx, value):
     df = df.set_index('config')
+    sub_df = df.ix[idx]
+    sub_df['Error'] = sub_df['Error'].astype(float)
+    sub_df['NormalizedRuntime'] = sub_df['NormalizedRuntime'].astype(float)
+    return sub_df.pivot_table(index='A', columns='B', values=value)
 
-    tables = []
-    for idx in df.index.unique():
-        sub_df = df.ix[idx]
-        sub_df['Error'] = sub_df['Error'].astype(float)
-        pivot_table = sub_df.pivot_table(index='A', columns='B', values='Error')
-        tables.append( (idx, pivot_table) )
+def get_config_values(df):
+    df = df.set_index('config')
+    return df.index.unique()
 
-    return tables
+def generate_heatmaps(args, filename, results_table):
+    for config in get_config_values(results_table):
+        error_map = get_pivot_table(results_table, config, 'Error')
+        runtimes_map = get_pivot_table(results_table, config, 'NormalizedRuntime')
+        plot_filename = filename + "_config_{}".format(config)
+        heatmap(args, os.path.join(output_directory, plot_filename), error_map, runtimes_map)
 
-def heatmap(location, data, title):
+def heatmap(args, location, data, runtimes_map, title=True):
     fig, ax = plt.subplots()
     label_font = font_manager.FontProperties(family='Supria Sans', size=10)
     ticks_font = font_manager.FontProperties(family='Decima Mono')
 
     if title:
+        alone_suffix, dropzero_suffix, cutoff_suffix = make_suffixes(args)
+        title = "Training {}, core {}, uncore {}, features {}, config {}, kernel {}, {}, {}, {}" \
+                .format("/".join(sorted(args.config)), args.core, args.uncore, " ".join(sorted(args.features)), \
+                        config, kconfig, alone_suffix, cutoff_suffix, dropzero_suffix)
         fig.suptitle(title, fontsize=13, y=1.05)
 
     ax.set_xticklabels(data.columns)
@@ -172,8 +184,14 @@ def heatmap(location, data, title):
     c = plt.pcolor(data, cmap = cm.Reds, vmin=0.0, vmax=1.0)
 
     values = data.as_matrix()
+    runtimes = runtimes_map.as_matrix()
     for x in range(data.shape[1]):
         for y in range(data.shape[0]):
+            if runtimes[x][y] >= (args.cutoff - 0.03) and runtimes[x][y] <= (args.cutoff + 0.03):
+                if values[x][y] > 0.50:
+                    rect = plt.Rectangle((y,x), 1, 1, color='yellow')
+                    ax.add_patch(rect)
+
             color = 'white' if values[y][x] > 1.4 else 'black'
             plt.text(x + 0.5, y + 0.5, '%.2f' % values[y][x],
                      horizontalalignment='center',
@@ -219,11 +237,4 @@ if __name__ == '__main__':
         filename = make_svm_result_filename("svm_heatmap", args, kconfig)
         results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
 
-        for (config, pivot_table) in get_pivot_tables(results_table):
-            alone_suffix, dropzero_suffix, cutoff_suffix = make_suffixes(args)
-            title = "Training {}, uncore {}, features {}, config {}, kernel {}, {}, {}, {}" \
-                    .format("/".join(sorted(args.config)), args.uncore, " ".join(sorted(args.features)), \
-                            config, kconfig, alone_suffix, cutoff_suffix, dropzero_suffix)
-
-            plot_filename = filename + "_config_{}".format(config)
-            heatmap(os.path.join(output_directory, plot_filename), pivot_table, title)
+        generate_heatmaps(args, filename, results_table)

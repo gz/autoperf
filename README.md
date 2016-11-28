@@ -82,9 +82,12 @@ python3 scripts/pair/svm_topk.py ../results-babybel --config L3-SMT L3-SMT-cores
   * Full-SMT-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are used).
 
 # TODO
-  * counter remove std measurements if we have only single sample
-  * then regen zero event file
-  * then check counters and fix incrementally
+  * Finish and run various ranking scripts over night
+  * Tomorrow finalize feature selection plots
+  * Exchange the whole zero event computation with VarianceThreshold?
+  * Check Parsec binaries
+  * Check Onurs benchmarks
+  * Check splash2
 Not today:
   * Scale out analysis
   * TODO: Should probably have return codes in perf.csv and check them as well!
