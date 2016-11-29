@@ -82,9 +82,12 @@ python3 scripts/pair/svm_topk.py ../results-babybel --config L3-SMT L3-SMT-cores
   * Full-SMT-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are used).
 
 # TODO
+Today:
   * Finish and run various ranking scripts over night
-  * Tomorrow finalize feature selection plots
+Tuesday:
+  * Finalize feature selection plots
   * Exchange the whole zero event computation with VarianceThreshold?
+Wednesday:
   * Check Parsec binaries
   * Check Onurs benchmarks
   * Check splash2
