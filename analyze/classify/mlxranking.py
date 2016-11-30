@@ -20,7 +20,10 @@ def generate_ranking(args):
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)
 
-    sfs = SFS(clf, k_features=25, forward=True, floating=False, scoring='accuracy', verbose=2, cv=4, n_jobs=2)
+    if args.ranking == 'sfs':
+        sfs = SFS(clf, k_features=25, forward=True, floating=False, scoring='accuracy', verbose=2, cv=4, n_jobs=3)
+    elif args.ranking == 'sffs':
+        sfs = SFS(clf, k_features=25, forward=True, floating=True, scoring='accuracy', verbose=2, n_jobs=5)
     sfs = sfs.fit(X_scaled, Y)
 
     df = pd.DataFrame.from_dict(sfs.get_metric_dict()).T
@@ -38,7 +41,7 @@ def generate_ranking(args):
     df.reset_index(inplace=True)
     df['name'] = series
 
-    filename = make_ranking_filename(args.test, args)
+    filename = make_ranking_filename([args.test], args)
     df.to_csv(os.path.join(output_directory, filename), index=False)
     return df
 
@@ -49,7 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--test', dest='test', type=str, help="Which app to generate the ranking for.", required=True)
 
     args = parser.parse_args()
-    assert args.ranking == "sfs"
+    assert args.ranking == "sfs" or args.ranking == "sffs"
 
     runtimes = get_runtime_dataframe(args.data_directory)
 
