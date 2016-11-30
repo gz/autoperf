@@ -27,6 +27,8 @@ from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_t
 from analyze.classify.generate_matrix import matrix_file_name
 from analyze.util import *
 
+import matplotlib
+matplotlib.rc('pdf', fonttype=42)
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 
 def get_matrix_file(args, config, A, B):
@@ -81,6 +83,11 @@ def cellwise_test_set(args, program_of_interest, program_antagonist, config_of_i
                         pass
 
 def rowwise_training_set(args, program_of_interest, config_of_interest):
+    """
+    Includes all cells in the training set except ones that contain data from
+    the program of interest (i.e., excludes row and column of the program
+    we're evaluating).
+    """
     X = []
     Y = []
 
@@ -109,19 +116,58 @@ def rowwise_training_set(args, program_of_interest, config_of_interest):
 
     return (pd.concat(X), pd.concat(Y))
 
+def allcells_taining_set(args, program_of_interest, program_antagonist, config_of_interest):
+    """
+    Includes all cells in the training set except the one we're evaluating.
+    """
+    X = []
+    Y = []
+
+    runtimes = get_runtime_dataframe(args.data_directory)
+    for config, table in get_runtime_pivot_tables(runtimes):
+        if config in args.config:
+            for (A, values) in table.iterrows():
+                for (i, normalized_runtime) in enumerate(values):
+                    B = table.columns[i]
+
+                    classification = True if normalized_runtime > args.cutoff else False
+                    matrix_file = get_matrix_file(args, config, A, B)
+                    if matrix_file == None:
+                        continue
+
+                    if A == program_of_interest and B == program_antagonist:
+                        logging.debug("Skipping {} vs {} in {} from the training set".format(A, B, config))
+                    else:
+                        logging.debug("Adding {} vs {} in {} to training set".format(A, B, config))
+                        df = pd.read_csv(matrix_file, index_col=False)
+                        if args.dropzero:
+                            drop_zero_events(args, df)
+
+                        Y.append(pd.Series([classification for _ in range(0, df.shape[0])]))
+                        X.append(df)
+
+    return (pd.concat(X), pd.concat(Y))
+
 
 def classify(args, clf, A, columns, config):
     cells = []
 
-    X, Y = rowwise_training_set(args, A, config)
-    min_max_scaler = preprocessing.MinMaxScaler()
-    X_scaled = min_max_scaler.fit_transform(X)
-
-    clf.fit(X_scaled, Y)
+    if not args.singlecell:
+        X, Y = rowwise_training_set(args, A, config)
+        min_max_scaler = preprocessing.MinMaxScaler()
+        X_scaled = min_max_scaler.fit_transform(X)
+        clf.fit(X_scaled, Y)
 
     for B in columns:
         if B == "Alone":
             continue
+
+        if args.singlecell:
+            logging.debug("Training for {} vs {}".format(A, B))
+            X, Y = allcells_taining_set(args, A, B, config)
+            min_max_scaler = preprocessing.MinMaxScaler()
+            X_scaled = min_max_scaler.fit_transform(X)
+            clf.fit(X_scaled, Y)
 
         X_test, Y_test, runtime = cellwise_test_set(args, A, B, config)
         X_test_scaled = min_max_scaler.transform(X_test)
@@ -153,7 +199,8 @@ def generate_heatmaps(args, filename, results_table):
         error_map = get_pivot_table(results_table, config, 'Error')
         runtimes_map = get_pivot_table(results_table, config, 'NormalizedRuntime')
         plot_filename = filename + "_config_{}".format(config)
-        heatmap(args, os.path.join(output_directory, plot_filename), error_map, runtimes_map)
+        location = os.path.join(output_directory, plot_filename)
+        heatmap(args, location, error_map, runtimes_map, title=not args.paper)
 
 def heatmap(args, location, data, runtimes_map, title=True):
     fig, ax = plt.subplots()
@@ -189,7 +236,7 @@ def heatmap(args, location, data, runtimes_map, title=True):
         for y in range(data.shape[0]):
             if runtimes[x][y] >= (args.cutoff - 0.03) and runtimes[x][y] <= (args.cutoff + 0.03):
                 if values[x][y] > 0.50:
-                    rect = plt.Rectangle((y,x), 1, 1, color='yellow')
+                    rect = plt.Rectangle((y,x), 1, 1, color='white', alpha=0.70)
                     ax.add_patch(rect)
 
             color = 'white' if values[y][x] > 1.4 else 'black'
@@ -206,20 +253,33 @@ def heatmap(args, location, data, runtimes_map, title=True):
         t.tick1On = False
         t.tick2On = False
 
-    plt.savefig(location + ".png", format='png')
-    #plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
+    if args.paper:
+        plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
+    else:
+        plt.savefig(location + ".png", format='png')
+
     plt.clf()
     plt.close()
 
 if __name__ == '__main__':
     parser = get_argument_parser("Compute predicition ability for every cell in the heatmap with all features.")
+    parser.add_argument('--singlecell', dest='singlecell', help="Test set is inidvidual-cell, rest is training.", action='store_true', default=False)
     args = parser.parse_args()
 
-    output_directory = os.path.join(args.data_directory, "results_svm_heatmap")
+    if args.paper:
+        output_directory = os.getcwd()
+    else:
+        output_directory = os.path.join(args.data_directory, "results_svm_heatmap")
+
     os.makedirs(output_directory, exist_ok=True)
 
-    for kconfig, clf in list(CLASSIFIERS.items()):
-        print(("Trying kernel", kconfig))
+    if args.kernel:
+        kernels = [ (args.kernel, CLASSIFIERS[args.kernel]) ]
+    else:
+        kernels = list(CLASSIFIERS.items())
+
+    for kconfig, clf in kernels:
+        print("Trying kernel {}".format(kconfig))
 
         pool = Pool(processes=cpu_count())
         rows = []
@@ -234,7 +294,11 @@ if __name__ == '__main__':
         pool.close()
         pool.join()
 
-        filename = make_svm_result_filename("svm_heatmap", args, kconfig)
-        results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
+        if args.singlecell:
+            basename = "svm_heatmap_singlecell"
+        else:
+            basename = "svm_heatmap"
 
+        filename = make_svm_result_filename(basename, args, kconfig)
+        results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
         generate_heatmaps(args, filename, results_table)

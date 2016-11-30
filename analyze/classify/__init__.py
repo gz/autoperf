@@ -2,7 +2,7 @@ import argparse
 import pandas as pd
 import logging
 
-def get_argument_parser(desc, arguments=['data', 'core', 'uncore', 'cutoff', 'config', 'alone', 'features', 'dropzero']):
+def get_argument_parser(desc, arguments=['data', 'core', 'uncore', 'cutoff', 'config', 'alone', 'features', 'dropzero', 'paper', 'kernel']):
     pd.set_option('display.max_rows', 37)
     pd.set_option('display.max_columns', 15)
     pd.set_option('display.width', 200)
@@ -36,5 +36,9 @@ def get_argument_parser(desc, arguments=['data', 'core', 'uncore', 'cutoff', 'co
     if 'ranking' in arguments:
         parser.add_argument('--ranking', dest='ranking', type=str, help="What ranking method to use (default corr).",
                         default='shared', choices=['ig', 'corr', 'cfs', 'svm', 'svmeval', 'sfs', 'sffs'])
+    if 'paper' in arguments:
+        parser.add_argument('--paper', dest='paper', help="Generate a paper-ready plot.", action='store_true', default=False)
+    if 'kernel' in arguments:
+        parser.add_argument('--kernel', dest='kernel', default=None, type=str, help="Select which kernel to use.")
 
     return parser
