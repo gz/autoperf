@@ -28,7 +28,7 @@ CLASSPATH = [
     os.path.join(os.path.realpath(os.path.split(__file__)[0]), "..", "jar", "SVMAttributeEval.jar")
 ]
 
-JAVA_CMD = "java -Xms2g -Xmx500g"
+JAVA_CMD = "java -Xms2g -Xmx128g"
 
 def weka_cmd_cfs(input_file, output_file):
     weka_args = 'weka.attributeSelection.CfsSubsetEval -x 5 -n 1 -s "weka.attributeSelection.GreedyStepwise -R -T -1.7976931348623157E308 -N 25 -num-slots {}" -P {} -E {} -i'.format(int(cpu_count() / 2), int(cpu_count() / 2), int(cpu_count() / 2))
@@ -84,7 +84,7 @@ def invoke_weka(input_file, output_file, method):
 
 if __name__ == '__main__':
     parser = get_argument_parser('Make weka ranking files.',
-                                  arguments=['data', 'uncore', 'cutoff', 'config',
+                                  arguments=['data', 'core', 'uncore', 'cutoff', 'config',
                                              'alone', 'features', 'dropzero',
                                              'ranking', 'overwrite'])
     parser.add_argument('--start', dest='start', type=int, default=0, help="Where in the list to start.")
