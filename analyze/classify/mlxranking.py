@@ -33,8 +33,10 @@ def generate_ranking(args):
     for idx, data in df.iterrows():
         cur = set(data['feature_idx'])
         new = cur - prev
-        assert len(new) == 1
-        events.append(X.columns[new.pop()])
+        if len(new) == 1:
+            events.append(X.columns[new.pop()])
+        else:
+            events.append("None ({})".format(len(new)))
         prev = cur
 
     series = pd.Series(events)

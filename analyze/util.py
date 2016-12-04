@@ -1,3 +1,4 @@
+import math
 import pandas as pd
 import numpy as np
 
@@ -108,6 +109,18 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
         if throw_away > df.shape[0] * (0.20):
             print("Throwing away {} out of {} samples for {}".format(throw_away, df.shape[0], f))
         df = df[:min_idx]
+
+    if "merge4" in aggregate_samples:
+        # Aggregate 4 rows to get 1sec sampling time
+        df.reset_index(inplace=True)
+        df['MergeLabel'] = pd.Series([ math.ceil(i / 4.0) for i in range(1, len(df)+1) ])
+        df = df.groupby(['MergeLabel']).sum()
+
+    if "merge2" in aggregate_samples:
+        # Aggregate 2 rows to get 0.5sec sampling time
+        df.reset_index(inplace=True)
+        df['MergeLabel'] = pd.Series([ math.ceil(i / 2.0) for i in range(1, len(df)+1) ])
+        df = df.groupby(['MergeLabel']).sum()
 
     return df[start_at:]
 

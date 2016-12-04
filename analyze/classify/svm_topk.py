@@ -21,6 +21,8 @@ from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_t
 from analyze.classify.svm import get_argument_parser
 from analyze.util import *
 
+import matplotlib
+matplotlib.rc('pdf', fonttype=42)
 ticks_font = font_manager.FontProperties(family='Decima Mono')
 plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
 
@@ -39,9 +41,11 @@ def get_selected_events(weka_cfs_ranking_file):
                 df = df.append(row, ignore_index=True)
     return df
 
-def error_plot(args, filename, df):
+def error_plot(args, test, output_directory, filename, df):
     fig = plt.figure()
-    fig.suptitle(filename)
+    if not args.paper:
+        fig.suptitle(filename)
+
     ax1 = fig.add_subplot(1, 1, 1)
     ax1.set_xlabel('Events [Count]')
     ax1.set_ylabel('Error [%]')
@@ -52,7 +56,11 @@ def error_plot(args, filename, df):
     ax1.get_yaxis().tick_left()
 
     p = ax1.plot(df['Error'], label=test)
-    plt.savefig(filename  + ".png", format='png')
+    location = os.path.join(output_directory, filename)
+    if args.paper:
+        plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
+    else:
+        plt.savefig(location  + ".png", format='png')
     plt.clf()
     plt.close()
 
@@ -90,10 +98,21 @@ def make_ranking_filename(apps, args):
 
 if __name__ == '__main__':
     parser = get_argument_parser('Get the SVM parameters when limiting the amount of features.',
-                                 arguments=['data', 'uncore', 'cutoff', 'config', 'alone',
-                                            'features', 'dropzero', 'ranking'])
+                                 arguments=['data', 'core', 'uncore', 'cutoff', 'config', 'alone',
+                                            'features', 'dropzero', 'ranking', 'kernel', 'paper'])
     parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="List or programs to include for the test set.")
     args = parser.parse_args()
+
+    if args.paper:
+        output_directory = os.getcwd()
+    else:
+        output_directory = os.path.join(args.data_directory, "results_svm_topk")
+    os.makedirs(output_directory, exist_ok=True)
+
+    if args.kernel:
+        kernels = [ (args.kernel, CLASSIFIERS[args.kernel]) ]
+    else:
+        kernels = list(CLASSIFIERS.items())
 
     if not args.tests:
         runtimes = get_runtime_dataframe(args.data_directory)
@@ -101,7 +120,7 @@ if __name__ == '__main__':
     else:
         tests = [args.tests]
 
-    for kconfig, clf in list(CLASSIFIERS.items()):
+    for kconfig, clf in kernels:
         logging.info("Trying kernel {}".format(kconfig))
 
         for test in tests:
@@ -118,5 +137,5 @@ if __name__ == '__main__':
             results_table = classify(args, test, clf, event_list)
 
             filename = make_svm_result_filename("svm_topk_{}_for_{}".format(args.ranking, "_".join(sorted(test))), args, kconfig)
-            results_table.to_csv(filename + ".csv", index=False)
-            error_plot(args, filename, results_table)
+            results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
+            error_plot(args, test, output_directory, filename, results_table)

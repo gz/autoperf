@@ -135,7 +135,7 @@ def allcells_taining_set(args, program_of_interest, program_antagonist, config_o
                     if matrix_file == None:
                         continue
 
-                    if A == program_of_interest and B == program_antagonist:
+                    if (A == program_of_interest or A == program_antagonist) and (B == program_antagonist or B == program_of_interest):
                         logging.debug("Skipping {} vs {} in {} from the training set".format(A, B, config))
                     else:
                         logging.debug("Adding {} vs {} in {} to training set".format(A, B, config))
