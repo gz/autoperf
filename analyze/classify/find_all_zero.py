@@ -16,7 +16,7 @@ def mkfilename(prefix, configs, core, uncore, features):
 def calculate_zero_features(args):
     import copy
     args = copy.deepcopy(args)
-    args.cutoff = 1.25 # dummy cutoff doesn't matter what we choose here
+    args.cutoff = 2.00 # dummy cutoff doesn't matter what we choose here
     args.dropzero = False # dropzero has to be false, otherwise we have recursion bug
     args.include_alone = True
     X, Y, Y_weights, X_test, Y_test = svm.row_training_and_test_set(args, [None])
