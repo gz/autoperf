@@ -100,7 +100,7 @@ subcommands:
                 short: c
                 long: core
                 takes_value: true
-                possible_values: [ all, exclusive, none ]
+                possible_values: [ all, shared, exclusive, none ]
                 help: Which core events to include (default exclusive).
             - uncore:
                 short: u

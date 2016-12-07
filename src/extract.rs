@@ -54,6 +54,11 @@ fn parse_perf_csv_file(mt: &MachineTopology,
     type OutputRow = (String, String, Socket, Core, Cpu, Node, String, u64);
     let mut parsed_rows: Vec<OutputRow> = Vec::with_capacity(5000);
 
+    // All the sockets this program is running on:
+    let mut all_sockets: Vec<Socket> = cpus.iter().map(|c| c.socket).collect();
+    all_sockets.sort();
+    all_sockets.dedup();
+
     // Timestamps for filtering start and end:
     let mut start: Option<f64> = None;
     let mut end: Option<f64> = None;
@@ -223,7 +228,7 @@ fn parse_perf_csv_file(mt: &MachineTopology,
             match cpu_filter {
                 Filter::All => true,
                 Filter::Exclusive => cpus.iter().any(|c| c.cpu == cpu),
-                Filter::Shared => unreachable!(), // Only for uncore events
+                Filter::Shared => all_sockets.contains(&socket),
                 Filter::None => false,
             }
         } else if unit.starts_with("uncore") {
