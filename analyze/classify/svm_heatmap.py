@@ -194,15 +194,15 @@ def get_config_values(df):
     df = df.set_index('config')
     return df.index.unique()
 
-def generate_heatmaps(args, filename, results_table):
+def generate_heatmaps(args, output_directory, filename, results_table, kconfig):
     for config in get_config_values(results_table):
         error_map = get_pivot_table(results_table, config, 'Error')
         runtimes_map = get_pivot_table(results_table, config, 'NormalizedRuntime')
         plot_filename = filename + "_config_{}".format(config)
         location = os.path.join(output_directory, plot_filename)
-        heatmap(args, location, error_map, runtimes_map, title=not args.paper)
+        heatmap(args, location, error_map, runtimes_map, config, kconfig, title=not args.paper)
 
-def heatmap(args, location, data, runtimes_map, title=True):
+def heatmap(args, location, data, runtimes_map, config, kconfig, title=True):
     fig, ax = plt.subplots()
     label_font = font_manager.FontProperties(family='Supria Sans', size=10)
     ticks_font = font_manager.FontProperties(family='Decima Mono')
@@ -301,4 +301,4 @@ if __name__ == '__main__':
 
         filename = make_svm_result_filename(basename, args, kconfig)
         results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
-        generate_heatmaps(args, filename, results_table)
+        generate_heatmaps(args, output_directory, filename, results_table, kconfig)
