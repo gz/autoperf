@@ -102,6 +102,21 @@ def compute_runtime_dataframe(data_directory):
 
     return pd.DataFrame(row_list)
 
+def get_max_runtime_pivot_tables(df):
+    """
+    Same as get_runtime_pivot_tables but makes sure that the matrix is
+    symmetric (i.e., matrix uses max(A vs. B, B vs. A) for both cells
+    A vs. B and B vs. A)
+    """
+    def make_symmetric(table):
+        for A in table.index:
+            for B in table.index:
+                most_slow_down = max(table.loc[A, B], table.loc[B, A])
+                table.loc[A, B] = most_slow_down
+                table.loc[B, A] = most_slow_down
+        return table
+
+    return [ (config, make_symmetric(table)) for (config, table) in get_runtime_pivot_tables(df) ]
 
 def get_runtime_pivot_tables(df):
     """
@@ -147,7 +162,8 @@ def violin(data_directory, location, name, data):
 
 
 def heatmap(location, data):
-    del data['Alone'] # We don't need this in the heatmaps...
+    if 'Alone' in data.columns:
+        del data['Alone'] # We don't need this in the heatmaps...
     fig, ax = plt.subplots()
     label_font = font_manager.FontProperties(family='Supria Sans', size=10)
     ticks_font = font_manager.FontProperties(family='Decima Mono')
@@ -201,3 +217,6 @@ if __name__ == '__main__':
 
     for config, pivot_table in get_runtime_pivot_tables(df):
         heatmap(os.path.join(args.data_directory, config), pivot_table)
+
+    for config, pivot_table in get_max_runtime_pivot_tables(df):
+        heatmap(os.path.join(args.data_directory, config + "_symmetric_max"), pivot_table)
