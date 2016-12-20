@@ -46,7 +46,6 @@ def error_plot_all(args, output_directory, results, baseline_results):
     fig, axarr = plt.subplots(5, 2, sharex='col', sharey='row', figsize=(13, 10))
     plt.subplots_adjust(left=None, bottom=0.0, right=None, top=10.0, wspace=5.0, hspace=5.0)
 
-
     index = 0
     for test, filename, df in results:
         row = math.floor(index / 2)
@@ -77,11 +76,13 @@ def error_plot_all(args, output_directory, results, baseline_results):
         if baseline_results is not None:
             assert(len(test) == 1)
             row = baseline_results[baseline_results['Tested Application'] == test[0]]
-            ax.axhline(y=row.Error.values[0], xmin=0, xmax=1, color="#fc4f30", label="Baseline (All Features)")
+            bl = ax.axhline(y=row.Error.values[0], xmin=0, xmax=1, color="#fc4f30")
 
-        p = ax.plot(df['Error'], linewidth=2, label="")
+        p = ax.plot(df['Error'], linewidth=2, label="Reduced Features")
         [line.set_zorder(3) for line in ax.lines]
-        ax.legend(fontsize=15, loc=(0.54, 0.7)) # loc='upper right'
+        #ax.legend(fontsize=15, loc=(0.54, 0.7)) # loc='upper right'
+
+    fig.legend((p[0], bl), ("Reduced Features", "Baseline (All Features)"), loc=(0.47, 0.96), ncol=2, fontsize=20)
 
     filename = make_svm_result_filename("svm_topk_{}_for_all".format(args.ranking), args, kconfig)
     location = os.path.join(output_directory, filename)
@@ -189,7 +190,7 @@ if __name__ == '__main__':
 
     for kconfig, clf in kernels:
         logging.info("Trying kernel {}".format(kconfig))
-        
+        """
         pool = Pool(processes=cpu_count())
         rows = []
         for test in tests:
@@ -206,7 +207,7 @@ if __name__ == '__main__':
             rows.append(res)
 
         results = [r.get() for r in rows]
-
+        """
 
         baseline_results_filename = make_svm_result_filename("svm_results", args, kconfig) + ".csv"
         if os.path.exists(baseline_results_filename):
@@ -214,9 +215,10 @@ if __name__ == '__main__':
         else:
             baseline_results = None
 
-        #results = [ (test, "xxx", pd.DataFrame(np.random.randint(0, 2, size=(25, 1)), columns=['Error'])) for test in tests ]
+        results = [ (test, "xxx", pd.DataFrame(np.random.randint(0, 2, size=(25, 1)), columns=['Error'])) for test in tests ]
         error_plot_all(args, output_directory, results, baseline_results)
 
-
+        """
         pool.close()
         pool.join()
+        """
