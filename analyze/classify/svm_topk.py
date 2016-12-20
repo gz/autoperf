@@ -6,6 +6,7 @@ import time
 import argparse
 import re
 import logging
+from multiprocessing import Pool, TimeoutError, cpu_count
 
 import pandas as pd
 import numpy as np
@@ -41,7 +42,55 @@ def get_selected_events(weka_cfs_ranking_file):
                 df = df.append(row, ignore_index=True)
     return df
 
-def error_plot(args, test, output_directory, filename, df):
+def error_plot_all(args, output_directory, results, baseline_results):
+    fig, axarr = plt.subplots(5, 2, sharex='col', sharey='row', figsize=(13, 10))
+    plt.subplots_adjust(left=None, bottom=0.0, right=None, top=10.0, wspace=5.0, hspace=5.0)
+
+
+    index = 0
+    for test, filename, df in results:
+        row = math.floor(index / 2)
+        col = index % 2
+        ax = axarr[row][col]
+        index += 1
+
+        if col == 0:
+            ax.set_ylabel('Error [%]')
+        if row == 4:
+            ax.set_xlabel('Features [Count]')
+        if test[0] == 'SCLUS':
+            print(df['Error'])
+
+        assert(len(test) == 1)
+        ax.set_title(test[0].strip(), loc='right', fontsize=18, position=(0.99, 0.99))
+        ax.set_ylim((0.0, 1.0))
+        ax.set_yticks([0.0, 0.25, 0.5, 0.75, 1.0])
+        ax.set_xticks([1, 5, 10, 15, 20, 25])
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.get_xaxis().tick_bottom()
+        ax.get_yaxis().tick_left()
+        #ax.annotate(' '.join(test), xy=(24.5, 0.95), size=14, ha='right', va='top')
+        df.index += 1
+
+        print(baseline_results)
+        if baseline_results is not None:
+            assert(len(test) == 1)
+            row = baseline_results[baseline_results['Tested Application'] == test[0]]
+            ax.axhline(y=row.Error.values[0], xmin=0, xmax=1, color="#fc4f30", label="Baseline (All Features)")
+
+        p = ax.plot(df['Error'], linewidth=2, label="")
+        [line.set_zorder(3) for line in ax.lines]
+        ax.legend(fontsize=15, loc=(0.54, 0.7)) # loc='upper right'
+
+    filename = make_svm_result_filename("svm_topk_{}_for_all".format(args.ranking), args, kconfig)
+    location = os.path.join(output_directory, filename)
+    plt.tight_layout()
+    plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
+    plt.clf()
+    plt.close()
+
+def error_plot(args, test, output_directory, filename, df, baseline=0.5):
     fig = plt.figure()
     if not args.paper:
         fig.suptitle(filename)
@@ -59,8 +108,8 @@ def error_plot(args, test, output_directory, filename, df):
     location = os.path.join(output_directory, filename)
     if args.paper:
         plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
-    else:
-        plt.savefig(location  + ".png", format='png')
+
+    plt.savefig(location  + ".png", format='png')
     plt.clf()
     plt.close()
 
@@ -76,8 +125,17 @@ def classify(args, test, clf, event_list):
 
     results_table = pd.DataFrame()
     for event in event_list.head(25).itertuples():
-        X[event.name] = X_all[event.name]
-        X_test[event.name] = X_test_all[event.name]
+        if args.ranking == 'sffs':
+            from ast import literal_eval as make_tuple
+            X = pd.DataFrame()
+            X_test = pd.DataFrame()
+            for (idx, feature) in enumerate(make_tuple(event.feature_idx)):
+                X[idx] = X_all[X_all.columns[feature]]
+                X_test[idx] = X_test_all[X_test_all.columns[feature]]
+                print(idx, X_all.columns[feature])
+        else:
+            X[event.name] = X_all[event.name]
+            X_test[event.name] = X_test_all[event.name]
 
         min_max_scaler = preprocessing.MinMaxScaler()
         X_scaled = min_max_scaler.fit_transform(X)
@@ -95,6 +153,15 @@ def classify(args, test, clf, event_list):
 def make_ranking_filename(apps, args):
     prefix = 'ranking_{}_{}'.format(args.ranking, "_".join(sorted(apps)))
     return make_weka_results_filename(prefix, args)
+
+def evaluate_test(args, output_directory, kconfig, test, clf, event_list):
+    results_table = classify(args, test, clf, event_list)
+    filename = make_svm_result_filename("svm_topk_{}_for_{}".format(args.ranking, "_".join(sorted(test))), args, kconfig)
+    #results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
+    #error_plot(args, test, output_directory, filename, results_table)
+
+    return (test, filename, results_table)
+
 
 if __name__ == '__main__':
     parser = get_argument_parser('Get the SVM parameters when limiting the amount of features.',
@@ -122,20 +189,34 @@ if __name__ == '__main__':
 
     for kconfig, clf in kernels:
         logging.info("Trying kernel {}".format(kconfig))
-
+        
+        pool = Pool(processes=cpu_count())
+        rows = []
         for test in tests:
             cfs_default_file = os.path.join(args.data_directory, 'ranking', make_ranking_filename(test, args))
             if not os.path.exists(cfs_default_file):
                 logging.warn("Skipping {} because we didn't find the ranking file: {}".format(' '.join(test), cfs_default_file))
                 continue
-            if args.ranking != 'sfs':
+            if args.ranking != 'sfs' and args.ranking != 'sffs':
                 event_list = get_selected_events(cfs_default_file)
             else:
                 event_list = pd.read_csv(cfs_default_file)
-                print(event_list)
 
-            results_table = classify(args, test, clf, event_list)
+            res = pool.apply_async(evaluate_test, (args, output_directory, kconfig, test, clf, event_list))
+            rows.append(res)
 
-            filename = make_svm_result_filename("svm_topk_{}_for_{}".format(args.ranking, "_".join(sorted(test))), args, kconfig)
-            results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
-            error_plot(args, test, output_directory, filename, results_table)
+        results = [r.get() for r in rows]
+
+
+        baseline_results_filename = make_svm_result_filename("svm_results", args, kconfig) + ".csv"
+        if os.path.exists(baseline_results_filename):
+            baseline_results = pd.read_csv(baseline_results_filename)
+        else:
+            baseline_results = None
+
+        #results = [ (test, "xxx", pd.DataFrame(np.random.randint(0, 2, size=(25, 1)), columns=['Error'])) for test in tests ]
+        error_plot_all(args, output_directory, results, baseline_results)
+
+
+        pool.close()
+        pool.join()

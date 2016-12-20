@@ -14,7 +14,7 @@ def get_argument_parser(desc, arguments=['data', 'core', 'uncore', 'cutoff', 'co
         parser.add_argument('--data', dest='data_directory', type=str, help="Data directory root.", required=True)
     if 'core' in arguments:
         parser.add_argument('--core', dest='core', type=str, help="What core counters to include [all, exclusive, none].",
-                        default='exclusive', choices=['all', 'exclusive', 'none'])
+                        default='exclusive', choices=['all', 'shared', 'exclusive', 'none'])
     if 'uncore' in arguments:
         parser.add_argument('--uncore', dest='uncore', type=str, help="What uncore counters to include (default 'shared').",
                         default='shared', choices=['all', 'shared', 'exclusive', 'none'])

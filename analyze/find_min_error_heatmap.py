@@ -11,7 +11,8 @@ if __name__ == '__main__':
     for root, dirs, files in os.walk(sys.argv[1]):
         for name in files:
             p = os.path.join(root, name)
-            if name.endswith(".csv") and name.startswith("svm_heatmap_"):
+            if name.endswith(".csv") and (name.startswith("svm_heatmap_") or name.startswith("svm_socket_")):
+                print(name)
                 df = pd.read_csv(p)
                 heatmaps.append( (len(df[df.Accuracy > 0.70]), p) )
 
