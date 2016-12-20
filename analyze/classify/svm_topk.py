@@ -57,8 +57,6 @@ def error_plot_all(args, output_directory, results, baseline_results):
             ax.set_ylabel('Error [%]')
         if row == 4:
             ax.set_xlabel('Features [Count]')
-        if test[0] == 'SCLUS':
-            print(df['Error'])
 
         assert(len(test) == 1)
         ax.set_title(test[0].strip(), loc='right', fontsize=18, position=(0.99, 0.99))
@@ -72,7 +70,6 @@ def error_plot_all(args, output_directory, results, baseline_results):
         #ax.annotate(' '.join(test), xy=(24.5, 0.95), size=14, ha='right', va='top')
         df.index += 1
 
-        print(baseline_results)
         if baseline_results is not None:
             assert(len(test) == 1)
             row = baseline_results[baseline_results['Tested Application'] == test[0]]
@@ -82,7 +79,8 @@ def error_plot_all(args, output_directory, results, baseline_results):
         [line.set_zorder(3) for line in ax.lines]
         #ax.legend(fontsize=15, loc=(0.54, 0.7)) # loc='upper right'
 
-    fig.legend((p[0], bl), ("Reduced Features", "Baseline (All Features)"), loc=(0.47, 0.96), ncol=2, fontsize=20)
+    fig.legend((p[0], bl), ("Reduced Features", "Baseline (All Features)"),
+               loc=(0.47, 0.96), ncol=2, fontsize=20)
 
     filename = make_svm_result_filename("svm_topk_{}_for_all".format(args.ranking), args, kconfig)
     location = os.path.join(output_directory, filename)
@@ -91,7 +89,7 @@ def error_plot_all(args, output_directory, results, baseline_results):
     plt.clf()
     plt.close()
 
-def error_plot(args, test, output_directory, filename, df, baseline=0.5):
+def error_plot(args, test, output_directory, filename, df, baseline_results=None):
     fig = plt.figure()
     if not args.paper:
         fig.suptitle(filename)
@@ -106,6 +104,23 @@ def error_plot(args, test, output_directory, filename, df, baseline=0.5):
     ax1.get_yaxis().tick_left()
 
     p = ax1.plot(df['Error'], label=test)
+
+    # Add the base line to the plot:
+    if baseline_results is not None:
+        assert(len(test) == 1)
+        row = baseline_results[baseline_results['Tested Application'] == test]
+        bl = ax.axhline(y=row.Error.values[0], xmin=0, xmax=1, color="#fc4f30", label="Baseline (All Features)")
+
+    # Add the first 5 event names to the plot:
+    for idx, name in enumerate(df['Event']):
+        if idx < 5:
+            displacement = 0.02
+            displacement_x = 1.50
+            ax1.annotate(name, xy=(idx+1, df['Error'].iloc[idx]), xytext=((idx/scale_x)+displacement_x, y_text[-idx-1]+displacement),
+                         color=p[0].get_color(),
+                         arrowprops=dict(edgecolor="#999999", facecolor="#999999",
+                                         width=0.7, headwidth=5, headlength=8))
+
     location = os.path.join(output_directory, filename)
     if args.paper:
         plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
@@ -155,11 +170,11 @@ def make_ranking_filename(apps, args):
     prefix = 'ranking_{}_{}'.format(args.ranking, "_".join(sorted(apps)))
     return make_weka_results_filename(prefix, args)
 
-def evaluate_test(args, output_directory, kconfig, test, clf, event_list):
+def evaluate_test(args, output_directory, kconfig, test, clf, event_list, baseline_results):
     results_table = classify(args, test, clf, event_list)
     filename = make_svm_result_filename("svm_topk_{}_for_{}".format(args.ranking, "_".join(sorted(test))), args, kconfig)
-    #results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
-    #error_plot(args, test, output_directory, filename, results_table)
+    results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
+    error_plot(args, test, output_directory, filename, results_table, baseline_results)
 
     return (test, filename, results_table)
 
@@ -190,6 +205,13 @@ if __name__ == '__main__':
 
     for kconfig, clf in kernels:
         logging.info("Trying kernel {}".format(kconfig))
+
+        baseline_results_filename = make_svm_result_filename("svm_results", args, kconfig) + ".csv"
+        if os.path.exists(baseline_results_filename):
+            baseline_results = pd.read_csv(baseline_results_filename)
+        else:
+            baseline_results = None
+
         """
         pool = Pool(processes=cpu_count())
         rows = []
@@ -203,17 +225,11 @@ if __name__ == '__main__':
             else:
                 event_list = pd.read_csv(cfs_default_file)
 
-            res = pool.apply_async(evaluate_test, (args, output_directory, kconfig, test, clf, event_list))
+            res = pool.apply_async(evaluate_test, (args, output_directory, kconfig, test, clf, event_list, baseline_results))
             rows.append(res)
 
         results = [r.get() for r in rows]
         """
-
-        baseline_results_filename = make_svm_result_filename("svm_results", args, kconfig) + ".csv"
-        if os.path.exists(baseline_results_filename):
-            baseline_results = pd.read_csv(baseline_results_filename)
-        else:
-            baseline_results = None
 
         results = [ (test, "xxx", pd.DataFrame(np.random.randint(0, 2, size=(25, 1)), columns=['Error'])) for test in tests ]
         error_plot_all(args, output_directory, results, baseline_results)
