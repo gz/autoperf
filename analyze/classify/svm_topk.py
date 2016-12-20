@@ -173,6 +173,7 @@ def make_ranking_filename(apps, args):
 def evaluate_test(args, output_directory, kconfig, test, clf, event_list, baseline_results):
     results_table = classify(args, test, clf, event_list)
     filename = make_svm_result_filename("svm_topk_{}_for_{}".format(args.ranking, "_".join(sorted(test))), args, kconfig)
+
     results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
     error_plot(args, test, output_directory, filename, results_table, baseline_results)
 
@@ -212,7 +213,6 @@ if __name__ == '__main__':
         else:
             baseline_results = None
 
-        """
         pool = Pool(processes=cpu_count())
         rows = []
         for test in tests:
@@ -229,12 +229,9 @@ if __name__ == '__main__':
             rows.append(res)
 
         results = [r.get() for r in rows]
-        """
 
-        results = [ (test, "xxx", pd.DataFrame(np.random.randint(0, 2, size=(25, 1)), columns=['Error'])) for test in tests ]
+        #results = [ (test, "xxx", pd.DataFrame(np.random.randint(0, 2, size=(25, 1)), columns=['Error'])) for test in tests ]
         error_plot_all(args, output_directory, results, baseline_results)
 
-        """
         pool.close()
         pool.join()
-        """
