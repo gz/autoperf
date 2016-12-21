@@ -62,13 +62,15 @@ def error_plot_all(args, output_directory, results, baseline_results):
         ax.set_title(test[0].strip(), loc='right', fontsize=18, position=(0.99, 0.99))
         ax.set_ylim((0.0, 1.0))
         ax.set_yticks([0.0, 0.25, 0.5, 0.75, 1.0])
+        ax.set_yticklabels(["0", "25", "50", "75", "100"])
         ax.set_xticks([1, 5, 10, 15, 20, 25])
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.get_xaxis().tick_bottom()
         ax.get_yaxis().tick_left()
         #ax.annotate(' '.join(test), xy=(24.5, 0.95), size=14, ha='right', va='top')
-        df.index += 1
+        if df.index[0] == 0:
+            df.index += 1
 
         if baseline_results is not None:
             assert(len(test) == 1)
@@ -96,6 +98,9 @@ def error_plot(args, test, output_directory, filename, df, baseline_results=None
 
     ax1 = fig.add_subplot(1, 1, 1)
     ax1.set_xlabel('Events [Count]')
+    ax1.set_yticks([0.0, 0.25, 0.5, 0.75, 1.0])
+    ax1.set_yticklabels(["0", "25", "50", "75", "100"])
+    ax1.set_xticks([1, 5, 10, 15, 20, 25])
     ax1.set_ylabel('Error [%]')
     ax1.set_ylim((0.0, 1.0))
     ax1.spines['top'].set_visible(False)
@@ -103,7 +108,9 @@ def error_plot(args, test, output_directory, filename, df, baseline_results=None
     ax1.get_xaxis().tick_bottom()
     ax1.get_yaxis().tick_left()
 
-    p = ax1.plot(df['Error'], label=test[0])
+    # Start x-axis at 1
+    if df.index[0] == 0:
+        df.index += 1
 
     # Add the base line to the plot:
     if baseline_results is not None:
@@ -111,17 +118,24 @@ def error_plot(args, test, output_directory, filename, df, baseline_results=None
         row = baseline_results[baseline_results['Tested Application'] == test[0]]
         bl = ax1.axhline(y=row.Error.values[0], xmin=0, xmax=1, color="#fc4f30", label="Baseline (All Features)")
 
+    p = ax1.plot(df['Error'], label=test[0], linewidth=3)
+
     # Add the first 5 event names to the plot:
-    y_text = np.arange(min(df['Error']), max(df['Error']), 0.06)
+    df['Error'] = df['Error'].map(float)
+    y_text = np.arange(min(df['Error']), max(df['Error']), 0.06)[::-1]
+    if len(y_text) < 5:
+        y_text = np.arange(min(df['Error']), 0.80, 0.06)[::-1]
+        if len(y_text) < 5:
+            y_text = np.arange(0, 0.8, 0.10)[::-1]
+
     for idx, name in enumerate(df['Event']):
         if idx < 5:
             displacement = 0.02
             displacement_x = 1.50
             scale_x = 1
-            ax1.annotate(name, xy=(idx+1, df['Error'].iloc[idx]), xytext=((idx/scale_x)+displacement_x, y_text[-idx-1]+displacement),
-                         color=p[0].get_color(),
-                         arrowprops=dict(edgecolor="#999999", facecolor="#999999",
-                                         width=0.7, headwidth=5, headlength=8))
+            ax1.annotate(name, xy=(idx+1, df['Error'].iloc[idx]), xytext=((idx/scale_x)+displacement_x, y_text[idx]+displacement),
+                         color="#000000", # p[0].get_color(),
+                         arrowprops=dict(edgecolor="#999999", facecolor="#999999", width=0.5, headwidth=5, headlength=8))
 
     location = os.path.join(output_directory, filename)
     if args.paper:

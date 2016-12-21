@@ -99,6 +99,8 @@ def rowwise_training_set(args, program_of_interest, config_of_interest):
                     B = table.columns[i]
 
                     classification = True if normalized_runtime > args.cutoff else False
+                    #if classification == False:
+                    # print(A, B, normalized_runtime, classification)
                     matrix_file = get_matrix_file(args, config, A, B)
                     if matrix_file == None:
                         continue
@@ -255,8 +257,8 @@ def heatmap(args, location, data, runtimes_map, config, kconfig, title=True):
 
     if args.paper:
         plt.savefig(location + ".pdf", format='pdf', pad_inches=0.0)
-    else:
-        plt.savefig(location + ".png", format='png')
+
+    plt.savefig(location + ".png", format='png')
 
     plt.clf()
     plt.close()

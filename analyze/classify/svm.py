@@ -31,7 +31,7 @@ CLASSIFIERS = {
     #'poly1': svm.SVC(kernel='poly', degree=1),
     #'poly2': svm.SVC(kernel='poly', degree=2),
     #'poly3': svm.SVC(kernel='poly', degree=3),
-    #'poly1balancedC1.00': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=1.0),
+    'poly1balancedC1.00': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=1.0),
     #'poly1balancedC1.5': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=1.5),
     #'poly1balancedC0.01': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.01),
     #'poly1balancedC0.05': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.05),
@@ -68,6 +68,7 @@ CLASSIFIERS = {
     #'poly2balancedC20': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=20),
     #'poly2balancedC100': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=100),
     #'poly3balanced': svm.SVC(kernel='poly', degree=3, class_weight='balanced'),
+    'poly3balancedC0.51': svm.SVC(kernel='poly', degree=3, class_weight='balanced', C=0.51),
     #'rbf1': svm.SVC(kernel='rbf', degree=1),
     #'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
     #'rbf2balancedC2': svm.SVC(kernel='rbf', degree=2, class_weight='balanced', C=2),
@@ -91,10 +92,10 @@ CLASSIFIERS = {
     #'adaboost': ensemble.AdaBoostClassifier()
 }
 
-#C_RANGE = np.arange(1.0, 250, 10)
-#CLASSIFIERS.update(dict(('poly1balancedC{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=1, C=C)) for C in C_RANGE))
+C_RANGE = np.arange(0.80, 1.20, 0.01)
+CLASSIFIERS.update(dict(('poly1C{:.2f}'.format(C), svm.SVC(kernel='poly', degree=1, C=C)) for C in C_RANGE))
+CLASSIFIERS.update(dict(('poly1balancedC{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=1, C=C)) for C in C_RANGE))
 #CLASSIFIERS.update(dict(('poly2balancedC{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=2, C=C)) for C in C_RANGE))
-#CLASSIFIERS.update(dict(('poly1C{:.2f}'.format(C), svm.SVC(kernel='poly', degree=1, C=C)) for C in C_RANGE))
 #CLASSIFIERS.update(dict(('poly2C{:.2f}'.format(C), svm.SVC(kernel='poly', degree=2, C=C)) for C in C_RANGE))
 #CLASSIFIERS.update(dict(('poly3C{:.2f}'.format(C), svm.SVC(kernel='poly', degree=3, C=C)) for C in C_RANGE))
 #CLASSIFIERS.update(dict(('poly3balancedC{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=3, C=C)) for C in C_RANGE))
@@ -236,13 +237,18 @@ if __name__ == '__main__':
 
     if not args.weka:
 
+        if args.kernel:
+            kernels = [ (args.kernel, CLASSIFIERS[args.kernel]) ]
+        else:
+            kernels = list(CLASSIFIERS.items())
+
         if args.paper:
             output_directory = os.getcwd()
         else:
             output_directory = os.path.join(args.data_directory, "results_svm")
             os.makedirs(output_directory, exist_ok=True)
 
-        for kconfig, clf in list(CLASSIFIERS.items()):
+        for kconfig, clf in kernels:
             print("Trying kernel", kconfig)
             results_table = pd.DataFrame()
 

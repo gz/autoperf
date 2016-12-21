@@ -19,7 +19,7 @@ from sklearn import preprocessing
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
 from analyze.classify.svm import get_svm_metrics, CLASSIFIERS, get_argument_parser, make_svm_result_filename, make_suffixes
 from analyze.classify.svm_topk import make_ranking_filename
-from analyze.classify.svm_heatmap import cellwise_test_set, rowwise_training_set, get_pivot_tables, heatmap
+from analyze.classify.svm_heatmap import cellwise_test_set, rowwise_training_set, generate_heatmaps
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from analyze.util import *
 
@@ -39,6 +39,7 @@ def classify(args, clf, A, columns, config):
         return None
 
     event_list = mkgroup(ranking_file)
+    logging.debug("Got events", ranking_file)
 
     cells = []
     X_all, Y = rowwise_training_set(args, A, config)
@@ -71,10 +72,24 @@ def classify(args, clf, A, columns, config):
     return pd.DataFrame([row])
 
 if __name__ == '__main__':
-    parser = get_argument_parser("Compute predicition ability for every cell in the heatmap with limited amount of features.")
+    parser = get_argument_parser("Compute predicition ability for every cell in the heatmap with limited amount of features.",
+                                 arguments=['data', 'core', 'uncore', 'cutoff', 'config', 'alone',
+                                            'features', 'dropzero', 'ranking', 'kernel', 'paper'])
     args = parser.parse_args()
 
-    for kconfig, clf in list(CLASSIFIERS.items()):
+    if args.paper:
+        output_directory = os.getcwd()
+    else:
+        output_directory = os.path.join(args.data_directory, "results_svm_machine_aware_heatmap")
+
+    os.makedirs(output_directory, exist_ok=True)
+
+    if args.kernel:
+        kernels = [ (args.kernel, CLASSIFIERS[args.kernel]) ]
+    else:
+        kernels = list(CLASSIFIERS.items())
+
+    for kconfig, clf in kernels:
         logging.info("Trying kernel {}".format(kconfig))
 
         pool = Pool(processes=cpu_count())
@@ -92,13 +107,4 @@ if __name__ == '__main__':
 
         filename = make_svm_result_filename("svm_machine_aware_heatmap", args, kconfig)
         results_table.to_csv(filename + ".csv", index=False)
-
-        for (config, pivot_table) in get_pivot_tables(results_table):
-            plot_filename = filename + "_config_{}".format(config)
-
-            alone_suffix, dropzero_suffix, cutoff_suffix = make_suffixes(args)
-            title = "MAware, Training {}, uncore {}, features {}, config {}, kernel {}, {}, {}, {}" \
-                    .format("/".join(sorted(args.config)), args.uncore, " ".join(sorted(args.features)), \
-                            config, kconfig, alone_suffix, cutoff_suffix, dropzero_suffix)
-
-            heatmap(plot_filename, pivot_table, title)
+        generate_heatmaps(args, output_directory, filename, results_table, kconfig)

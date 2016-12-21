@@ -17,6 +17,11 @@ from matplotlib.colors import Normalize, LinearSegmentedColormap
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
 from analyze.classify import get_argument_parser
 
+import matplotlib
+matplotlib.rc('pdf', fonttype=42)
+ticks_font = font_manager.FontProperties(family='Decima Mono')
+plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
+
 colors = LinearSegmentedColormap.from_list('seismic', ["#ca0020", "#2ca25f"])
 
 def get_runtime_dataframe(data_directory):
@@ -182,12 +187,12 @@ def heatmap(location, data):
     plt.setp(ax.get_xticklabels(), fontproperties=label_font)
     plt.setp(ax.get_yticklabels(), fontproperties=label_font)
 
-    c = plt.pcolor(data, cmap = cm.Greys, vmin=1.0, vmax=1.5)
+    c = plt.pcolor(data, cmap = cm.Greys, vmin=1.0, vmax=data.max().max())
 
     values = data.as_matrix()
     for x in range(data.shape[1]):
         for y in range(data.shape[0]):
-            color = 'white' if values[y][x] > 1.4 else 'black'
+            color = 'white' if values[y][x] > (data.max().max() - 0.10) else 'black'
             plt.text(x + 0.5, y + 0.5, '%.2f' % values[y][x],
                      horizontalalignment='center',
                      verticalalignment='center',
