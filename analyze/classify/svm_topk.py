@@ -112,6 +112,7 @@ def error_plot(args, test, output_directory, filename, df, baseline_results=None
         bl = ax1.axhline(y=row.Error.values[0], xmin=0, xmax=1, color="#fc4f30", label="Baseline (All Features)")
 
     # Add the first 5 event names to the plot:
+    y_text = np.arange(min(df['Error']), max(df['Error']), 0.06)
     for idx, name in enumerate(df['Event']):
         if idx < 5:
             displacement = 0.02
