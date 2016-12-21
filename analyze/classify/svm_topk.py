@@ -103,12 +103,12 @@ def error_plot(args, test, output_directory, filename, df, baseline_results=None
     ax1.get_xaxis().tick_bottom()
     ax1.get_yaxis().tick_left()
 
-    p = ax1.plot(df['Error'], label=test)
+    p = ax1.plot(df['Error'], label=test[0])
 
     # Add the base line to the plot:
     if baseline_results is not None:
         assert(len(test) == 1)
-        row = baseline_results[baseline_results['Tested Application'] == test]
+        row = baseline_results[baseline_results['Tested Application'] == test[0]]
         bl = ax1.axhline(y=row.Error.values[0], xmin=0, xmax=1, color="#fc4f30", label="Baseline (All Features)")
 
     # Add the first 5 event names to the plot:
