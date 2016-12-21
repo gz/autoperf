@@ -109,13 +109,14 @@ def error_plot(args, test, output_directory, filename, df, baseline_results=None
     if baseline_results is not None:
         assert(len(test) == 1)
         row = baseline_results[baseline_results['Tested Application'] == test]
-        bl = ax.axhline(y=row.Error.values[0], xmin=0, xmax=1, color="#fc4f30", label="Baseline (All Features)")
+        bl = ax1.axhline(y=row.Error.values[0], xmin=0, xmax=1, color="#fc4f30", label="Baseline (All Features)")
 
     # Add the first 5 event names to the plot:
     for idx, name in enumerate(df['Event']):
         if idx < 5:
             displacement = 0.02
             displacement_x = 1.50
+            scale_x = 1
             ax1.annotate(name, xy=(idx+1, df['Error'].iloc[idx]), xytext=((idx/scale_x)+displacement_x, y_text[-idx-1]+displacement),
                          color=p[0].get_color(),
                          arrowprops=dict(edgecolor="#999999", facecolor="#999999",
