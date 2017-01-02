@@ -28,7 +28,7 @@ def get_argument_parser(desc, arguments=['data', 'core', 'uncore', 'cutoff', 'co
         parser.add_argument('--features', dest='features', nargs='+', type=str,
                             help="What features to include (default mean, std, min, max).",
                             default=['mean', 'std', 'min', 'max', 'rbmerge2'],
-                            choices=['mean', 'std', 'min', 'max', 'rbmerge', 'rbmerge2', 'cut1', 'cut2', 'cut4', 'merge4', 'merge2'])
+                            choices=['mean', 'std', 'min', 'max', 'rbmerge', 'rbmerge2', 'rbdrop', 'cut1', 'cut2', 'cut4', 'merge4', 'merge2'])
     if 'dropzero' in arguments:
         parser.add_argument('--dropzero', dest='dropzero', action='store_true', help="Drop all zero features.", default=False)
     if 'overwrite' in arguments:

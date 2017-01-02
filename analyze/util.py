@@ -62,7 +62,7 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
 
     # Aggregate all event samples from the same event at time
     aggregates = []
-    drop_bank_events = 'rbmerge' in aggregate_samples or 'rbmerge2' in aggregate_samples
+    drop_bank_events = 'rbmerge' in aggregate_samples or 'rbmerge2' in aggregate_samples or 'rbdrop' in aggregate_samples
 
     start_at = 0
     if aggregate_samples:
@@ -94,6 +94,8 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
                 start_at = 2
             elif agg == 'cut4':
                 start_at = 4
+            elif agg == 'rbdrop':
+                pass
             else:
                 assert "Unknown aggregation: {}. Supported are: [mean, std, max, min, rbmerge, cut1, cut2, cut4].".format(agg)
     df = pd.concat(aggregates, axis=1)
