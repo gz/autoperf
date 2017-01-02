@@ -23,17 +23,27 @@ from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_t
 from analyze.classify import get_argument_parser
 from analyze.util import *
 
-def mkgroup(cfs_ranking_file):
+def mkgroup(args, kconfig, test):
+    assert args.ranking != "sffs"
+
+    topk_input_directory = os.path.join(args.data_directory, "results_svm_topk")
+    filename = make_svm_result_filename("svm_topk_{}_for_{}".format(args.ranking, "_".join(sorted(test))), args, kconfig)
+    svm_topk_result = os.path.join(topk_input_directory, filename + ".csv")
+
+    if not os.path.exists(svm_topk_result):
+        logging.error("Can't process {} because we didn't find the SVM topk result file {}".format(' '.join(sorted(test)), svm_topk_result))
+        sys.exit(1)
+
     AUTOPERF_PATH = os.path.join(sys.path[0], "..", "..", "target", "release", "autoperf")
-    ret = subprocess.check_output([AUTOPERF_PATH, "mkgroup", "--input", cfs_ranking_file])
-    lines = ret.split(os.linesep)
+    ret = subprocess.check_output([AUTOPERF_PATH, "mkgroup", "--input", svm_topk_result])
+    lines = ret.decode("utf-8").split(os.linesep)
+
     assert lines[-1] == ''
     return lines[:-1]
 
 if __name__ == '__main__':
     parser = get_argument_parser('Get the SVM parameters when limiting the amount of features.')
     parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="List or programs to include for the test set.")
-    parser.add_argument('--cfs', dest='cfs', type=str, help="Weka file containing reduced, relevant features.")
     args = parser.parse_args()
 
 
@@ -48,14 +58,7 @@ if __name__ == '__main__':
         results_table = pd.DataFrame()
 
         for test in tests:
-            if not args.cfs:
-                ranking_file = os.path.join(args.data_directory, 'ranking', make_ranking_filename(test, args))
-                if not os.path.exists(ranking_file):
-                    logging.error(("Can't process {} because we didn't find the CFS file {}".format(' '.join(sorted(test)), ranking_file)))
-                    sys.exit(1)
-                event_list = mkgroup(ranking_file)
-            else:
-                event_list = mkgroup(args.cfs)
+            event_list = mkgroup(args, kconfig, test)
 
             X_all, Y, X_test_all, Y_test = row_training_and_test_set(args, test)
 

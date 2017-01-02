@@ -92,7 +92,7 @@ pub fn mkgroup(ranking_file: &Path) {
                             }
                         }
                         None => {
-                            panic!("Didn't find event {} in data set?", event_name);
+                            //panic!("Didn't find event {} in data set?", event_name);
                         }
                     }
                 }
