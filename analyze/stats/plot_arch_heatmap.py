@@ -7,6 +7,9 @@ from io import StringIO
 from matplotlib import pyplot as plt, font_manager
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 
+import matplotlib
+matplotlib.rc('pdf', fonttype=42)
+
 colors = LinearSegmentedColormap.from_list('seismic', ["#ca0020", "#2ca25f"])
 
 def heatmap(name, data):

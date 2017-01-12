@@ -35,6 +35,7 @@ CLASSIFIERS = {
     #'poly1balancedC1.5': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=1.5),
     #'poly1balancedC0.01': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.01),
     #'poly1balancedC0.05': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.05),
+    'poly1balancedC0.04': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.04),
     #'poly1balancedC0.06': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.06),
     'poly1balancedC0.07': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.07),
     #'poly1balancedC0.08': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.08),
@@ -227,11 +228,14 @@ if __name__ == '__main__':
     parser = get_argument_parser('Get the SVM parameters for a row in the heatmap.')
     parser.add_argument('--weka', dest='weka', action='store_true', default=False, help='Save files for Weka')
     parser.add_argument('--tests', dest='tests', nargs='+', type=str, help="List or programs to include for the test set.")
+    parser.add_argument('--all', dest='all', action='store_true', default=False, help="Use whole data set as training set.")
     args = parser.parse_args()
 
     if not args.tests:
         runtimes = get_runtime_dataframe(args.data_directory)
         tests = [[x] for x in sorted(runtimes['A'].unique())] # None here means we save the whole matrix as X (no training set)
+    elif args.all:
+        tests = [[None]]
     else:
         tests = [args.tests] # Pass the tests as a single set
 
