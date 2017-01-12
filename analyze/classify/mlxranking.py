@@ -26,9 +26,9 @@ def generate_ranking(args):
     X_scaled = min_max_scaler.fit_transform(X)
 
     if args.ranking == 'sfs':
-        sfs = SFS(clf, k_features=25, forward=True, floating=False, scoring='accuracy', verbose=2, cv=4, n_jobs=multiprocessing.cpu_count()) # was 5
+        sfs = SFS(clf, k_features=32, forward=True, floating=False, scoring='accuracy', verbose=2, cv=4, n_jobs=4) # was 5
     elif args.ranking == 'sffs':
-        sfs = SFS(clf, k_features=25, forward=True, floating=True, scoring='accuracy', verbose=2, n_jobs=5)
+        sfs = SFS(clf, k_features=32, forward=True, floating=True, scoring='accuracy', verbose=2, n_jobs=5)
     sfs = sfs.fit(X_scaled, Y)
 
     df = pd.DataFrame.from_dict(sfs.get_metric_dict()).T
