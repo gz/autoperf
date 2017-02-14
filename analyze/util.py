@@ -32,6 +32,25 @@ def merge_bank_rank_events(df, minmax=False):
     #print(merged_banks)
     return merged_banks
 
+def add_metrics(df):
+    matrix = pd.DataFrame(df)
+    matrix.reset_index(inplace=True)
+    pivot_table = matrix.pivot(index='INDEX', columns='EVENT_NAME', values='SAMPLE_VALUE')
+    df = pivot_table
+
+    metrics = pd.DataFrame()
+    metrics['ENG.IPC'] = pivot_table['INST_RETIRED.ANY_P'] / pivot_table['CPU_CLK_UNHALTED.THREAD_P_ANY']
+    metrics['ENG.DSB_SWITCHES'] = pivot_table['DSB2MITE_SWITCHES.PENALTY_CYCLES'] / pivot_table['CPU_CLK_UNHALTED.THREAD_P_ANY']
+    metrics['ENG.MS_SWITCHES'] = 3 * pivot_table['IDQ.MS_SWITCHES'] / pivot_table['CPU_CLK_UNHALTED.THREAD_P_ANY']
+    metrics['ENG.L2_BOUND'] = (pivot_table['CYCLE_ACTIVITY.STALLS_L1D_PENDING'] - pivot_table['CYCLE_ACTIVITY.STALLS_L2_PENDING']) / pivot_table['CPU_CLK_UNHALTED.THREAD_P_ANY']
+    metrics['ENG.L3_HIT_FRACTION'] = pivot_table['MEM_LOAD_UOPS_RETIRED.LLC_HIT'] / (pivot_table['MEM_LOAD_UOPS_RETIRED.LLC_HIT']+7*pivot_table['MEM_LOAD_UOPS_RETIRED.LLC_MISS'])
+    metrics['ENG.L3_BOUND'] = (metrics['ENG.L3_HIT_FRACTION'] * pivot_table['CYCLE_ACTIVITY.STALLS_L2_PENDING']) / pivot_table['CPU_CLK_UNHALTED.THREAD_P_ANY']
+    metrics['ENG.MEM_BOUND'] = ((1 - metrics['ENG.L3_HIT_FRACTION']) * pivot_table['CYCLE_ACTIVITY.STALLS_L2_PENDING']) / pivot_table['CPU_CLK_UNHALTED.THREAD_P_ANY']
+    #metrics['ENG.STALLS_MEM_ANY'] = pd.concat(pivot_table['CPU_CLK_UNHALTED.THREAD'], pivot_table['CYCLE_ACTIVITY.STALLS_L1D_PENDING']).min(axis=1)
+    #metrics['ENG.STORES_BOUND'] = (pivot_table['RESOURCE_STALLS.SB'] - metrics['ENG.STALLS_MEM_ANY']) / pivot_table['CPU_CLK_UNHALTED.THREAD_P_ANY']
+
+    return metrics
+
 def aggregation_matrix(prefix, series, drop_bank_events=False):
     matrix = pd.DataFrame(series)
     matrix.reset_index(inplace=True)
@@ -96,6 +115,9 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
                 start_at = 4
             elif agg == 'rbdrop':
                 pass
+            elif agg == 'metrics':
+                series = grouped_df['SAMPLE_VALUE'].mean()
+                aggregates.append(add_metrics(series))
             else:
                 assert "Unknown aggregation: {}. Supported are: [mean, std, max, min, rbmerge, cut1, cut2, cut4].".format(agg)
     df = pd.concat(aggregates, axis=1)

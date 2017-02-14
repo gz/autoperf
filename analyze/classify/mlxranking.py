@@ -48,7 +48,11 @@ def generate_ranking(args):
     df.reset_index(inplace=True)
     df['name'] = series
 
-    filename = make_ranking_filename([args.test], args)
+    if args.all:
+        tests = ['all']
+    else:
+        tests = [args.test]
+    filename = make_ranking_filename(tests, args)
     df.to_csv(os.path.join(output_directory, filename), index=False)
     return df
 

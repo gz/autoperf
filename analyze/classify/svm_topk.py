@@ -100,7 +100,7 @@ def error_plot(args, test, output_directory, filename, df, baseline_results=None
     ax1.set_xlabel('Events [Count]')
     ax1.set_yticks([0.0, 0.25, 0.5, 0.75, 1.0])
     ax1.set_yticklabels(["0", "25", "50", "75", "100"])
-    ax1.set_xticks([1, 5, 10, 15, 20, 25])
+    ax1.set_xticks([1, 5, 10, 15, 20, 25, 28])
     ax1.set_ylabel('Error [%]')
     ax1.set_ylim((0.0, 1.0))
     ax1.spines['top'].set_visible(False)
@@ -156,7 +156,7 @@ def classify(args, test, clf, event_list):
     X_test = pd.DataFrame()
 
     results_table = pd.DataFrame()
-    for event in event_list.head(25).itertuples():
+    for event in event_list.head(28).itertuples():
         if args.ranking == 'sffs':
             from ast import literal_eval as make_tuple
             X = pd.DataFrame()

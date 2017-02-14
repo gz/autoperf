@@ -18,91 +18,13 @@ from sklearn import tree
 from sklearn import neighbors
 from sklearn import ensemble
 from sklearn import linear_model
+from sklearn import model_selection
 
 sys.path.insert(1, os.path.join(os.path.realpath(os.path.split(__file__)[0]), '..', ".."))
 from analyze.classify import get_argument_parser
 from analyze.classify.runtimes import get_runtime_dataframe, get_runtime_pivot_tables
 from analyze.classify.generate_matrix import matrix_file_name
 from analyze.util import *
-
-
-CLASSIFIERS = {
-    'linear': svm.SVC(kernel='linear'),
-    'linearbalanced': svm.SVC(kernel='linear', class_weight='balanced'),
-    'poly1': svm.SVC(kernel='poly', degree=1),
-    'poly2': svm.SVC(kernel='poly', degree=2),
-    'poly3': svm.SVC(kernel='poly', degree=3),
-    'poly1balancedC1.00': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=1.0),
-    'poly1balancedC1.5': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=1.5),
-    'poly1balancedC0.01': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.01),
-    'poly1balancedC0.05': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.05),
-    'poly1balancedC0.04': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.04),
-    'poly1balancedC0.06': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.06),
-    'poly1balancedC0.07': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.07),
-    'poly1balancedC0.08': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.08),
-    'poly1balancedC0.10': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.1),
-    'poly1balancedC0.20': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.2),
-    'poly1balancedC0.30': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.3),
-    'poly1balancedC0.50': svm.SVC(kernel='poly', degree=1, class_weight='balanced', C=0.5),
-    'poly2balancedC0.10': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.1),
-    'poly2balancedC0.50': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.5),
-    'poly2balancedC1.00': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.00),
-    'poly2balancedC1.2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.2),
-    'poly2balancedC1.50': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.50),
-    'poly2balancedC1.1': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.1),
-    'poly2balancedC1.2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.2),
-    'poly2balancedC1.3': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.3),
-    'poly2balancedC1.6': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.6),
-    'poly2balancedC1.8': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.8),
-    'poly2balancedC1.90': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=1.90),
-    'poly2balancedC2.00': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.00),
-    'poly2balancedC2.10': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.10),
-    'poly2balancedC2.2': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.2),
-    'poly2balancedC2.3': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.3),
-    'poly2balancedC2.4': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.4),
-    'poly2balancedC2.50': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=2.5),
-    'poly2balancedC0.10': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.1),
-    'poly2balancedC0.01': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=0.01),
-    'poly2balancedC3.5': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=3.5),
-    'poly2balancedC4.5': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=4.5),
-    'poly2balancedC5.5': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=5.5),
-    'poly2balancedC10': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=10),
-    'poly2balancedC20': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=20),
-    'poly2balancedC100': svm.SVC(kernel='poly', degree=2, class_weight='balanced', C=100),
-    'poly3balanced': svm.SVC(kernel='poly', degree=3, class_weight='balanced'),
-    'poly3balancedC0.51': svm.SVC(kernel='poly', degree=3, class_weight='balanced', C=0.51),
-    'rbf1': svm.SVC(kernel='rbf', degree=1),
-    'rbf1balanced': svm.SVC(kernel='rbf', degree=1, class_weight='balanced'),
-    'rbf2balancedC2': svm.SVC(kernel='rbf', degree=2, class_weight='balanced', C=2),
-    'rbf2balanced': svm.SVC(kernel='rbf', degree=2, class_weight='balanced'),
-    'rbf1balanced': svm.SVC(kernel='rbf', degree=2, class_weight='balanced'),
-    'neural': neural_network.MLPClassifier(),
-    'neuralsgd': neural_network.MLPClassifier(solver='sgd'),
-    'neuraladaptivelogistic': neural_network.MLPClassifier(activation='logistic', learning_rate='adaptive'),
-    'passiveaggr': linear_model.PassiveAggressiveClassifier(),
-    'randomforest10': ensemble.RandomForestClassifier(n_estimators=10),
-    'randomforest20': ensemble.RandomForestClassifier(n_estimators=20),
-    'randomforest30': ensemble.RandomForestClassifier(n_estimators=30),
-    'decision': tree.DecisionTreeClassifier(),
-    'decision5': tree.DecisionTreeClassifier(max_features=5),
-    'decision10': tree.DecisionTreeClassifier(max_features=10),
-    'decision15': tree.DecisionTreeClassifier(max_features=15),
-    'decision20': tree.DecisionTreeClassifier(max_features=20),
-    'decision120': tree.DecisionTreeClassifier(max_features=120),
-    'kneighbors': neighbors.KNeighborsClassifier(),
-    'kneighborsdistance': neighbors.KNeighborsClassifier(weights='distance'),
-    'adaboost': ensemble.AdaBoostClassifier()
-}
-
-C_RANGE = np.arange(0.10, 10, 0.10)
-CLASSIFIERS.update(dict(('poly1balancedC{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=1, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly2balancedC{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=2, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly1C{:.2f}'.format(C), svm.SVC(kernel='poly', degree=1, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly2C{:.2f}'.format(C), svm.SVC(kernel='poly', degree=2, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly3C{:.2f}'.format(C), svm.SVC(kernel='poly', degree=3, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('poly3balancedC{:.2f}'.format(C), svm.SVC(kernel='poly', class_weight='balanced', degree=3, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('rbf3{:.2f}'.format(C), svm.SVC(kernel='rbf', degree=3, C=C)) for C in C_RANGE))
-CLASSIFIERS.update(dict(('rbf3balanced{:.2f}'.format(C), svm.SVC(kernel='rbf', class_weight='balanced', degree=3, C=C)) for C in C_RANGE))
 
 
 SMT_SPEEDUP = {
@@ -232,36 +154,41 @@ if __name__ == '__main__':
     else:
         tests = [args.tests] # Pass the tests as a single set
 
-    if not args.weka:
 
-        if args.kernel:
-            kernels = [ (args.kernel, CLASSIFIERS[args.kernel]) ]
-        else:
-            kernels = list(CLASSIFIERS.items())
+    if args.paper:
+        output_directory = os.getcwd()
+    else:
+        output_directory = os.path.join(args.data_directory, "results_svm")
+        os.makedirs(output_directory, exist_ok=True)
 
-        if args.paper:
-            output_directory = os.getcwd()
-        else:
-            output_directory = os.path.join(args.data_directory, "results_svm")
-            os.makedirs(output_directory, exist_ok=True)
+    svr = svm.SVC()
+    parameters = {
+      'kernel': ['poly'],
+      'degree': [1, 2],
+      'C': [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 20, 30, 40, 50]
+    }
 
-        for kconfig, clf in kernels:
-            print("Trying kernel", kconfig)
-            results_table = pd.DataFrame()
+    results_table = pd.DataFrame()
 
-            for test in tests:
-                X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args, test)
-                min_max_scaler = preprocessing.MinMaxScaler()
-                X_scaled = min_max_scaler.fit_transform(X)
+    for test in tests:
+        X, Y, Y_weights, X_test, Y_test = row_training_and_test_set(args, test)
+        min_max_scaler = preprocessing.MinMaxScaler()
+        X_scaled = min_max_scaler.fit_transform(X)
 
-                if test != [None]:
-                    X_test_scaled = min_max_scaler.transform(X_test)
-                    clf.fit(X_scaled, Y)
-                    Y_pred = clf.predict(X_test_scaled)
+        if test != [None]:
+            X_test_scaled = min_max_scaler.transform(X_test)
+            clf = model_selection.GridSearchCV(svr, parameters, n_jobs=4)
+            clf.fit(X_scaled, Y)
 
-                    row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
-                    results_table = results_table.append(row, ignore_index=True)
-                    print(results_table)
+            Y_pred = clf.predict(X_test_scaled)
 
-            filename = make_svm_result_filename("svm_scalesmt_results", args, kconfig)
-            results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)
+            row = get_svm_metrics(args, test, Y, Y_test, Y_pred)
+            row['kernel'] = clf.best_estimator_.kernel
+            row['degree'] = clf.best_estimator_.degree
+            row['C'] = clf.best_estimator_.C
+            row['class_weight'] = 'balanced'
+            results_table = results_table.append(row, ignore_index=True)
+            print(results_table)
+
+    filename = make_svm_result_filename("svm_scalesmt_results", args, kconfig)
+    results_table.to_csv(os.path.join(output_directory, filename + ".csv"), index=False)

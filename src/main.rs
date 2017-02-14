@@ -106,7 +106,7 @@ fn main() {
     if let Some(matches) = matches.subcommand_matches("scale") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
         let dryrun: bool = matches.is_present("dryrun");
-        scale(output_path, dryrun);
+        // scale(output_path, dryrun);
     }
     if let Some(matches) = matches.subcommand_matches("stats") {
         let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));

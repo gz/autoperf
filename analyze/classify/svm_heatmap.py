@@ -236,7 +236,7 @@ def heatmap(args, location, data, runtimes_map, config, kconfig, title=True):
     runtimes = runtimes_map.as_matrix()
     for x in range(data.shape[1]):
         for y in range(data.shape[0]):
-            if runtimes[x][y] >= (args.cutoff - 0.03) and runtimes[x][y] <= (args.cutoff + 0.03):
+            if runtimes[x][y] <= args.cutoff:
                 if values[x][y] > 0.50:
                     rect = plt.Rectangle((y,x), 1, 1, color='white', alpha=0.70)
                     ax.add_patch(rect)

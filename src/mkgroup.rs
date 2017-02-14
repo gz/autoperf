@@ -71,8 +71,11 @@ pub fn mkgroup(ranking_file: &Path) {
                             events_added.insert(event_name, true);
                             println!("{}", feature_name);
                         }
-                        Err(_) => {
-                            // info!("Unable to add event: {}", event_name)
+                        Err(e) => {
+                            info!("Unable to add event: '{}' to {:?} because of '{}'",
+                                  event_name,
+                                  event.unit,
+                                  e)
                         }
                     }
                 }
@@ -86,13 +89,16 @@ pub fn mkgroup(ranking_file: &Path) {
                                     events_added.insert(event_name, true);
                                     println!("{}", feature_name);
                                 }
-                                Err(_) => {
-                                    // info!("Unable to add event: {}", event_name)
+                                Err(e) => {
+                                    info!("Unable to add event: '{}' to {:?} because of '{}'",
+                                          event_name,
+                                          uncore_event.unit,
+                                          e)
                                 }
                             }
                         }
                         None => {
-                            //panic!("Didn't find event {} in data set?", event_name);
+                            // panic!("Didn't find event {} in data set?", event_name);
                         }
                     }
                 }

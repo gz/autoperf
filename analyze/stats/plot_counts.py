@@ -4,10 +4,6 @@ from matplotlib import pyplot as plt, font_manager
 import numpy as np
 import pandas as pd
 
-import matplotlib
-matplotlib.rc('pdf', fonttype=42)
-plt.style.use([os.path.join(sys.path[0], '..', 'ethplot.mplstyle')])
-
 ticks_font = font_manager.FontProperties(family='Decima Mono')
 plt.style.use([os.path.join(sys.path[0], '../ethplot.mplstyle')])
 NAME = "counters_vs_events"
@@ -72,10 +68,11 @@ if __name__ == '__main__':
         ax1.annotate(name, xy=(xpos, ypos), xytext=(xpos, ypos), weight='light')
 
     p = ax1.plot(raw_data['events'], marker='o', linestyle='None')
-    p = ax1.plot(raw_data['counters'])
+    p = ax1.plot([2014], [28], marker='o', linestyle='None')
     plt.xticks(raw_data.index.unique())
 
-    ax1.annotate("HW Counters per Core", xy=(2014, 0), xytext=(2013.4, 29), color=p[0].get_color())
+    ax1.annotate("HW Counters (Xeon E5-2670v2)", xy=(2014, 0), xytext=(2010.5, 43), color=p[0].get_color())
+    #ax1.annotate("HW Counters per Core", xy=(2014, 0), xytext=(2013.4, 29), color=p[0].get_color())
 
     ax1.get_xaxis().get_major_formatter().set_useOffset(False)
     plt.setp(ax1.get_xticklabels(), fontproperties=ticks_font)
