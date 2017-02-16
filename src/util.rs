@@ -110,8 +110,11 @@ fn save_file(cmd: &'static str,
         try!(f.write(content.as_bytes()));
         Ok(content)
     } else {
-        error!("{} command: got unknown exit status was: {}", cmd, out.status);
-        debug!("stderr:\n{}", String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
+        error!("{} command: got unknown exit status was: {}",
+               cmd,
+               out.status);
+        debug!("stderr:\n{}",
+               String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
         unreachable!()
     }
 }
@@ -365,16 +368,14 @@ impl MachineTopology {
 
 // TODO: Should ideally be generic:
 pub fn socket_uncore_devices() -> Vec<&'static str> {
-    vec![
-        "uncore_ha_0",
-        "uncore_imc_0",
-        "uncore_imc_1",
-        "uncore_imc_2",
-        "uncore_imc_3",
-        "uncore_pcu",
-        "uncore_r2pcie",
-        "uncore_r3qpi_0",
-        "uncore_r3qpi_1",
-        "uncore_ubox",
-    ]
+    vec!["uncore_ha_0",
+         "uncore_imc_0",
+         "uncore_imc_1",
+         "uncore_imc_2",
+         "uncore_imc_3",
+         "uncore_pcu",
+         "uncore_r2pcie",
+         "uncore_r3qpi_0",
+         "uncore_r3qpi_1",
+         "uncore_ubox"]
 }

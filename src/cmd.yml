@@ -117,3 +117,5 @@ subcommands:
             - directory:
                 help: Set input directory.
                 required: true
+    - unknown:
+        about: Print events potentially not covered in Intel public records.

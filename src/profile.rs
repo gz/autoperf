@@ -28,15 +28,15 @@ lazy_static! {
     };
 
     static ref PMU_COUNTERS: HashMap<MonitoringUnit, usize> = {
-// TODO: How can I get this info from /sys/bus/event_source?
+        // TODO: How can I get this info from /sys/bus/event_source?
         let cpuid = cpuid::CpuId::new();
         let cpu_counter = cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters()) as usize;
         let mut res = HashMap::with_capacity(11);
         res.insert(MonitoringUnit::CPU, cpu_counter);
 
         cpuid.get_feature_info().map(|fi| {
+            // IvyBridge EP
             if fi.family_id() == 0x6 && fi.model_id() == 0xe {
-// IvyBridge EP
                 res.insert(MonitoringUnit::UBox, 2);
                 res.insert(MonitoringUnit::CBox, 4);
                 res.insert(MonitoringUnit::HA, 4);
@@ -64,12 +64,11 @@ lazy_static! {
             }
         });
 
-
         res
     };
 
     static ref PMU_DEVICES: Vec<String> = {
-// TODO: Return empty Vec in case of error
+        // TODO: Return empty Vec in case of error
         let paths = fs::read_dir("/sys/bus/event_source/devices/").expect("Can't read devices directory.");
         let mut devices = Vec::with_capacity(15);
         for p in paths {
@@ -81,10 +80,10 @@ lazy_static! {
         devices
     };
 
-// Bogus events that have some weird description
+    // Bogus events that have some weird description
     static ref IGNORE_EVENTS: HashMap<&'static str, bool> = {
         let mut ignored = HashMap::with_capacity(1);
-        ignored.insert("UNC_CLOCK.SOCKET", true); // Just says fixed and does not name which counter :/
+        ignored.insert("UNC_CLOCK.SOCKET", true); // Just says 'fixed' and does not name which counter :/
         ignored
     };
 
@@ -95,7 +94,7 @@ lazy_static! {
         cpuid.get_feature_info().map_or(
             vec![],
             |fi| {
-// IvyBridge and IvyBridge-EP, is it correct to check only extended model and not model?
+                // IvyBridge and IvyBridge-EP, is it correct to check only extended model and not model?
                 if fi.family_id() == 0x6 && fi.extended_model_id() == 0x3 {
                     vec![   "MEM_UOPS_RETIRED.ALL_STORES",
                             "MEM_LOAD_UOPS_RETIRED.L1_MISS",
@@ -116,7 +115,7 @@ lazy_static! {
                             "MEM_UOPS_RETIRED.LOCK_LOADS",
                             "MEM_LOAD_UOPS_RETIRED.LLC_HIT",
                             "MEM_UOPS_RETIRED.SPLIT_STORES",
-// Those are IvyBridge-EP events:
+                            // Those are IvyBridge-EP events:
                             "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_DRAM",
                             "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_HITM",
                             "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_FWD"]
@@ -183,7 +182,7 @@ fn create_out_directory(out_dir: &Path) {
     }
 }
 
-fn get_events() -> Vec<&'static EventDescription> {
+pub fn get_known_events() -> Vec<&'static EventDescription> {
     let mut events: Vec<&EventDescription> = core_counters().unwrap().values().collect();
     let mut uncore_events: Vec<&EventDescription> = uncore_counters().unwrap().values().collect();
     events.append(&mut uncore_events);
@@ -339,6 +338,22 @@ impl PerfEvent {
         (devices, configs)
     }
 
+    /// Does this event use the passed code?
+    pub fn uses_event_code(&self, event_code: u8) -> bool {
+        match self.0.event_code {
+            Tuple::One(e1) => e1 == event_code,
+            Tuple::Two(e1, e2) => e1 == event_code || e2 == event_code,
+        }
+    }
+
+    /// Does this event use the passed code?
+    pub fn uses_umask(&self, umask: u8) -> bool {
+        match self.0.umask {
+            Tuple::One(m1) => m1 == umask,
+            Tuple::Two(m1, m2) => m1 == umask || m2 == umask,
+        }
+    }
+
     /// Is this event an uncore event?
     pub fn is_uncore(&self) -> bool {
         self.0.unit.is_some()
@@ -407,9 +422,9 @@ impl PerfEvent {
         }
         PerfEvent::push_arg(&mut ret, format!("name={}", self.0.event_name));
 
-        let is_pcu = self.0.unit.map_or(false, |u| {
-            return MonitoringUnit::new(u) == MonitoringUnit::PCU;
-        });
+        let is_pcu =
+            self.0.unit.map_or(false,
+                               |u| { return MonitoringUnit::new(u) == MonitoringUnit::PCU; });
 
         match self.0.event_code {
             Tuple::One(ev) => {
@@ -657,12 +672,10 @@ impl<'o> PerfEventGroup<'o> {
         // Get all the events that share the same counters as new_event:
         let mut events: Vec<&PerfEvent> = self.events_by_unit(unit)
             .into_iter()
-            .filter(|c| {
-                match (c.counter(), new_event.counter()) {
-                    (Counter::Programmable(_), Counter::Programmable(_)) => true,
-                    (Counter::Fixed(_), Counter::Fixed(_)) => true,
-                    _ => false,
-                }
+            .filter(|c| match (c.counter(), new_event.counter()) {
+                (Counter::Programmable(_), Counter::Programmable(_)) => true,
+                (Counter::Fixed(_), Counter::Fixed(_)) => true,
+                _ => false,
             })
             .collect();
 
@@ -1010,7 +1023,7 @@ pub fn profile(output_path: &Path,
                         "stdin"));
     assert!(r.is_ok());
 
-    let event_groups = schedule_events(get_events());
+    let event_groups = schedule_events(get_known_events());
 
     // For warm-up do a dummy run of the program with perf
     let mut record_path = Path::new("/dev/null");

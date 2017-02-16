@@ -30,6 +30,7 @@ mod scale;
 mod stats;
 mod util;
 mod mkgroup;
+mod unknown_events;
 
 use profile::profile;
 use extract::extract;
@@ -37,6 +38,7 @@ use pair::pair;
 use stats::stats;
 use scale::scale;
 use mkgroup::mkgroup;
+use unknown_events::print_unknown_events;
 
 fn setup_logging() {
     use log::{LogRecord, LogLevelFilter};
@@ -115,6 +117,9 @@ fn main() {
     if let Some(matches) = matches.subcommand_matches("mkgroup") {
         let ranking_file = Path::new(matches.value_of("file").unwrap_or("notfound"));
         mkgroup(ranking_file);
+    }
+    if let Some(matches) = matches.subcommand_matches("unknown") {
+        print_unknown_events();
     }
 
 }
