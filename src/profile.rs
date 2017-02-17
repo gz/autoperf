@@ -296,9 +296,9 @@ impl MonitoringUnit {
 
 
 #[derive(Debug)]
-pub struct PerfEvent(pub &'static EventDescription);
+pub struct PerfEvent<'a>(pub &'a EventDescription);
 
-impl PerfEvent {
+impl<'a> PerfEvent<'a> {
     /// Returns all possible configurations of the event.
     /// This is a two vector tuple containing devices and configs:
     ///
@@ -576,7 +576,7 @@ impl error::Error for AddEventError {
 
 #[derive(Debug)]
 pub struct PerfEventGroup<'o> {
-    events: Vec<PerfEvent>,
+    events: Vec<PerfEvent<'o>>,
     limits: &'o HashMap<MonitoringUnit, usize>,
 }
 
@@ -615,7 +615,7 @@ impl<'o> PerfEventGroup<'o> {
                                    max_level: usize,
                                    events: Vec<&'a PerfEvent>,
                                    assignment: Vec<&'a PerfEvent>)
-                                   -> Option<Vec<&'a PerfEvent>> {
+                                   -> Option<Vec<&'a PerfEvent<'a>>> {
         // Are we done yet?
         if events.len() == 0 {
             return Some(assignment);
@@ -714,7 +714,7 @@ impl<'o> PerfEventGroup<'o> {
     /// Things we consider not entirely correct right now:
     /// * Event Erratas this is not complete in the JSON files, and we just run them in isolation
     ///
-    pub fn add_event(&mut self, event: PerfEvent) -> Result<(), AddEventError> {
+    pub fn add_event(&mut self, event: PerfEvent<'o>) -> Result<(), AddEventError> {
         // 1. Can't measure more than two offcore events:
         if event.is_offcore() && self.offcore_events() == 2 {
             return Err(AddEventError::OffcoreCapacityReached);
@@ -845,7 +845,7 @@ impl<'o> PerfEventGroup<'o> {
 }
 
 /// Given a list of events, create a list of event groups that can be measured together.
-fn schedule_events(events: Vec<&'static EventDescription>) -> Vec<PerfEventGroup> {
+fn schedule_events<'a>(events: Vec<&'a EventDescription>) -> Vec<PerfEventGroup> {
     let mut groups: Vec<PerfEventGroup> = Vec::with_capacity(42);
 
     for event in events {
@@ -978,12 +978,19 @@ fn get_perf_command(cmd_working_dir: &str,
     perf
 }
 
-pub fn profile(output_path: &Path,
+pub fn profile<'a>(output_path: &Path,
                cmd_working_dir: &str,
                cmd: Vec<String>,
                env: Vec<(String, String)>,
                breakpoints: Vec<String>,
-               record: bool) {
+               record: bool,
+               events: Option<Vec<&'a EventDescription>>) {
+
+    let event_groups = match events {
+        Some(evts) => schedule_events(evts),
+        None => schedule_events(get_known_events())
+    };
+
     // Is this run already done (in case we restart):
     let mut completed_file: PathBuf = output_path.to_path_buf();
     completed_file.push("completed");
@@ -1022,8 +1029,6 @@ pub fn profile(output_path: &Path,
                         "stdout",
                         "stdin"));
     assert!(r.is_ok());
-
-    let event_groups = schedule_events(get_known_events());
 
     // For warm-up do a dummy run of the program with perf
     let mut record_path = Path::new("/dev/null");

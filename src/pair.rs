@@ -347,7 +347,7 @@ impl<'a> Run<'a> {
                          cmd,
                          env,
                          bps,
-                         false);
+                         false, None);
         Ok(())
     }
 

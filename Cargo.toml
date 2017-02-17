@@ -18,7 +18,7 @@ toml = "0.2"
 nom = "^1.2.3"
 libc = "0.2.16"
 clap = { version = "2", features = ["yaml"] }
-x86 = { version = "0.9.*", git = 'https://github.com/gz/rust-x86' }
+x86 = { path = "../rust-x86/" }
 phf = "0.7.*"
 itertools = "0.5"
 rustc-serialize = "0.3"

@@ -73,7 +73,7 @@ fn main() {
                 cmd,
                 Default::default(),
                 Default::default(),
-                record);
+                record, None);
     }
     if let Some(matches) = matches.subcommand_matches("extract") {
         let input_directory = Path::new(matches.value_of("directory").unwrap_or("out"));
