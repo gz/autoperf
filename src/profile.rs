@@ -176,13 +176,13 @@ fn execute_perf(perf: &mut Command,
     (perf_cmd_str, stdout, stderr)
 }
 
-fn create_out_directory(out_dir: &Path) {
+pub fn create_out_directory(out_dir: &Path) {
     if !out_dir.exists() {
         std::fs::create_dir(out_dir).expect("Can't create `out` directory");
     }
 }
 
-pub fn get_known_events() -> Vec<&'static EventDescription> {
+pub fn get_known_events<'a>() -> Vec<&'a EventDescription<'static>> {
     let mut events: Vec<&EventDescription> = core_counters().unwrap().values().collect();
     let mut uncore_events: Vec<&EventDescription> = uncore_counters().unwrap().values().collect();
     events.append(&mut uncore_events);
@@ -220,7 +220,7 @@ pub enum MonitoringUnit {
     /// Power Control Unit
     PCU,
     /// Types we don't know how to handle...
-    Unknown(&'static str),
+    Unknown,
 }
 
 impl fmt::Display for MonitoringUnit {
@@ -239,13 +239,13 @@ impl fmt::Display for MonitoringUnit {
             MonitoringUnit::IMC => write!(f, "IMC"),
             MonitoringUnit::HA => write!(f, "HA"),
             MonitoringUnit::PCU => write!(f, "PCU"),
-            MonitoringUnit::Unknown(s) => write!(f, "{}", s),
+            MonitoringUnit::Unknown => write!(f, "Unknown"),
         }
     }
 }
 
 impl MonitoringUnit {
-    fn new(unit: &'static str) -> MonitoringUnit {
+    fn new<'a>(unit: &'a str) -> MonitoringUnit {
         match unit.to_lowercase().as_str() {
             "cpu" => MonitoringUnit::CPU,
             "cbo" => MonitoringUnit::CBox,
@@ -253,7 +253,6 @@ impl MonitoringUnit {
             "sbo" => MonitoringUnit::SBox,
             "imph-u" => MonitoringUnit::Arb,
             "arb" => MonitoringUnit::Arb,
-
             "r3qpi" => MonitoringUnit::R3QPI,
             "qpi ll" => MonitoringUnit::QPI_LL,
             "irp" => MonitoringUnit::IRP,
@@ -262,7 +261,26 @@ impl MonitoringUnit {
             "ha" => MonitoringUnit::HA,
             "pcu" => MonitoringUnit::PCU,
             "ubox" => MonitoringUnit::UBox,
-            _ => MonitoringUnit::Unknown(unit),
+            _ => MonitoringUnit::Unknown,
+        }
+    }
+
+    pub fn to_intel_event_description(&self) -> Option<&'static str> {
+        match *self {
+            MonitoringUnit::CPU => None,
+            MonitoringUnit::CBox => Some("CBO"),
+            MonitoringUnit::QPI => Some("QPI_LL"),
+            MonitoringUnit::SBox => Some("SBO"),
+            MonitoringUnit::Arb => Some("ARB"),
+            MonitoringUnit::R3QPI => Some("R3QPI"),
+            MonitoringUnit::QPI_LL => Some("QPI LL"),
+            MonitoringUnit::IRP => Some("IRP"),
+            MonitoringUnit::R2PCIe => Some("R2PCIE"),
+            MonitoringUnit::IMC => Some("IMC"),
+            MonitoringUnit::HA => Some("HA"),
+            MonitoringUnit::PCU => Some("PCU"),
+            MonitoringUnit::UBox => Some("UBOX"),
+            MonitoringUnit::Unknown => None,
         }
     }
 
@@ -275,7 +293,6 @@ impl MonitoringUnit {
             MonitoringUnit::QPI => Some("uncore_qpi"),
             MonitoringUnit::SBox => Some("uncore_sbox"),
             MonitoringUnit::Arb => Some("uncore_arb"),
-
             MonitoringUnit::R3QPI => Some("uncore_r3qpi"), // Adds postfix value
             MonitoringUnit::QPI_LL => Some("uncore_qpi"), // Adds postfix value
             MonitoringUnit::IRP => Some("uncore_irp"), // According to libpfm4 (lib/pfmlib_intel_ivbep_unc_irp.c)
@@ -284,7 +301,7 @@ impl MonitoringUnit {
             MonitoringUnit::HA => Some("uncore_ha"), // Adds postfix value
             MonitoringUnit::PCU => Some("uncore_pcu"),
             MonitoringUnit::UBox => Some("uncore_ubox"),
-            MonitoringUnit::Unknown(_) => None,
+            MonitoringUnit::Unknown => None,
         };
 
         // Note: If anything here does not return uncore_ as a prefix, you need to update extract.rs!
@@ -296,9 +313,9 @@ impl MonitoringUnit {
 
 
 #[derive(Debug)]
-pub struct PerfEvent<'a>(pub &'a EventDescription);
+pub struct PerfEvent<'a, 'b>(pub &'a EventDescription<'b>) where 'b: 'a;
 
-impl<'a> PerfEvent<'a> {
+impl<'a, 'b> PerfEvent<'a, 'b> {
     /// Returns all possible configurations of the event.
     /// This is a two vector tuple containing devices and configs:
     ///
@@ -575,14 +592,16 @@ impl error::Error for AddEventError {
 }
 
 #[derive(Debug)]
-pub struct PerfEventGroup<'o> {
-    events: Vec<PerfEvent<'o>>,
-    limits: &'o HashMap<MonitoringUnit, usize>,
+pub struct PerfEventGroup<'a, 'b>
+    where 'b: 'a
+{
+    events: Vec<PerfEvent<'a, 'b>>,
+    limits: &'a HashMap<MonitoringUnit, usize>,
 }
 
-impl<'o> PerfEventGroup<'o> {
+impl<'a, 'b> PerfEventGroup<'a, 'b> {
     /// Make a new performance event group.
-    pub fn new(unit_sizes: &'o HashMap<MonitoringUnit, usize>) -> PerfEventGroup {
+    pub fn new(unit_sizes: &'a HashMap<MonitoringUnit, usize>) -> PerfEventGroup {
         PerfEventGroup {
             events: Default::default(),
             limits: unit_sizes,
@@ -611,11 +630,11 @@ impl<'o> PerfEventGroup<'o> {
     /// (i.e., either all programmable or all fixed) and the same unit.
     ///
     /// Returns a possible placement or None if no assignment was possible.
-    fn find_counter_assignment<'a>(level: usize,
-                                   max_level: usize,
-                                   events: Vec<&'a PerfEvent>,
-                                   assignment: Vec<&'a PerfEvent>)
-                                   -> Option<Vec<&'a PerfEvent<'a>>> {
+    fn find_counter_assignment(level: usize,
+                               max_level: usize,
+                               events: Vec<&'a PerfEvent<'a, 'b>>,
+                               assignment: Vec<&'a PerfEvent<'a, 'b>>)
+                               -> Option<Vec<&'a PerfEvent<'a, 'b>>> {
         // Are we done yet?
         if events.len() == 0 {
             return Some(assignment);
@@ -714,7 +733,7 @@ impl<'o> PerfEventGroup<'o> {
     /// Things we consider not entirely correct right now:
     /// * Event Erratas this is not complete in the JSON files, and we just run them in isolation
     ///
-    pub fn add_event(&mut self, event: PerfEvent<'o>) -> Result<(), AddEventError> {
+    pub fn add_event(&mut self, event: PerfEvent<'a, 'b>) -> Result<(), AddEventError> {
         // 1. Can't measure more than two offcore events:
         if event.is_offcore() && self.offcore_events() == 2 {
             return Err(AddEventError::OffcoreCapacityReached);
@@ -839,13 +858,15 @@ impl<'o> PerfEventGroup<'o> {
     ///
     /// The order of the list of names matches with the order
     /// returned by `get_perf_config_strings` or `get_perf_config`.
-    pub fn get_event_names(&self) -> Vec<&'static str> {
+    pub fn get_event_names(&self) -> Vec<&'b str> {
         self.events.iter().map(|event| event.0.event_name).collect()
     }
 }
 
 /// Given a list of events, create a list of event groups that can be measured together.
-fn schedule_events<'a>(events: Vec<&'a EventDescription>) -> Vec<PerfEventGroup> {
+pub fn schedule_events<'a, 'b>(events: Vec<&'a EventDescription<'b>>) -> Vec<PerfEventGroup<'a, 'b>>
+    where 'b: 'a
+{
     let mut groups: Vec<PerfEventGroup> = Vec::with_capacity(42);
 
     for event in events {
@@ -856,8 +877,8 @@ fn schedule_events<'a>(events: Vec<&'a EventDescription>) -> Vec<PerfEventGroup>
         let perf_event: PerfEvent = PerfEvent(event);
         let mut added: Result<(), AddEventError> = Err(AddEventError::ErrataConflict);
         match perf_event.unit() {
-            MonitoringUnit::Unknown(s) => {
-                info!("Ignoring event {} with unknown unit '{}'", event, s);
+            MonitoringUnit::Unknown => {
+                info!("Ignoring event with unknown unit '{}'", event);
                 continue;
             }
             _ => (),
@@ -947,12 +968,12 @@ impl<'a> Profile<'a> {
     }
 }
 
-fn get_perf_command(cmd_working_dir: &str,
-                    output_path: &Path,
-                    env: &Vec<(String, String)>,
-                    breakpoints: &Vec<String>,
-                    record: bool)
-                    -> Command {
+pub fn get_perf_command(cmd_working_dir: &str,
+                        output_path: &Path,
+                        env: &Vec<(String, String)>,
+                        breakpoints: &Vec<String>,
+                        record: bool)
+                        -> Command {
     let mut perf = Command::new("perf");
     perf.current_dir(cmd_working_dir);
     let filename: String;
@@ -978,17 +999,19 @@ fn get_perf_command(cmd_working_dir: &str,
     perf
 }
 
-pub fn profile<'a>(output_path: &Path,
-               cmd_working_dir: &str,
-               cmd: Vec<String>,
-               env: Vec<(String, String)>,
-               breakpoints: Vec<String>,
-               record: bool,
-               events: Option<Vec<&'a EventDescription>>) {
+pub fn profile<'a, 'b>(output_path: &Path,
+                       cmd_working_dir: &str,
+                       cmd: Vec<String>,
+                       env: Vec<(String, String)>,
+                       breakpoints: Vec<String>,
+                       record: bool,
+                       events: Option<Vec<&'a EventDescription<'b>>>)
+    where 'b: 'a
+{
 
     let event_groups = match events {
         Some(evts) => schedule_events(evts),
-        None => schedule_events(get_known_events())
+        None => schedule_events(get_known_events()),
     };
 
     // Is this run already done (in case we restart):
@@ -1041,7 +1064,7 @@ pub fn profile<'a>(output_path: &Path,
     for group in event_groups {
         let idx = pb.inc();
 
-        let mut event_names: Vec<&'static str> = group.get_event_names();
+        let mut event_names: Vec<&str> = group.get_event_names();
         let counters: Vec<String> = group.get_perf_config_strings();
 
         let mut record_path = PathBuf::new();
@@ -1073,7 +1096,7 @@ pub fn profile<'a>(output_path: &Path,
     let _ = File::create(completed_file.as_path()).unwrap();
 }
 
-fn check_for_perf() {
+pub fn check_for_perf() {
     match Command::new("perf").output() {
         Ok(out) => {
             if out.status.code() != Some(1) {
@@ -1095,7 +1118,7 @@ fn check_for_perf() {
     }
 }
 
-fn check_for_perf_permissions() -> bool {
+pub fn check_for_perf_permissions() -> bool {
     let path = Path::new("/proc/sys/kernel/kptr_restrict");
     let mut file = File::open(path).expect("kptr_restrict file does not exist?");
     let mut s = String::new();
@@ -1130,7 +1153,7 @@ fn check_for_perf_permissions() -> bool {
     true
 }
 
-fn check_for_disabled_nmi_watchdog() -> bool {
+pub fn check_for_disabled_nmi_watchdog() -> bool {
     let path = Path::new("/proc/sys/kernel/nmi_watchdog");
     let mut file = File::open(path).expect("nmi_watchdog file does not exist?");
     let mut s = String::new();
@@ -1166,7 +1189,7 @@ fn check_for_disabled_nmi_watchdog() -> bool {
 }
 
 
-fn check_for_perf_paranoia() -> bool {
+pub fn check_for_perf_paranoia() -> bool {
     let path = Path::new("/proc/sys/kernel/perf_event_paranoid");
     let mut file = File::open(path).expect("perf_event_paranoid file does not exist?");
     let mut s = String::new();

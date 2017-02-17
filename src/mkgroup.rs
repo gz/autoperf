@@ -22,8 +22,8 @@ use super::profile::{MonitoringUnit, PerfEvent, PerfEventGroup};
 
 use std::borrow::Borrow;
 
-static core_counter: &'static Map<&'static str, EventDescription> = &IVYTOWN_CORE;
-static uncore_counter: &'static Map<&'static str, EventDescription> = &IVYTOWN_UNCORE;
+static core_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_CORE;
+static uncore_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_UNCORE;
 
 
 pub fn mkgroup(ranking_file: &Path) {

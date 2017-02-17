@@ -15,7 +15,7 @@ use x86::shared::perfcnt::intel::EventDescription;
 use super::util::*;
 use super::profile::{MonitoringUnit, PerfEvent};
 
-type EventMap = Map<&'static str, EventDescription>;
+type EventMap = Map<&'static str, EventDescription<'static>>;
 type ArchitectureMap = HashMap<&'static str, (&'static str, &'static str, &'static str)>;
 
 /// Saves the event count for all architectures to a file.
