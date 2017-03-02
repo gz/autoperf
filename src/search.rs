@@ -83,10 +83,14 @@ fn execute_perf(perf: &mut Command,
             } else {
                 // Uncore events, use first part of the event name as the location
                 let (unit, name) = event.split_at(event.find(".").unwrap());
-                (String::from(unit), String::from(name.trim_left_matches(".").trim()))
+                // remove the _1 in uncore_cbox_1:
+                let mut unit_parts: Vec<&str> = unit.split('_').collect();
+                unit_parts.pop();
+                (String::from(unit_parts.join("_")),
+                 String::from(name.trim_left_matches(".").trim()))
             };
 
-            let value: u64 = value_string.trim().parse().unwrap();
+            let value: u64 = value_string.trim().parse().unwrap_or(0);
             if value != 0 {
                 debug!("{:?} {:?} {:?}", unit, event_name, value);
                 found_events.insert((event_name, unit));
@@ -143,18 +147,18 @@ pub fn print_unknown_events() {
     let units = vec![MonitoringUnit::CPU,
                      //MonitoringUnit::UBox,
                      MonitoringUnit::CBox,
-                     //MonitoringUnit::HA,
-                     //MonitoringUnit::IMC,
+                     MonitoringUnit::HA,
+                     MonitoringUnit::IMC,
                      //MonitoringUnit::PCU,
                      //MonitoringUnit::R2PCIe,
-                     //MonitoringUnit::R3QPI,
+                     MonitoringUnit::R3QPI,
                      //MonitoringUnit::QPI
     ];
 
     let mut event_names = HashMap::new();
     for unit in units.iter() {
-        for code in 0..256 {
-            for umask in 0..256 {
+        for code in 1..255 {
+            for umask in 1..255 {
                 let id: isize = (*unit as isize) << 32 | (code as isize) << 8 | umask as isize;
                 let value = format!("{}_EVENT_{}_{}",
                                     unit.to_intel_event_description().unwrap_or("CPU"),
@@ -174,8 +178,8 @@ pub fn print_unknown_events() {
     assert!(r.is_ok());
 
     let mut events = Vec::new();
-    for code in 0..255 {
-        for umask in 0..255 {
+    for code in 1..255 {
+        for umask in 1..255 {
             for unit in units.iter() {
                 let id: isize = (*unit as isize) << 32 | (code as isize) << 8 | umask as isize;
 

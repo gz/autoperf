@@ -5,12 +5,13 @@ use std::fs::File;
 use std::path::Path;
 use std::collections::HashMap;
 use std::cmp::Ord;
+use std::path::PathBuf;
 use phf::Map;
 use csv;
 use itertools::Itertools;
 
 use x86::shared::perfcnt;
-use x86::shared::perfcnt::intel::EventDescription;
+use x86::shared::perfcnt::intel::{EventDescription, Tuple};
 
 use super::util::*;
 use super::profile::{MonitoringUnit, PerfEvent};
@@ -234,6 +235,67 @@ fn save_edit_distances(key_to_name: &ArchitectureMap, output_dir: &Path) {
     }
 }
 
+fn save_event_descriptions(output_path: &Path) {
+    use x86::shared::perfcnt::intel::counters::{IVYTOWN_CORE, IVYTOWN_UNCORE};
+    static core_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_CORE;
+    static uncore_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_UNCORE;
+
+    let mut pevents: Vec<PerfEvent> = core_counter.into_iter().map(|e| PerfEvent(e.1)).collect();
+    let mut unc_pevents: Vec<PerfEvent> =
+        uncore_counter.into_iter().map(|e| PerfEvent(e.1)).collect();
+    pevents.append(&mut unc_pevents);
+
+    let mut storage_location = PathBuf::from(output_path);
+    storage_location.push("ivytown_events.dat");
+    let mut wtr = csv::Writer::from_file(storage_location).unwrap();
+    let r = wtr.encode(("unit", "code", "mask", "event_name"));
+    assert!(r.is_ok());
+
+
+    for event in pevents.iter() {
+        //println!("{:?}", event.0.event_name);
+        let unit = event.unit().to_perf_prefix().unwrap();
+
+        match (&event.0.event_code, &event.0.umask) {
+            (&Tuple::One(e1), &Tuple::One(m1)) => {
+                wtr.encode(vec![unit,
+                                &format!("{}", e1),
+                                &format!("{}", m1),
+                                &String::from(event.0.event_name)]);
+
+            }
+            (&Tuple::Two(e1, e2), &Tuple::Two(m1, m2)) => {
+                wtr.encode(vec![unit,
+                                &format!("{}", e1),
+                                &format!("{}", m1),
+                                &String::from(event.0.event_name)]);
+
+                wtr.encode(vec![unit,
+                                &format!("{}", e2),
+                                &format!("{}", m2),
+                                &String::from(event.0.event_name)]);
+            }
+            (&Tuple::Two(e1, e2), &Tuple::One(m1)) => {
+                wtr.encode(vec![unit,
+                                &format!("{}", e1),
+                                &format!("{}", m1),
+                                &String::from(event.0.event_name)]);
+
+                wtr.encode(vec![unit,
+                                &format!("{}", e2),
+                                &format!("{}", m1),
+                                &String::from(event.0.event_name)]);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    let r = wtr.flush();
+    assert!(r.is_ok());
+
+
+}
+
 /// Generate all the stats about Intel events and save them to a file.
 pub fn stats(output_path: &Path) {
     mkdir(output_path);
@@ -268,4 +330,6 @@ pub fn stats(output_path: &Path) {
     save_architecture_comparison(&key_to_name, csv_result_file.as_path());
 
     save_edit_distances(&key_to_name, output_path);
+
+    save_event_descriptions(output_path);
 }

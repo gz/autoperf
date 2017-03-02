@@ -285,7 +285,7 @@ impl MonitoringUnit {
     }
 
     /// Return the perf prefix for selecting the right PMU unit in case of uncore counters.
-    fn to_perf_prefix(&self) -> Option<&'static str> {
+    pub fn to_perf_prefix(&self) -> Option<&'static str> {
 
         let res = match *self {
             MonitoringUnit::CPU => Some("cpu"),
