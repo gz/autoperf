@@ -7,22 +7,22 @@ use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::{Command, Child, Stdio};
-use std::str::{FromStr, from_utf8_unchecked};
+
 use std::fmt;
-use std::iter;
+
 use std::time::Duration;
 use wait_timeout::ChildExt;
 use rustc_serialize::Encodable;
 use itertools::Itertools;
 
-use x86::cpuid;
+
 use toml;
 
 use profile;
 use super::util::*;
 
 fn get_hostname() -> Option<String> {
-    use libc::{gethostname, c_char, size_t, c_int};
+    use libc::{gethostname};
 
     let mut buf: [i8; 64] = [0; 64];
     let err = unsafe { gethostname(buf.as_mut_ptr(), buf.len()) };
@@ -87,7 +87,7 @@ impl<'a> Deployment<'a> {
                            possible_groupings: Vec<Vec<&'a CpuInfo>>,
                            size: u64)
                            -> Deployment<'a> {
-        let mut cpus = possible_groupings.into_iter().last().unwrap();
+        let cpus = possible_groupings.into_iter().last().unwrap();
         let cpus_len = cpus.len();
         assert!(cpus_len % 2 == 0);
 
@@ -119,7 +119,7 @@ impl<'a> Deployment<'a> {
                           possible_groupings: Vec<Vec<&'a CpuInfo>>,
                           size: u64)
                           -> Deployment<'a> {
-        let mut cpus = possible_groupings.into_iter().last().unwrap();
+        let cpus = possible_groupings.into_iter().last().unwrap();
         let cpus_len = cpus.len();
         assert!(cpus_len % 2 == 0);
 
@@ -366,7 +366,7 @@ impl<'a> Run<'a> {
             debug!("Working dir for B is: {}", b.working_dir.as_str());
 
             let mut cmd = Command::new(&command_args[0]);
-            let mut cmd = cmd.stdout(Stdio::piped())
+            let cmd = cmd.stdout(Stdio::piped())
                 .current_dir(b.working_dir.as_str())
                 .stderr(Stdio::piped())
                 .args(&command_args[1..]);
@@ -426,7 +426,7 @@ impl<'a> Run<'a> {
         self.save_run_information();
 
         // Profile together with B
-        let mut maybe_app_b: Option<Child> = self.start_b();
+        let maybe_app_b: Option<Child> = self.start_b();
         if maybe_app_b.is_some() {
             debug!("Wait for B to warmup before starting to profile A");
             let one_min = Duration::from_millis(60000);
@@ -553,7 +553,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
 
 
     let mut programs: Vec<Program> = Vec::with_capacity(2);
-    for (key, value) in &doc {
+    for (key, _value) in &doc {
         if key.starts_with("program") {
             let program_desc: &toml::Table =
                 doc[key].as_table().expect("Error in manifest.toml: 'program' should be a table.");

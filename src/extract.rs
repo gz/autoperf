@@ -80,7 +80,7 @@ fn parse_perf_csv_file(mt: &MachineTopology,
             } else {
                 // Uncore events, use first part of the event name as the location
                 let (unit, name) = event.split_at(event.find(".").unwrap());
-                (String::from(unit), String::from(name.trim_left_matches(".").trim()))
+                (String::from(unit), String::from(name.trim_start_matches(".").trim()))
             };
 
             if erronous_events.contains_key(&event_name) {
@@ -98,7 +98,7 @@ fn parse_perf_csv_file(mt: &MachineTopology,
 
             let cpu_nr = match u64::from_str(&cpu[3..].trim()) {
                 Ok(v) => v,
-                Err(e) => {
+                Err(_e) => {
                     error!("{:?}: CPU value is not a number '{}', skipping this row.",
                            path.as_os_str(),
                            cpu);
@@ -298,8 +298,8 @@ fn parse_perf_file(path: &Path,
                 // println!("{:?}", rec);
                 let time = format!("{}", rec.time.unwrap());
                 let ptid = rec.ptid.unwrap();
-                let pid = format!("{}", ptid.pid);
-                let tid = format!("{}", ptid.tid);
+                let _pid = format!("{}", ptid.pid);
+                let _tid = format!("{}", ptid.tid);
                 let cpu = format!("{}", rec.cpu.unwrap().cpu);
                 // let ip = format!("0x{:x}", rec.ip.unwrap());
 
@@ -443,7 +443,7 @@ pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Pat
     let rows = rdr.decode().collect::<csv::Result<Vec<Row>>>().unwrap();
 
     // Create result.csv file:
-    let mut csv_result: PathBuf = save_to.to_owned();
+    let csv_result: PathBuf = save_to.to_owned();
     let mut wrtr = csv::Writer::from_file(csv_result.as_path()).unwrap();
     wrtr.encode(&["EVENT_NAME",
                   "INDEX",
@@ -459,7 +459,7 @@ pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Pat
     // Write content in result.csv
     for row in rows {
         let (_, event_names, _, _, file, _) = row;
-        let string_names: Vec<&str> = event_names.split(",").collect();
+        let _string_names: Vec<&str> = event_names.split(",").collect();
 
         let mut perf_data = path.to_owned();
         perf_data.push(&file);

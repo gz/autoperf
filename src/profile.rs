@@ -1,6 +1,6 @@
 use std;
 use std::collections::HashMap;
-use std::iter;
+
 use std::io::prelude::*;
 use std::fs;
 use std::fs::File;
@@ -133,11 +133,11 @@ fn execute_perf(perf: &mut Command,
                 datafile: &Path)
                 -> (String, String, String) {
     assert!(cmd.len() >= 1);
-    let mut perf = perf.arg("-o").arg(datafile.as_os_str());
+    let perf = perf.arg("-o").arg(datafile.as_os_str());
     let events: Vec<String> = counters.iter().map(|c| format!("-e {}", c)).collect();
 
-    let mut perf = perf.args(events.as_slice());
-    let mut perf = perf.args(cmd.as_slice());
+    let perf = perf.args(events.as_slice());
+    let perf = perf.args(cmd.as_slice());
     let perf_cmd_str: String = format!("{:?}", perf).replace("\"", "");
 
     let (stdout, stderr) = match perf.output() {
@@ -449,7 +449,7 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
                 let pcu_umask = if is_pcu {
                     match self.0.umask {
                         Tuple::One(mask) => mask,
-                        Tuple::Two(m1, m2) => unreachable!(),
+                        Tuple::Two(_m1, _m2) => unreachable!(),
                     }
                 } else {
                     0x0
@@ -706,7 +706,7 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
     /// events already in this group
     fn has_filter_constraint_conflicts(&self, new_event: &PerfEvent) -> bool {
         let unit = new_event.unit();
-        let mut events: Vec<&PerfEvent> = self.events_by_unit(unit);
+        let events: Vec<&PerfEvent> = self.events_by_unit(unit);
 
         for event in events.iter() {
             for filter in event.filters() {
@@ -969,14 +969,14 @@ impl<'a> Profile<'a> {
 }
 
 pub fn get_perf_command(cmd_working_dir: &str,
-                        output_path: &Path,
+                        _output_path: &Path,
                         env: &Vec<(String, String)>,
                         breakpoints: &Vec<String>,
                         record: bool)
                         -> Command {
     let mut perf = Command::new("perf");
     perf.current_dir(cmd_working_dir);
-    let filename: String;
+    let _filename: String;
     if !record {
         perf.arg("stat");
         perf.arg("-aA");
@@ -1054,7 +1054,7 @@ pub fn profile<'a, 'b>(output_path: &Path,
     assert!(r.is_ok());
 
     // For warm-up do a dummy run of the program with perf
-    let mut record_path = Path::new("/dev/null");
+    let record_path = Path::new("/dev/null");
     let mut perf = get_perf_command(cmd_working_dir, output_path, &env, &breakpoints, record);
     perf.arg("-n"); // null run - don’t start any counters
     let (_, _, _) = execute_perf(&mut perf, &cmd, &Vec::new(), &record_path);
@@ -1196,7 +1196,7 @@ pub fn check_for_perf_paranoia() -> bool {
 
     return match file.read_to_string(&mut s) {
         Ok(_) => {
-            let digit = i64::from_str(s.trim()).unwrap_or_else(|op| {
+            let digit = i64::from_str(s.trim()).unwrap_or_else(|_op| {
                 warn!("Unkown content read from '{}': {}. Proceeding anyways...",
                       path.display(),
                       s.trim());

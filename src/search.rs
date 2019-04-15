@@ -1,6 +1,6 @@
 use std;
-use std::io::Error;
-use std::fs::File;
+
+
 use std::process::Command;
 use std::collections::HashMap;
 use std::collections::BTreeSet;
@@ -8,7 +8,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use csv;
-use pbr::ProgressBar;
+
 use x86::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter, PebsType};
 
 use super::profile;
@@ -35,11 +35,11 @@ fn execute_perf(perf: &mut Command,
     assert!(cmd.len() >= 1);
     let events: Vec<String> = counters.iter().map(|c| format!("-e {}", c)).collect();
 
-    let mut perf = perf.args(events.as_slice());
-    let mut perf = perf.args(cmd.as_slice());
+    let perf = perf.args(events.as_slice());
+    let perf = perf.args(cmd.as_slice());
     let perf_cmd_str: String = format!("{:?}", perf).replace("\"", "");
 
-    let (stdout, stderr) = match perf.output() {
+    let (_stdout, stderr) = match perf.output() {
         Ok(out) => {
             let stdout = String::from_utf8(out.stdout)
                 .unwrap_or(String::from("Unable to read stdout!"));
@@ -71,7 +71,7 @@ fn execute_perf(perf: &mut Command,
     for record in rdr.decode() {
         if record.is_ok() {
             type SourceRow = (f64, String, String, String, String, String, f64);
-            let (time, cpu, value_string, _, event, _, percent): SourceRow =
+            let (_time, _cpu, value_string, _, event, _, _percent): SourceRow =
                 record.expect("Should not happen (in is_ok() branch)!");
 
             // Perf will just report first CPU on the socket for uncore events,
@@ -87,7 +87,7 @@ fn execute_perf(perf: &mut Command,
                 let mut unit_parts: Vec<&str> = unit.split('_').collect();
                 unit_parts.pop();
                 (String::from(unit_parts.join("_")),
-                 String::from(name.trim_left_matches(".").trim()))
+                 String::from(name.trim_start_matches(".").trim()))
             };
 
             let value: u64 = value_string.trim().parse().unwrap_or(0);
@@ -129,7 +129,7 @@ pub fn check_events<'a, 'b>(output_path: &Path,
 
     let mut all_events = BTreeSet::new();
     for group in event_groups {
-        let mut event_names: Vec<&str> = group.get_event_names();
+        let mut _event_names: Vec<&str> = group.get_event_names();
         let counters: Vec<String> = group.get_perf_config_strings();
         let mut perf =
             profile::get_perf_command(cmd_working_dir, output_path, &env, &breakpoints, record);

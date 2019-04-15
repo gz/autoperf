@@ -1,26 +1,25 @@
-use std;
+
 use std::collections::HashMap;
-use std::io::prelude::*;
-use std::fs;
-use std::fs::File;
-use std::error::Error;
+
+
+
+
 use std::path::Path;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::error;
-use std::fmt;
+
+
+
+
 
 use csv;
 use phf::Map;
 
 use x86::perfcnt::intel::counters::{IVYTOWN_CORE, IVYTOWN_UNCORE};
-use x86::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter, core_counters,
-                                  uncore_counters};
-use x86::cpuid;
+use x86::perfcnt::intel::{EventDescription};
+
 
 use super::profile::{MonitoringUnit, PerfEvent, PerfEventGroup};
 
-use std::borrow::Borrow;
+
 
 static core_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_CORE;
 static uncore_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_UNCORE;

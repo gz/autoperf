@@ -1,6 +1,6 @@
-use std::io;
+
 use std::io::prelude::*;
-use std::fs;
+
 use std::fs::File;
 use std::path::Path;
 use std::collections::HashMap;
@@ -83,7 +83,7 @@ fn common_event_names(a: Option<&'static EventMap>, b: Option<&'static EventMap>
     let b_map = b.unwrap();
 
     let mut counter = 0;
-    for (key, value) in a_map.entries() {
+    for (key, _value) in a_map.entries() {
         if b_map.get(key).is_some() {
             counter += 1
         }

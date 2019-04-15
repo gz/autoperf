@@ -36,7 +36,7 @@ use profile::profile;
 use extract::extract;
 use pair::pair;
 use stats::stats;
-use scale::scale;
+
 use mkgroup::mkgroup;
 use search::print_unknown_events;
 
@@ -107,8 +107,8 @@ fn main() {
         pair(output_path, dryrun, start, stepping);
     }
     if let Some(matches) = matches.subcommand_matches("scale") {
-        let output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
-        let dryrun: bool = matches.is_present("dryrun");
+        let _output_path = Path::new(matches.value_of("directory").unwrap_or("out"));
+        let _dryrun: bool = matches.is_present("dryrun");
         // scale(output_path, dryrun);
     }
     if let Some(matches) = matches.subcommand_matches("stats") {
@@ -119,7 +119,7 @@ fn main() {
         let ranking_file = Path::new(matches.value_of("file").unwrap_or("notfound"));
         mkgroup(ranking_file);
     }
-    if let Some(matches) = matches.subcommand_matches("search") {
+    if let Some(_matches) = matches.subcommand_matches("search") {
         print_unknown_events();
     }
 
