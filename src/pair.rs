@@ -1,35 +1,36 @@
-use std::thread;
-use std::process;
-use std::io;
-use std::io::prelude::*;
 use std::fs;
 use std::fs::File;
+use std::io;
+use std::io::prelude::*;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::{Command, Child, Stdio};
+use std::process;
+use std::process::{Child, Command, Stdio};
+use std::thread;
 
 use std::fmt;
 
+use itertools::Itertools;
+use rustc_serialize::Encodable;
 use std::time::Duration;
 use wait_timeout::ChildExt;
-use rustc_serialize::Encodable;
-use itertools::Itertools;
-
 
 use toml;
 
-use profile;
 use super::util::*;
+use profile;
 
 fn get_hostname() -> Option<String> {
-    use libc::{gethostname};
+    use libc::gethostname;
 
     let mut buf: [i8; 64] = [0; 64];
     let err = unsafe { gethostname(buf.as_mut_ptr(), buf.len()) };
 
     if err != 0 {
-        info!("Can't read the hostname with gethostname: {}",
-              io::Error::last_os_error());
+        info!(
+            "Can't read the hostname with gethostname: {}",
+            io::Error::last_os_error()
+        );
         return None;
     }
 
@@ -49,11 +50,12 @@ struct Deployment<'a> {
 }
 
 impl<'a> Deployment<'a> {
-    pub fn new(desc: &'static str,
-               halfA: Vec<&'a CpuInfo>,
-               halfB: Vec<&'a CpuInfo>,
-               mem: Vec<NodeInfo>)
-               -> Deployment<'a> {
+    pub fn new(
+        desc: &'static str,
+        halfA: Vec<&'a CpuInfo>,
+        halfB: Vec<&'a CpuInfo>,
+        mem: Vec<NodeInfo>,
+    ) -> Deployment<'a> {
         Deployment {
             description: desc,
             a: halfA,
@@ -64,10 +66,11 @@ impl<'a> Deployment<'a> {
 
     /// Split by just simply interleaving everything
     /// TODO: this only works because we make assumption on how CpuInfo is ordered..
-    pub fn split_interleaved(desc: &'static str,
-                             possible_groupings: Vec<Vec<&'a CpuInfo>>,
-                             size: u64)
-                             -> Deployment<'a> {
+    pub fn split_interleaved(
+        desc: &'static str,
+        possible_groupings: Vec<Vec<&'a CpuInfo>>,
+        size: u64,
+    ) -> Deployment<'a> {
         let mut cpus = possible_groupings.into_iter().last().unwrap();
 
         let cpus_len = cpus.len();
@@ -83,10 +86,11 @@ impl<'a> Deployment<'a> {
     }
 
     /// Split but makes sure a group shares the SMT threads
-    pub fn split_smt_aware(desc: &'static str,
-                           possible_groupings: Vec<Vec<&'a CpuInfo>>,
-                           size: u64)
-                           -> Deployment<'a> {
+    pub fn split_smt_aware(
+        desc: &'static str,
+        possible_groupings: Vec<Vec<&'a CpuInfo>>,
+        size: u64,
+    ) -> Deployment<'a> {
         let cpus = possible_groupings.into_iter().last().unwrap();
         let cpus_len = cpus.len();
         assert!(cpus_len % 2 == 0);
@@ -115,10 +119,11 @@ impl<'a> Deployment<'a> {
     }
 
     /// Split but makes sure a group shares the SMT threads
-    pub fn split_l3_aware(desc: &'static str,
-                          possible_groupings: Vec<Vec<&'a CpuInfo>>,
-                          size: u64)
-                          -> Deployment<'a> {
+    pub fn split_l3_aware(
+        desc: &'static str,
+        possible_groupings: Vec<Vec<&'a CpuInfo>>,
+        size: u64,
+    ) -> Deployment<'a> {
         let cpus = possible_groupings.into_iter().last().unwrap();
         let cpus_len = cpus.len();
         assert!(cpus_len % 2 == 0);
@@ -180,10 +185,11 @@ struct Program<'a> {
 }
 
 impl<'a> Program<'a> {
-    fn from_toml(manifest_path: &'a Path,
-                 config: &toml::Table,
-                 alone_default: bool)
-                 -> Program<'a> {
+    fn from_toml(
+        manifest_path: &'a Path,
+        config: &toml::Table,
+        alone_default: bool,
+    ) -> Program<'a> {
         let name: String = config["name"]
             .as_str()
             .expect("program.binary not a string")
@@ -194,9 +200,13 @@ impl<'a> Program<'a> {
             .to_string();
 
         let default_working_dir = String::from(manifest_path.to_str().unwrap());
-        let working_dir: String = config.get("working_dir")
-            .map_or(default_working_dir.clone(),
-                    |v| v.as_str().expect("program.working_dir not a string").to_string())
+        let working_dir: String = config
+            .get("working_dir")
+            .map_or(default_working_dir.clone(), |v| {
+                v.as_str()
+                    .expect("program.working_dir not a string")
+                    .to_string()
+            })
             .replace("$MANIFEST_DIR", default_working_dir.as_str());
 
         let openmp: bool = config.get("openmp").map_or(false, |v| {
@@ -206,7 +216,8 @@ impl<'a> Program<'a> {
             v.as_bool().expect("'program.parsec' should be boolean")
         });
         let watch_repeat: bool = config.get("use_watch_repeat").map_or(false, |v| {
-            v.as_bool().expect("'program.use_watch_repeat' should be boolean")
+            v.as_bool()
+                .expect("'program.use_watch_repeat' should be boolean")
         });
         let alone: bool = config.get("alone").map_or(alone_default, |v| {
             v.as_bool().expect("'program.alone' should be boolean")
@@ -215,28 +226,46 @@ impl<'a> Program<'a> {
             .as_slice()
             .expect("program.arguments not an array?")
             .iter()
-            .map(|s| s.as_str().expect("program1 argument not a string?").to_string())
+            .map(|s| {
+                s.as_str()
+                    .expect("program1 argument not a string?")
+                    .to_string()
+            })
             .collect();
-        let antagonist_args: Vec<String> = config.get("antagonist_arguments")
-            .map_or(args.clone(), |v| {
-                v.as_slice()
-                    .expect("program.antagonist_arguments not an array?")
-                    .iter()
-                    .map(|s| s.as_str().expect("program1 argument not a string?").to_string())
-                    .collect()
-            });
+        let antagonist_args: Vec<String> =
+            config
+                .get("antagonist_arguments")
+                .map_or(args.clone(), |v| {
+                    v.as_slice()
+                        .expect("program.antagonist_arguments not an array?")
+                        .iter()
+                        .map(|s| {
+                            s.as_str()
+                                .expect("program1 argument not a string?")
+                                .to_string()
+                        })
+                        .collect()
+                });
         let breakpoints: Vec<String> = config.get("breakpoints").map_or(Vec::new(), |bs| {
             bs.as_slice()
                 .expect("program.breakpoints not an array?")
                 .iter()
-                .map(|s| s.as_str().expect("program breakpoint not a string?").to_string())
+                .map(|s| {
+                    s.as_str()
+                        .expect("program breakpoint not a string?")
+                        .to_string()
+                })
                 .collect()
         });
         let checkpoints: Vec<String> = config.get("checkpoints").map_or(Vec::new(), |cs| {
             cs.as_slice()
                 .expect("program.checkpoints not an array?")
                 .iter()
-                .map(|s| s.as_str().expect("program checkpoint not a string?").to_string())
+                .map(|s| {
+                    s.as_str()
+                        .expect("program checkpoint not a string?")
+                        .to_string()
+                })
                 .collect()
         });
 
@@ -269,8 +298,10 @@ impl<'a> Program<'a> {
         cmd.iter()
             .map(|s| s.replace("$NUM_THREADS", format!("{}", nthreads).as_str()))
             .map(|s| {
-                s.replace("$MANIFEST_DIR",
-                          format!("{}", self.manifest_path.to_str().unwrap()).as_str())
+                s.replace(
+                    "$MANIFEST_DIR",
+                    format!("{}", self.manifest_path.to_str().unwrap()).as_str(),
+                )
             })
             .collect()
     }
@@ -280,15 +311,25 @@ impl<'a> Program<'a> {
         let cpus: Vec<String> = cores.iter().map(|c| format!("{}", c.cpu)).collect();
         if self.is_openmp {
             env.push((String::from("OMP_PROC_BIND"), String::from("true")));
-            env.push((String::from("OMP_PLACES"), format!("{{{}}}", cpus.join(","))));
+            env.push((
+                String::from("OMP_PLACES"),
+                format!("{{{}}}", cpus.join(",")),
+            ));
         }
         if self.is_parsec {
             assert!(!self.is_openmp);
-            env.push((String::from("LD_PRELOAD"),
-                      format!("{}/bin/libhooks.so.0.0.0",
-                              self.manifest_path.to_str().unwrap())));
+            env.push((
+                String::from("LD_PRELOAD"),
+                format!(
+                    "{}/bin/libhooks.so.0.0.0",
+                    self.manifest_path.to_str().unwrap()
+                ),
+            ));
             env.push((String::from("PARSEC_CPU_NUM"), format!("{}", cpus.len())));
-            env.push((String::from("PARSEC_CPU_BASE"), format!("{}", cpus.join(","))));
+            env.push((
+                String::from("PARSEC_CPU_BASE"),
+                format!("{}", cpus.join(",")),
+            ));
             if antagonist {
                 env.push((String::from("PARSEC_REPEAT"), String::from("1")));
             }
@@ -308,12 +349,13 @@ struct Run<'a> {
 }
 
 impl<'a> Run<'a> {
-    fn new(manifest_path: &'a Path,
-           output_path: &'a Path,
-           a: &'a Program<'a>,
-           b: Option<&'a Program<'a>>,
-           deployment: &'a Deployment)
-           -> Run<'a> {
+    fn new(
+        manifest_path: &'a Path,
+        output_path: &'a Path,
+        a: &'a Program<'a>,
+        b: Option<&'a Program<'a>>,
+        deployment: &'a Deployment,
+    ) -> Run<'a> {
         let mut out_dir = output_path.to_path_buf();
         out_dir.push(deployment.description);
         mkdir(&out_dir);
@@ -338,17 +380,19 @@ impl<'a> Run<'a> {
         bps.extend(self.a.checkpoints.iter().map(|s| s.to_string()));
         // let cps = self.a.checkpoints.iter().map(|s| s.to_string()).collect();
 
-        debug!("Spawning {:?} with environment {:?} breakpoints {:?}",
-               cmd,
-               env,
-               bps);
-        profile::profile(&self.output_path,
-                         self.a.working_dir.as_str(),
-                         cmd,
-                         env,
-                         bps,
-                         false,
-                         None);
+        debug!(
+            "Spawning {:?} with environment {:?} breakpoints {:?}",
+            cmd, env, bps
+        );
+        profile::profile(
+            &self.output_path,
+            self.a.working_dir.as_str(),
+            cmd,
+            env,
+            bps,
+            false,
+            None,
+        );
         Ok(())
     }
 
@@ -366,7 +410,8 @@ impl<'a> Run<'a> {
             debug!("Working dir for B is: {}", b.working_dir.as_str());
 
             let mut cmd = Command::new(&command_args[0]);
-            let cmd = cmd.stdout(Stdio::piped())
+            let cmd = cmd
+                .stdout(Stdio::piped())
                 .current_dir(b.working_dir.as_str())
                 .stderr(Stdio::piped())
                 .args(&command_args[1..]);
@@ -412,14 +457,20 @@ impl<'a> Run<'a> {
         // Is this run already done (in case we restart):
         let mut completed_file: PathBuf = self.output_path.to_path_buf();
         completed_file.push("completed");
-        if completed_file.exists() { true } else { false }
+        if completed_file.exists() {
+            true
+        } else {
+            false
+        }
     }
 
     fn profile(&mut self) -> io::Result<()> {
         mkdir(&self.output_path);
         if self.is_completed() {
-            info!("Run {} already completed, skipping.",
-                  self.output_path.to_string_lossy());
+            info!(
+                "Run {} already completed, skipping.",
+                self.output_path.to_string_lossy()
+            );
             return Ok(());
         }
 
@@ -441,22 +492,32 @@ impl<'a> Run<'a> {
                     Some(status) => {
                         // The Application B has already exited, this means it probably crashed
                         // while we were profiling (bad). We can't use these results.
-                        app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
-                        app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
+                        app_b
+                            .stdout
+                            .map(|mut c| self.save_output("B_stdout.txt", &mut c));
+                        app_b
+                            .stderr
+                            .map(|mut c| self.save_output("B_stderr.txt", &mut c));
 
                         let mut completed_path = self.output_path.clone();
                         completed_path.push("completed");
                         try!(fs::remove_file(completed_path));
 
-                        panic!("B has crashed during measurements {:?}. This is bad.",
-                               status.code());
+                        panic!(
+                            "B has crashed during measurements {:?}. This is bad.",
+                            status.code()
+                        );
                         // TODO: save error code and continue (?)
                     }
                     None => {
                         try!(app_b.kill());
                         try!(app_b.wait());
-                        app_b.stdout.map(|mut c| self.save_output("B_stdout.txt", &mut c));
-                        app_b.stderr.map(|mut c| self.save_output("B_stderr.txt", &mut c));
+                        app_b
+                            .stdout
+                            .map(|mut c| self.save_output("B_stdout.txt", &mut c));
+                        app_b
+                            .stderr
+                            .map(|mut c| self.save_output("B_stderr.txt", &mut c));
                     }
                 }
             }
@@ -469,18 +530,22 @@ impl<'a> Run<'a> {
 
 impl<'a> fmt::Display for Run<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write!(f,
-                    "A: {:?} {:?}\n",
-                    self.a.get_env(false, &self.deployment.a),
-                    self.a.get_cmd(false, &self.deployment.a)));
+        try!(write!(
+            f,
+            "A: {:?} {:?}\n",
+            self.a.get_env(false, &self.deployment.a),
+            self.a.get_cmd(false, &self.deployment.a)
+        ));
         try!(write!(f, "A Breakpoints: {:?}\n", self.a.breakpoints));
         try!(write!(f, "A Checkpoints: {:?}\n", self.a.checkpoints));
         match self.b {
             Some(b) => {
-                try!(write!(f,
-                            "B: {:?} {:?}\n",
-                            b.get_env(true, &self.deployment.b),
-                            b.get_cmd(true, &self.deployment.b)));
+                try!(write!(
+                    f,
+                    "B: {:?} {:?}\n",
+                    b.get_env(true, &self.deployment.b),
+                    b.get_cmd(true, &self.deployment.b)
+                ));
                 try!(write!(f, "{}:\n", &self.deployment));
             }
             None => {
@@ -492,8 +557,8 @@ impl<'a> fmt::Display for Run<'a> {
 }
 
 pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize) {
-    let canonical_manifest_path = fs::canonicalize(&manifest_folder)
-        .expect("canonicalize manifest path does not work");
+    let canonical_manifest_path =
+        fs::canonicalize(&manifest_folder).expect("canonicalize manifest path does not work");
 
     let mut out_dir = canonical_manifest_path.to_path_buf();
     let hostname = get_hostname().unwrap_or(String::from("unknown"));
@@ -521,89 +586,99 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
     let configuration: &[toml::Value] = experiment["configurations"]
         .as_slice()
         .expect("Error in manifest.toml: 'configuration' attribute should be a list.");
-    let configs: Vec<String> = configuration.iter()
-        .map(|s| s.as_str().expect("configuration elements should be strings").to_string())
+    let configs: Vec<String> = configuration
+        .iter()
+        .map(|s| {
+            s.as_str()
+                .expect("configuration elements should be strings")
+                .to_string()
+        })
         .collect();
-    let run_alone: bool = experiment.get("alone")
+    let run_alone: bool = experiment
+        .get("alone")
         .map_or(true, |v| v.as_bool().expect("'alone' should be boolean"));
-    let profile_only: Option<Vec<String>> = experiment.get("profile_only_a")
-        .map(|progs| {
-            progs.as_slice()
-                .expect("Error in manifest.toml: 'profile_only_a' should be a list.")
-                .into_iter()
-                .map(|p| {
-                    p.as_str()
-                        .expect("profile_only_a elements should name programs (strings)")
-                        .to_string()
-                })
-                .collect()
-        });
-    let profile_only_b: Option<Vec<String>> = experiment.get("profile_only_b")
-        .map(|progs| {
-            progs.as_slice()
-                .expect("Error in manifest.toml: 'profile_only_b' should be a list.")
-                .into_iter()
-                .map(|p| {
-                    p.as_str()
-                        .expect("profile_only_b elements should name programs (strings)")
-                        .to_string()
-                })
-                .collect()
-        });
-
+    let profile_only: Option<Vec<String>> = experiment.get("profile_only_a").map(|progs| {
+        progs
+            .as_slice()
+            .expect("Error in manifest.toml: 'profile_only_a' should be a list.")
+            .into_iter()
+            .map(|p| {
+                p.as_str()
+                    .expect("profile_only_a elements should name programs (strings)")
+                    .to_string()
+            })
+            .collect()
+    });
+    let profile_only_b: Option<Vec<String>> = experiment.get("profile_only_b").map(|progs| {
+        progs
+            .as_slice()
+            .expect("Error in manifest.toml: 'profile_only_b' should be a list.")
+            .into_iter()
+            .map(|p| {
+                p.as_str()
+                    .expect("profile_only_b elements should name programs (strings)")
+                    .to_string()
+            })
+            .collect()
+    });
 
     let mut programs: Vec<Program> = Vec::with_capacity(2);
     for (key, _value) in &doc {
         if key.starts_with("program") {
-            let program_desc: &toml::Table =
-                doc[key].as_table().expect("Error in manifest.toml: 'program' should be a table.");
-            programs.push(Program::from_toml(&canonical_manifest_path, program_desc, run_alone));
+            let program_desc: &toml::Table = doc[key]
+                .as_table()
+                .expect("Error in manifest.toml: 'program' should be a table.");
+            programs.push(Program::from_toml(
+                &canonical_manifest_path,
+                program_desc,
+                run_alone,
+            ));
         }
     }
 
     let mut deployments: Vec<Deployment> = Vec::with_capacity(4);
     for config in configs {
         match config.as_str() {
-            "L1-SMT" => {
-                deployments.push(Deployment::split_interleaved("L1-SMT",
-                                                               mt.same_l1(),
-                                                               mt.l1_size().unwrap_or(0)))
-            }
-            "L3-SMT" => {
-                deployments.push(Deployment::split_interleaved("L3-SMT",
-                                                               mt.same_l3(),
-                                                               mt.l3_size().unwrap_or(0)))
-            }
-            "L3-SMT-cores" => {
-                deployments.push(Deployment::split_smt_aware("L3-SMT-cores",
-                                                             mt.same_l3(),
-                                                             mt.l3_size().unwrap_or(0)))
-            }
-            "L3-cores" => {
-                deployments.push(Deployment::split_smt_aware("L3-cores",
-                                                             mt.same_l3_cores(),
-                                                             mt.l3_size().unwrap_or(0)))
-            }
-            "Full-L3" => {
-                deployments.push(Deployment::split_l3_aware("Full-L3",
-                                                            mt.whole_machine_cores(),
-                                                            mt.l3_size().unwrap_or(0)))
-            }
-            "Full-SMT-L3" => {
-                deployments.push(Deployment::split_l3_aware("Full-SMT-L3",
-                                                            mt.whole_machine(),
-                                                            mt.l3_size().unwrap_or(0)))
-            }
-            "Full-cores" => {
-                deployments.push(Deployment::split_interleaved("Full-cores",
-                                                               mt.whole_machine_cores(),
-                                                               mt.l3_size().unwrap_or(0)))
-            }
-            "Full-SMT-cores" => {
-                deployments.push(Deployment::split_smt_aware("Full-SMT-cores",
-                                                             mt.whole_machine(),
-                                                             mt.l3_size().unwrap_or(0)))
-            }
+            "L1-SMT" => deployments.push(Deployment::split_interleaved(
+                "L1-SMT",
+                mt.same_l1(),
+                mt.l1_size().unwrap_or(0),
+            )),
+            "L3-SMT" => deployments.push(Deployment::split_interleaved(
+                "L3-SMT",
+                mt.same_l3(),
+                mt.l3_size().unwrap_or(0),
+            )),
+            "L3-SMT-cores" => deployments.push(Deployment::split_smt_aware(
+                "L3-SMT-cores",
+                mt.same_l3(),
+                mt.l3_size().unwrap_or(0),
+            )),
+            "L3-cores" => deployments.push(Deployment::split_smt_aware(
+                "L3-cores",
+                mt.same_l3_cores(),
+                mt.l3_size().unwrap_or(0),
+            )),
+            "Full-L3" => deployments.push(Deployment::split_l3_aware(
+                "Full-L3",
+                mt.whole_machine_cores(),
+                mt.l3_size().unwrap_or(0),
+            )),
+            "Full-SMT-L3" => deployments.push(Deployment::split_l3_aware(
+                "Full-SMT-L3",
+                mt.whole_machine(),
+                mt.l3_size().unwrap_or(0),
+            )),
+            "Full-cores" => deployments.push(Deployment::split_interleaved(
+                "Full-cores",
+                mt.whole_machine_cores(),
+                mt.l3_size().unwrap_or(0),
+            )),
+            "Full-SMT-cores" => deployments.push(Deployment::split_smt_aware(
+                "Full-SMT-cores",
+                mt.whole_machine(),
+                mt.l3_size().unwrap_or(0),
+            )),
 
             _ => error!("Ignored unknown deployment config '{}'.", config),
         };
@@ -621,10 +696,13 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
     // Filter out the pairs we do not want to execute:
     let mut runs: Vec<Run> = Vec::new();
     for (a, b) in pairs.into_iter() {
-        let profile_a = profile_only.as_ref().map_or(true, |ps| ps.contains(&a.name));
-        let profile_b = !b.is_none() &&
-                        profile_only_b.as_ref()
-            .map_or(profile_a, |ps| ps.contains(&b.unwrap().name));
+        let profile_a = profile_only
+            .as_ref()
+            .map_or(true, |ps| ps.contains(&a.name));
+        let profile_b = !b.is_none()
+            && profile_only_b
+                .as_ref()
+                .map_or(profile_a, |ps| ps.contains(&b.unwrap().name));
         if !profile_a && !profile_b {
             continue;
         }
@@ -633,7 +711,13 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
             if b.is_none() && (!run_alone || !a.alone) {
                 continue;
             }
-            runs.push(Run::new(&canonical_manifest_path, out_dir.as_path(), a, b, d));
+            runs.push(Run::new(
+                &canonical_manifest_path,
+                out_dir.as_path(),
+                a,
+                b,
+                d,
+            ));
         }
     }
 

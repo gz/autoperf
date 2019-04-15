@@ -18,7 +18,7 @@ toml = "0.2"
 nom = "^1.2.3"
 libc = "0.2.16"
 clap = { version = "2", features = ["yaml"] }
-x86 = { version = "0.15", features = ["performance-counter"] }
+x86 = { version = "0.16.2", features = ["performance-counter"] }
 phf = "0.7.*"
 itertools = "0.5"
 rustc-serialize = "0.3"

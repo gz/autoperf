@@ -1,21 +1,20 @@
 use std;
 use std::collections::HashMap;
 
-use std::io::prelude::*;
-use std::fs;
-use std::fs::File;
-use std::process::Command;
-use std::error::Error;
-use std::path::Path;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::error;
-use std::fmt;
 use csv;
 use pbr::ProgressBar;
-use x86::perfcnt::intel::{core_counters, uncore_counters};
-use x86::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter, PebsType};
+use std::error;
+use std::error::Error;
+use std::fmt;
+use std::fs;
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command;
+use std::str::FromStr;
 use x86::cpuid;
+use x86::perfcnt::intel::{events, Counter, EventDescription, MSRIndex, PebsType, Tuple};
 
 use super::util::*;
 
@@ -61,6 +60,11 @@ lazy_static! {
                 res.insert(MonitoringUnit::CBox, 2);
                 res.insert(MonitoringUnit::IMC, 2);
                 res.insert(MonitoringUnit::Arb, 4);
+                res.insert(MonitoringUnit::M2M, 4);
+                res.insert(MonitoringUnit::CHA, 4);
+                res.insert(MonitoringUnit::M3UPI, 4);
+                res.insert(MonitoringUnit::IIO, 4);
+                res.insert(MonitoringUnit::UPI_LL, 4);
             }
         });
 
@@ -68,7 +72,6 @@ lazy_static! {
     };
 
     static ref PMU_DEVICES: Vec<String> = {
-        // TODO: Return empty Vec in case of error
         let paths = fs::read_dir("/sys/bus/event_source/devices/").expect("Can't read devices directory.");
         let mut devices = Vec::with_capacity(15);
         for p in paths {
@@ -84,6 +87,8 @@ lazy_static! {
     static ref IGNORE_EVENTS: HashMap<&'static str, bool> = {
         let mut ignored = HashMap::with_capacity(1);
         ignored.insert("UNC_CLOCK.SOCKET", true); // Just says 'fixed' and does not name which counter :/
+        ignored.insert("UNC_M_CLOCKTICKS_F", true);
+        ignored.insert("UNC_U_CLOCKTICKS", true);
         ignored
     };
 
@@ -127,11 +132,12 @@ lazy_static! {
     };
 }
 
-fn execute_perf(perf: &mut Command,
-                cmd: &Vec<String>,
-                counters: &Vec<String>,
-                datafile: &Path)
-                -> (String, String, String) {
+fn execute_perf(
+    perf: &mut Command,
+    cmd: &Vec<String>,
+    counters: &Vec<String>,
+    datafile: &Path,
+) -> (String, String, String) {
     assert!(cmd.len() >= 1);
     let perf = perf.arg("-o").arg(datafile.as_os_str());
     let events: Vec<String> = counters.iter().map(|c| format!("-e {}", c)).collect();
@@ -142,27 +148,29 @@ fn execute_perf(perf: &mut Command,
 
     let (stdout, stderr) = match perf.output() {
         Ok(out) => {
-            let stdout = String::from_utf8(out.stdout)
-                .unwrap_or(String::from("Unable to read stdout!"));
-            let stderr = String::from_utf8(out.stderr)
-                .unwrap_or(String::from("Unable to read stderr!"));
+            let stdout =
+                String::from_utf8(out.stdout).unwrap_or(String::from("Unable to read stdout!"));
+            let stderr =
+                String::from_utf8(out.stderr).unwrap_or(String::from("Unable to read stderr!"));
 
             if out.status.success() {
                 // debug!("stdout:\n{:?}", stdout);
                 // debug!("stderr:\n{:?}", stderr);
             } else if !out.status.success() {
-                error!("perf command: {} got unknown exit status was: {}",
-                       perf_cmd_str,
-                       out.status);
+                error!(
+                    "perf command: {} got unknown exit status was: {}",
+                    perf_cmd_str, out.status
+                );
                 debug!("stdout:\n{}", stdout);
                 debug!("stderr:\n{}", stderr);
             }
 
             if !datafile.exists() {
-                error!("perf command: {} succeeded but did not produce the required file {:?} \
-                        (you should file a bug report!)",
-                       perf_cmd_str,
-                       datafile);
+                error!(
+                    "perf command: {} succeeded but did not produce the required file {:?} \
+                     (you should file a bug report!)",
+                    perf_cmd_str, datafile
+                );
             }
 
             (stdout, stderr)
@@ -183,11 +191,10 @@ pub fn create_out_directory(out_dir: &Path) {
 }
 
 pub fn get_known_events<'a>() -> Vec<&'a EventDescription<'static>> {
-    let mut events: Vec<&EventDescription> = core_counters().unwrap().values().collect();
-    let mut uncore_events: Vec<&EventDescription> = uncore_counters().unwrap().values().collect();
-    events.append(&mut uncore_events);
-
-    events
+    events()
+        .expect("No performance events found?")
+        .values()
+        .collect()
 }
 
 #[derive(Hash, Eq, PartialEq, Debug, Copy, Clone, PartialOrd, Ord)]
@@ -219,6 +226,16 @@ pub enum MonitoringUnit {
     HA,
     /// Power Control Unit
     PCU,
+    /// XXX
+    M2M,
+    /// XXX  
+    CHA,
+    /// XXX
+    M3UPI,
+    /// XXX
+    IIO,
+    /// XXX
+    UPI_LL,
     /// Types we don't know how to handle...
     Unknown,
 }
@@ -239,6 +256,11 @@ impl fmt::Display for MonitoringUnit {
             MonitoringUnit::IMC => write!(f, "IMC"),
             MonitoringUnit::HA => write!(f, "HA"),
             MonitoringUnit::PCU => write!(f, "PCU"),
+            MonitoringUnit::M2M => write!(f, "M2M"),
+            MonitoringUnit::CHA => write!(f, "CHA"),
+            MonitoringUnit::M3UPI => write!(f, "M3UPI"),
+            MonitoringUnit::IIO => write!(f, "IIO"),
+            MonitoringUnit::UPI_LL => write!(f, "UPI LL"),
             MonitoringUnit::Unknown => write!(f, "Unknown"),
         }
     }
@@ -261,7 +283,15 @@ impl MonitoringUnit {
             "ha" => MonitoringUnit::HA,
             "pcu" => MonitoringUnit::PCU,
             "ubox" => MonitoringUnit::UBox,
-            _ => MonitoringUnit::Unknown,
+            "m2m" => MonitoringUnit::M2M,
+            "cha" => MonitoringUnit::CHA,
+            "m3upi" => MonitoringUnit::M3UPI,
+            "iio" => MonitoringUnit::IIO,
+            "upi ll" => MonitoringUnit::UPI_LL,
+            _ => {
+                error!("Don't support MonitoringUnit {}", unit);
+                MonitoringUnit::Unknown
+            }
         }
     }
 
@@ -280,13 +310,17 @@ impl MonitoringUnit {
             MonitoringUnit::HA => Some("HA"),
             MonitoringUnit::PCU => Some("PCU"),
             MonitoringUnit::UBox => Some("UBOX"),
+            MonitoringUnit::M2M => Some("M2M"),
+            MonitoringUnit::CHA => Some("CHA"),
+            MonitoringUnit::M3UPI => Some("M3UPI"),
+            MonitoringUnit::IIO => Some("IIO"),
+            MonitoringUnit::UPI_LL => Some("UPI LL"),
             MonitoringUnit::Unknown => None,
         }
     }
 
     /// Return the perf prefix for selecting the right PMU unit in case of uncore counters.
     pub fn to_perf_prefix(&self) -> Option<&'static str> {
-
         let res = match *self {
             MonitoringUnit::CPU => Some("cpu"),
             MonitoringUnit::CBox => Some("uncore_cbox"),
@@ -294,13 +328,18 @@ impl MonitoringUnit {
             MonitoringUnit::SBox => Some("uncore_sbox"),
             MonitoringUnit::Arb => Some("uncore_arb"),
             MonitoringUnit::R3QPI => Some("uncore_r3qpi"), // Adds postfix value
-            MonitoringUnit::QPI_LL => Some("uncore_qpi"), // Adds postfix value
+            MonitoringUnit::QPI_LL => Some("uncore_qpi"),  // Adds postfix value
             MonitoringUnit::IRP => Some("uncore_irp"), // According to libpfm4 (lib/pfmlib_intel_ivbep_unc_irp.c)
             MonitoringUnit::R2PCIe => Some("uncore_r2pcie"),
             MonitoringUnit::IMC => Some("uncore_imc"), // Adds postfix value
-            MonitoringUnit::HA => Some("uncore_ha"), // Adds postfix value
+            MonitoringUnit::HA => Some("uncore_ha"),   // Adds postfix value
             MonitoringUnit::PCU => Some("uncore_pcu"),
             MonitoringUnit::UBox => Some("uncore_ubox"),
+            MonitoringUnit::M2M => Some("uncore_m2m"), // Adds postfix value
+            MonitoringUnit::CHA => Some("uncore_cha"), // Adds postfix value
+            MonitoringUnit::M3UPI => Some("uncore_m3upi"), // Adds postfix value
+            MonitoringUnit::IIO => Some("uncore_iio"), // Adds postfix value
+            MonitoringUnit::UPI_LL => Some("uncore_upi"), // Adds postfix value
             MonitoringUnit::Unknown => None,
         };
 
@@ -311,9 +350,10 @@ impl MonitoringUnit {
     }
 }
 
-
 #[derive(Debug)]
-pub struct PerfEvent<'a, 'b>(pub &'a EventDescription<'b>) where 'b: 'a;
+pub struct PerfEvent<'a, 'b>(pub &'a EventDescription<'b>)
+where
+    'b: 'a;
 
 impl<'a, 'b> PerfEvent<'a, 'b> {
     /// Returns all possible configurations of the event.
@@ -335,7 +375,8 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
         let typ = self.unit();
 
         // XXX: Horrible vector transformation:
-        let matched_devices: Vec<String> = PMU_DEVICES.iter()
+        let matched_devices: Vec<String> = PMU_DEVICES
+            .iter()
             .filter(|d| typ.to_perf_prefix().map_or(false, |t| d.starts_with(t)))
             .map(|d| d.clone())
             .collect();
@@ -343,9 +384,11 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
 
         // We can have no devices if we don't understand how to match the unit name to perf names:
         if devices.len() == 0 {
-            debug!("Event '{}' in unit {:?} not supported on this architecture, ignored.",
-                   self.0.event_name,
-                   self.unit());
+            debug!(
+                "Event '{}' in unit {:?} not supported on this architecture, ignored.",
+                self.0.event_name,
+                self.unit()
+            );
         }
 
         for args in self.perf_args() {
@@ -377,7 +420,9 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
     }
 
     pub fn unit(&self) -> MonitoringUnit {
-        self.0.unit.map_or(MonitoringUnit::CPU, |u| MonitoringUnit::new(u))
+        self.0
+            .unit
+            .map_or(MonitoringUnit::CPU, |u| MonitoringUnit::new(u))
     }
 
     /// Is this event an offcore event?
@@ -439,9 +484,9 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
         }
         PerfEvent::push_arg(&mut ret, format!("name={}", self.0.event_name));
 
-        let is_pcu =
-            self.0.unit.map_or(false,
-                               |u| { return MonitoringUnit::new(u) == MonitoringUnit::PCU; });
+        let is_pcu = self.0.unit.map_or(false, |u| {
+            return MonitoringUnit::new(u) == MonitoringUnit::PCU;
+        });
 
         match self.0.event_code {
             Tuple::One(ev) => {
@@ -465,7 +510,6 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
             }
         };
 
-
         if !is_pcu {
             match self.0.umask {
                 Tuple::One(mask) => {
@@ -483,13 +527,32 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
             PerfEvent::push_arg(&mut ret, format!("cmask=0x{:x}", self.0.counter_mask));
         }
 
+        if self.0.fc_mask != 0 {
+            PerfEvent::push_arg(&mut ret, format!("fc_mask=0x{:x}", self.0.fc_mask));
+        }
+
+        if self.0.port_mask != 0 {
+            PerfEvent::push_arg(&mut ret, format!("ch_mask=0x{:x}", self.0.port_mask));
+        }
+
         if self.0.offcore {
             PerfEvent::push_arg(&mut ret, format!("offcore_rsp=0x{:x}", self.0.msr_value));
         } else {
             match self.0.msr_index {
-                MSRIndex::One(idx) => {
-                    assert!(idx == 0x3F6); // Load latency MSR
+                MSRIndex::One(0x3F6) => {
                     PerfEvent::push_arg(&mut ret, format!("ldlat=0x{:x}", self.0.msr_value));
+                }
+                MSRIndex::One(0x1A6) => {
+                    PerfEvent::push_arg(&mut ret, format!("offcore_rsp=0x{:x}", self.0.msr_value));
+                }
+                MSRIndex::One(0x1A7) => {
+                    PerfEvent::push_arg(&mut ret, format!("offcore_rsp=0x{:x}", self.0.msr_value));
+                }
+                MSRIndex::One(0x3F7) => {
+                    PerfEvent::push_arg(&mut ret, format!("frontend=0x{:x}", self.0.msr_value));
+                }
+                MSRIndex::One(a) => {
+                    unreachable!("Unknown MSR value {}, check linux/latest/source/tools/perf/pmu-events/jevents.c", a)
                 }
                 MSRIndex::Two(_, _) => {
                     unreachable!("Should not have non offcore events with two MSR index values.")
@@ -527,7 +590,6 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
             PerfEvent::push_arg(&mut ret, String::from("filter_opc=0x192"));
         }
 
-
         ret
     }
 
@@ -541,7 +603,11 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
 
     fn filters(&self) -> Vec<&str> {
         self.0.filter.map_or(Vec::new(), |value| {
-            value.split(",").map(|x| x.trim()).filter(|x| x.len() > 0).collect()
+            value
+                .split(",")
+                .map(|x| x.trim())
+                .filter(|x| x.len() > 0)
+                .collect()
         })
     }
 
@@ -593,7 +659,8 @@ impl error::Error for AddEventError {
 
 #[derive(Debug)]
 pub struct PerfEventGroup<'a, 'b>
-    where 'b: 'a
+where
+    'b: 'a,
 {
     events: Vec<PerfEvent<'a, 'b>>,
     limits: &'a HashMap<MonitoringUnit, usize>,
@@ -610,18 +677,12 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
 
     /// Returns how many offcore events are in the group.
     fn offcore_events(&self) -> usize {
-        self.events
-            .iter()
-            .filter(|e| e.is_offcore())
-            .count()
+        self.events.iter().filter(|e| e.is_offcore()).count()
     }
 
     /// Returns how many uncore events are in the group for a given unit.
     fn events_by_unit(&self, unit: MonitoringUnit) -> Vec<&PerfEvent> {
-        self.events
-            .iter()
-            .filter(|e| e.unit() == unit)
-            .collect()
+        self.events.iter().filter(|e| e.unit() == unit).collect()
     }
 
     /// Backtracking algorithm to find assigment of events to available counters
@@ -630,11 +691,12 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
     /// (i.e., either all programmable or all fixed) and the same unit.
     ///
     /// Returns a possible placement or None if no assignment was possible.
-    fn find_counter_assignment(level: usize,
-                               max_level: usize,
-                               events: Vec<&'a PerfEvent<'a, 'b>>,
-                               assignment: Vec<&'a PerfEvent<'a, 'b>>)
-                               -> Option<Vec<&'a PerfEvent<'a, 'b>>> {
+    fn find_counter_assignment(
+        level: usize,
+        max_level: usize,
+        events: Vec<&'a PerfEvent<'a, 'b>>,
+        assignment: Vec<&'a PerfEvent<'a, 'b>>,
+    ) -> Option<Vec<&'a PerfEvent<'a, 'b>>> {
         // Are we done yet?
         if events.len() == 0 {
             return Some(assignment);
@@ -657,10 +719,12 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
             if (mask & (1 << level)) > 0 {
                 assignment.push(event);
                 events.remove(idx);
-                let ret = PerfEventGroup::find_counter_assignment(level + 1,
-                                                                  max_level,
-                                                                  events,
-                                                                  assignment);
+                let ret = PerfEventGroup::find_counter_assignment(
+                    level + 1,
+                    max_level,
+                    events,
+                    assignment,
+                );
                 if ret.is_some() {
                     return ret;
                 }
@@ -668,10 +732,12 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
             // Otherwise let's not assign the event at this level and go deeper (for groups that
             // don't use all counters)
             else {
-                let ret = PerfEventGroup::find_counter_assignment(level + 1,
-                                                                  max_level,
-                                                                  events,
-                                                                  assignment);
+                let ret = PerfEventGroup::find_counter_assignment(
+                    level + 1,
+                    max_level,
+                    events,
+                    assignment,
+                );
                 if ret.is_some() {
                     return ret;
                 }
@@ -687,9 +753,11 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
     fn has_counter_constraint_conflicts(&self, new_event: &PerfEvent) -> bool {
         let unit = new_event.unit();
         let unit_limit = *self.limits.get(&unit).unwrap_or(&0);
+        //error!("unit = {:?} unit_limit {:?}", unit, unit_limit);
 
         // Get all the events that share the same counters as new_event:
-        let mut events: Vec<&PerfEvent> = self.events_by_unit(unit)
+        let mut events: Vec<&PerfEvent> = self
+            .events_by_unit(unit)
             .into_iter()
             .filter(|c| match (c.counter(), new_event.counter()) {
                 (Counter::Programmable(_), Counter::Programmable(_)) => true,
@@ -718,7 +786,6 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
 
         false
     }
-
 
     /// Try to add an event to an event group.
     ///
@@ -774,8 +841,9 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
         let already_have_isolated_event = self.events.get(0).map_or(false, |e| {
             ISOLATE_EVENTS.iter().any(|cur| *cur == e.0.event_name)
         });
-        if already_have_isolated_event ||
-           ISOLATE_EVENTS.iter().any(|cur| *cur == event.0.event_name) && self.events.len() != 0 {
+        if already_have_isolated_event
+            || ISOLATE_EVENTS.iter().any(|cur| *cur == event.0.event_name) && self.events.len() != 0
+        {
             return Err(AddEventError::IsolatedEventConflict);
         }
 
@@ -808,13 +876,15 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
 
                 let config = match have_one_offcore {
                     false => configs.get(0).unwrap(), // Ok, always has at least one config
-                    true => configs.get(1).unwrap(), // Ok, as offcore implies two configs
+                    true => configs.get(1).unwrap(),  // Ok, as offcore implies two configs
                 };
 
-                event_strings.push(format!("{}/{}/{}",
-                                           devices[0],
-                                           config.join(","),
-                                           event.perf_qualifiers()));
+                event_strings.push(format!(
+                    "{}/{}/{}",
+                    devices[0],
+                    config.join(","),
+                    event.perf_qualifiers()
+                ));
                 have_one_offcore = true;
             }
             // Adding uncore event:
@@ -826,10 +896,12 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
                     // Patch name in config so we know where this event was running
                     // `perf stat` just reports CPU 0 for uncore events :-(
                     configs[0][0] = format!("name={}.{}", device, event.0.event_name);
-                    event_strings.push(format!("{}/{}/{}",
-                                               device,
-                                               configs[0].join(","),
-                                               event.perf_qualifiers()));
+                    event_strings.push(format!(
+                        "{}/{}/{}",
+                        device,
+                        configs[0].join(","),
+                        event.perf_qualifiers()
+                    ));
                 }
             }
             // Adding normal event:
@@ -838,10 +910,12 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
                 assert!(configs.len() == 1);
                 assert!(devices[0] == "cpu");
 
-                event_strings.push(format!("{}/{}/{}",
-                                           devices[0],
-                                           configs[0].join(","),
-                                           event.perf_qualifiers()));
+                event_strings.push(format!(
+                    "{}/{}/{}",
+                    devices[0],
+                    configs[0].join(","),
+                    event.perf_qualifiers()
+                ));
             }
         }
 
@@ -865,7 +939,8 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
 
 /// Given a list of events, create a list of event groups that can be measured together.
 pub fn schedule_events<'a, 'b>(events: Vec<&'a EventDescription<'b>>) -> Vec<PerfEventGroup<'a, 'b>>
-    where 'b: 'a
+where
+    'b: 'a,
 {
     let mut groups: Vec<PerfEventGroup> = Vec::with_capacity(42);
 
@@ -901,8 +976,11 @@ pub fn schedule_events<'a, 'b>(events: Vec<&'a EventDescription<'b>>) -> Vec<Per
             let added = pg.add_event(perf_event);
             match added {
                 Err(e) => {
-                    panic!("Can't add a new event to an empty group: {}",
-                           e.description())
+                    let perf_event: PerfEvent = PerfEvent(event);
+                    panic!(
+                        "Can't add a new event {:?} to an empty group: {:?}",
+                        perf_event, e
+                    );
                 }
                 Ok(_) => (),
             };
@@ -931,12 +1009,13 @@ struct Profile<'a> {
 }
 
 impl<'a> Profile<'a> {
-    pub fn new(output_path: &'a Path,
-               cmd: Vec<&'a str>,
-               env: Vec<(String, String)>,
-               breakpoints: Vec<String>,
-               record: bool)
-               -> csv::Result<Profile<'a>> {
+    pub fn new(
+        output_path: &'a Path,
+        cmd: Vec<&'a str>,
+        env: Vec<(String, String)>,
+        breakpoints: Vec<String>,
+        record: bool,
+    ) -> csv::Result<Profile<'a>> {
         assert!(cmd.len() >= 1);
         create_out_directory(output_path);
 
@@ -945,14 +1024,16 @@ impl<'a> Profile<'a> {
         perf_log.push("perf.csv");
 
         let mut wrtr = csv::Writer::from_file(perf_log).unwrap();
-        try!(wrtr.encode(("command",
-                          "event_names",
-                          "perf_events",
-                          "breakpoints",
-                          "datafile",
-                          "perf_command",
-                          "stdout",
-                          "stderr")));
+        try!(wrtr.encode((
+            "command",
+            "event_names",
+            "perf_events",
+            "breakpoints",
+            "datafile",
+            "perf_command",
+            "stdout",
+            "stderr"
+        )));
         Ok(Profile {
             output_path: output_path,
             cmd: cmd,
@@ -968,12 +1049,13 @@ impl<'a> Profile<'a> {
     }
 }
 
-pub fn get_perf_command(cmd_working_dir: &str,
-                        _output_path: &Path,
-                        env: &Vec<(String, String)>,
-                        breakpoints: &Vec<String>,
-                        record: bool)
-                        -> Command {
+pub fn get_perf_command(
+    cmd_working_dir: &str,
+    _output_path: &Path,
+    env: &Vec<(String, String)>,
+    breakpoints: &Vec<String>,
+    record: bool,
+) -> Command {
     let mut perf = Command::new("perf");
     perf.current_dir(cmd_working_dir);
     let _filename: String;
@@ -999,16 +1081,17 @@ pub fn get_perf_command(cmd_working_dir: &str,
     perf
 }
 
-pub fn profile<'a, 'b>(output_path: &Path,
-                       cmd_working_dir: &str,
-                       cmd: Vec<String>,
-                       env: Vec<(String, String)>,
-                       breakpoints: Vec<String>,
-                       record: bool,
-                       events: Option<Vec<&'a EventDescription<'b>>>)
-    where 'b: 'a
+pub fn profile<'a, 'b>(
+    output_path: &Path,
+    cmd_working_dir: &str,
+    cmd: Vec<String>,
+    env: Vec<(String, String)>,
+    breakpoints: Vec<String>,
+    record: bool,
+    events: Option<Vec<&'a EventDescription<'b>>>,
+) where
+    'b: 'a,
 {
-
     let event_groups = match events {
         Some(evts) => schedule_events(evts),
         None => schedule_events(get_known_events()),
@@ -1018,15 +1101,18 @@ pub fn profile<'a, 'b>(output_path: &Path,
     let mut completed_file: PathBuf = output_path.to_path_buf();
     completed_file.push("completed");
     if completed_file.exists() {
-        info!("Run {} already completed, skipping.",
-              output_path.to_string_lossy());
+        info!(
+            "Run {} already completed, skipping.",
+            output_path.to_string_lossy()
+        );
         return;
     }
 
     create_out_directory(output_path);
     check_for_perf();
-    let ret = check_for_perf_permissions() || check_for_disabled_nmi_watchdog() ||
-              check_for_perf_paranoia();
+    let ret = check_for_perf_permissions()
+        || check_for_disabled_nmi_watchdog()
+        || check_for_perf_paranoia();
     if !ret {
         std::process::exit(3);
     }
@@ -1043,14 +1129,16 @@ pub fn profile<'a, 'b>(output_path: &Path,
     perf_log.push("perf.csv");
 
     let mut wtr = csv::Writer::from_file(perf_log).unwrap();
-    let r = wtr.encode(("command",
-                        "event_names",
-                        "perf_events",
-                        "breakpoints",
-                        "datafile",
-                        "perf_command",
-                        "stdout",
-                        "stdin"));
+    let r = wtr.encode((
+        "command",
+        "event_names",
+        "perf_events",
+        "breakpoints",
+        "datafile",
+        "perf_command",
+        "stdout",
+        "stdin",
+    ));
     assert!(r.is_ok());
 
     // For warm-up do a dummy run of the program with perf
@@ -1058,7 +1146,7 @@ pub fn profile<'a, 'b>(output_path: &Path,
     let mut perf = get_perf_command(cmd_working_dir, output_path, &env, &breakpoints, record);
     perf.arg("-n"); // null run - don’t start any counters
     let (_, _, _) = execute_perf(&mut perf, &cmd, &Vec::new(), &record_path);
-    debug!("Warmup for A complete, let's start measuring.");
+    debug!("Warmup complete, let's start measuring.");
 
     let mut pb = ProgressBar::new(event_groups.len() as u64);
     for group in event_groups {
@@ -1078,14 +1166,16 @@ pub fn profile<'a, 'b>(output_path: &Path,
         let mut perf = get_perf_command(cmd_working_dir, output_path, &env, &breakpoints, record);
         let (executed_cmd, stdout, stdin) =
             execute_perf(&mut perf, &cmd, &counters, record_path.as_path());
-        let r = wtr.encode(vec![cmd.join(" "),
-                                event_names.join(","),
-                                counters.join(","),
-                                String::new(),
-                                filename,
-                                executed_cmd,
-                                stdout,
-                                stdin]);
+        let r = wtr.encode(vec![
+            cmd.join(" "),
+            event_names.join(","),
+            counters.join(","),
+            String::new(),
+            filename,
+            executed_cmd,
+            stdout,
+            stdin,
+        ]);
         assert!(r.is_ok());
 
         let r = wtr.flush();
@@ -1103,16 +1193,22 @@ pub fn check_for_perf() {
                 error!("'perf' seems to have some problems?");
                 debug!("perf exit status was: {}", out.status);
                 error!("{}", String::from_utf8_lossy(&out.stderr));
-                error!("You may require a restart after fixing this so \
-                        `/sys/bus/event_source/devices` is updated!");
+                error!(
+                    "You may require a restart after fixing this so \
+                     `/sys/bus/event_source/devices` is updated!"
+                );
                 std::process::exit(2);
             }
         }
         Err(_) => {
-            error!("'perf' does not seem to be executable? You may need to install it (Ubuntu: \
-                    `sudo apt-get install linux-tools-common`).");
-            error!("You may require a restart after fixing this so \
-                    `/sys/bus/event_source/devices` is updated!");
+            error!(
+                "'perf' does not seem to be executable? You may need to install it (Ubuntu: \
+                 `sudo apt-get install linux-tools-common`)."
+            );
+            error!(
+                "You may require a restart after fixing this so \
+                 `/sys/bus/event_source/devices` is updated!"
+            );
             std::process::exit(2);
         }
     }
@@ -1127,8 +1223,10 @@ pub fn check_for_perf_permissions() -> bool {
         Ok(_) => {
             match s.trim() {
                 "1" => {
-                    error!("kptr restriction is enabled. You can either run autoperf as root or \
-                            do:");
+                    error!(
+                        "kptr restriction is enabled. You can either run autoperf as root or \
+                         do:"
+                    );
                     error!("\tsudo sh -c 'echo 0 >> {}'", path.display());
                     error!("to disable.");
                     return false;
@@ -1137,9 +1235,11 @@ pub fn check_for_perf_permissions() -> bool {
                     // debug!("kptr_restrict is already disabled (good).");
                 }
                 _ => {
-                    warn!("Unkown content read from '{}': {}. Proceeding anyways...",
-                          path.display(),
-                          s.trim());
+                    warn!(
+                        "Unkown content read from '{}': {}. Proceeding anyways...",
+                        path.display(),
+                        s.trim()
+                    );
                 }
             }
         }
@@ -1162,8 +1262,10 @@ pub fn check_for_disabled_nmi_watchdog() -> bool {
         Ok(_) => {
             match s.trim() {
                 "1" => {
-                    error!("nmi_watchdog is enabled. This can lead to counters not read (<not \
-                            counted>). Execute");
+                    error!(
+                        "nmi_watchdog is enabled. This can lead to counters not read (<not \
+                         counted>). Execute"
+                    );
                     error!("\tsudo sh -c 'echo 0 > {}'", path.display());
                     error!("to disable.");
                     return false;
@@ -1172,9 +1274,11 @@ pub fn check_for_disabled_nmi_watchdog() -> bool {
                     // debug!("nmi_watchdog is already disabled (good).");
                 }
                 _ => {
-                    warn!("Unkown content read from '{}': {}. Proceeding anyways...",
-                          path.display(),
-                          s.trim());
+                    warn!(
+                        "Unkown content read from '{}': {}. Proceeding anyways...",
+                        path.display(),
+                        s.trim()
+                    );
                 }
             }
         }
@@ -1188,7 +1292,6 @@ pub fn check_for_disabled_nmi_watchdog() -> bool {
     true
 }
 
-
 pub fn check_for_perf_paranoia() -> bool {
     let path = Path::new("/proc/sys/kernel/perf_event_paranoid");
     let mut file = File::open(path).expect("perf_event_paranoid file does not exist?");
@@ -1197,15 +1300,19 @@ pub fn check_for_perf_paranoia() -> bool {
     return match file.read_to_string(&mut s) {
         Ok(_) => {
             let digit = i64::from_str(s.trim()).unwrap_or_else(|_op| {
-                warn!("Unkown content read from '{}': {}. Proceeding anyways...",
-                      path.display(),
-                      s.trim());
+                warn!(
+                    "Unkown content read from '{}': {}. Proceeding anyways...",
+                    path.display(),
+                    s.trim()
+                );
                 1
             });
 
             if digit >= 0 {
-                error!("perf_event_paranoid is enabled. This means we can't collect system wide \
-                        stats. Execute");
+                error!(
+                    "perf_event_paranoid is enabled. This means we can't collect system wide \
+                     stats. Execute"
+                );
                 error!("\tsudo sh -c 'echo -1 > {}'", path.display());
                 error!("to disable.");
                 return false;

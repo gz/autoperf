@@ -1,21 +1,4 @@
-
-
-
-
-
 use std::path::Path;
-
-
-
-
-
-
-
-
-
-
-
-
 
 pub fn scale(_manifest_folder: &Path, _dryrun: bool, _start: usize, _stepping: usize) {
     // let canonical_manifest_path = fs::canonicalize(&manifest_folder)

@@ -1,24 +1,24 @@
 use std;
 
-
-use std::process::Command;
-use std::collections::HashMap;
 use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 
 use csv;
 
-use x86::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter, PebsType};
+use x86::perfcnt::intel::{Counter, EventDescription, MSRIndex, PebsType, Tuple};
 
 use super::profile;
-use super::profile::{PerfEvent, MonitoringUnit};
+use super::profile::{MonitoringUnit, PerfEvent};
 
-pub fn event_is_documented(events: &Vec<PerfEvent>,
-                           unit: MonitoringUnit,
-                           code: u8,
-                           umask: u8)
-                           -> bool {
+pub fn event_is_documented(
+    events: &Vec<PerfEvent>,
+    unit: MonitoringUnit,
+    code: u8,
+    umask: u8,
+) -> bool {
     for event in events.iter() {
         if event.unit() == unit && event.uses_event_code(code) && event.uses_umask(umask) {
             return true;
@@ -28,10 +28,11 @@ pub fn event_is_documented(events: &Vec<PerfEvent>,
     return false;
 }
 
-fn execute_perf(perf: &mut Command,
-                cmd: &Vec<String>,
-                counters: &Vec<String>)
-                -> BTreeSet<(String, String)> {
+fn execute_perf(
+    perf: &mut Command,
+    cmd: &Vec<String>,
+    counters: &Vec<String>,
+) -> BTreeSet<(String, String)> {
     assert!(cmd.len() >= 1);
     let events: Vec<String> = counters.iter().map(|c| format!("-e {}", c)).collect();
 
@@ -41,18 +42,19 @@ fn execute_perf(perf: &mut Command,
 
     let (_stdout, stderr) = match perf.output() {
         Ok(out) => {
-            let stdout = String::from_utf8(out.stdout)
-                .unwrap_or(String::from("Unable to read stdout!"));
-            let stderr = String::from_utf8(out.stderr)
-                .unwrap_or(String::from("Unable to read stderr!"));
+            let stdout =
+                String::from_utf8(out.stdout).unwrap_or(String::from("Unable to read stdout!"));
+            let stderr =
+                String::from_utf8(out.stderr).unwrap_or(String::from("Unable to read stderr!"));
 
             if out.status.success() {
                 // debug!("stdout:\n{:?}", stdout);
                 // debug!("stderr:\n{:?}", stderr);
             } else if !out.status.success() {
-                error!("perf command: {} got unknown exit status was: {}",
-                       perf_cmd_str,
-                       out.status);
+                error!(
+                    "perf command: {} got unknown exit status was: {}",
+                    perf_cmd_str, out.status
+                );
                 debug!("stdout:\n{}", stdout);
                 debug!("stderr:\n{}", stderr);
             }
@@ -66,8 +68,10 @@ fn execute_perf(perf: &mut Command,
     };
 
     let mut found_events = BTreeSet::new();
-    let mut rdr =
-        csv::Reader::from_string(stderr).has_headers(false).delimiter(b';').flexible(true);
+    let mut rdr = csv::Reader::from_string(stderr)
+        .has_headers(false)
+        .delimiter(b';')
+        .flexible(true);
     for record in rdr.decode() {
         if record.is_ok() {
             type SourceRow = (f64, String, String, String, String, String, f64);
@@ -86,8 +90,10 @@ fn execute_perf(perf: &mut Command,
                 // remove the _1 in uncore_cbox_1:
                 let mut unit_parts: Vec<&str> = unit.split('_').collect();
                 unit_parts.pop();
-                (String::from(unit_parts.join("_")),
-                 String::from(name.trim_start_matches(".").trim()))
+                (
+                    String::from(unit_parts.join("_")),
+                    String::from(name.trim_start_matches(".").trim()),
+                )
             };
 
             let value: u64 = value_string.trim().parse().unwrap_or(0);
@@ -101,23 +107,25 @@ fn execute_perf(perf: &mut Command,
     found_events
 }
 
-pub fn check_events<'a, 'b>(output_path: &Path,
-                            cmd_working_dir: &str,
-                            cmd: Vec<String>,
-                            env: Vec<(String, String)>,
-                            breakpoints: Vec<String>,
-                            record: bool,
-                            events: Vec<&'a EventDescription<'b>>)
-                            -> BTreeSet<(String, String)>
-    where 'b: 'a
+pub fn check_events<'a, 'b>(
+    output_path: &Path,
+    cmd_working_dir: &str,
+    cmd: Vec<String>,
+    env: Vec<(String, String)>,
+    breakpoints: Vec<String>,
+    record: bool,
+    events: Vec<&'a EventDescription<'b>>,
+) -> BTreeSet<(String, String)>
+where
+    'b: 'a,
 {
-
     let event_groups = profile::schedule_events(events);
     profile::create_out_directory(output_path);
 
     profile::check_for_perf();
-    let ret = profile::check_for_perf_permissions() || profile::check_for_disabled_nmi_watchdog() ||
-              profile::check_for_perf_paranoia();
+    let ret = profile::check_for_perf_permissions()
+        || profile::check_for_disabled_nmi_watchdog()
+        || profile::check_for_perf_paranoia();
     if !ret {
         std::process::exit(3);
     }
@@ -140,19 +148,19 @@ pub fn check_events<'a, 'b>(output_path: &Path,
     all_events
 }
 
-
 pub fn print_unknown_events() {
     let events = profile::get_known_events();
     let pevents: Vec<PerfEvent> = events.into_iter().map(|e| PerfEvent(e)).collect();
-    let units = vec![MonitoringUnit::CPU,
-                     //MonitoringUnit::UBox,
-                     MonitoringUnit::CBox,
-                     MonitoringUnit::HA,
-                     MonitoringUnit::IMC,
-                     //MonitoringUnit::PCU,
-                     //MonitoringUnit::R2PCIe,
-                     MonitoringUnit::R3QPI,
-                     //MonitoringUnit::QPI
+    let units = vec![
+        MonitoringUnit::CPU,
+        //MonitoringUnit::UBox,
+        MonitoringUnit::CBox,
+        MonitoringUnit::HA,
+        MonitoringUnit::IMC,
+        //MonitoringUnit::PCU,
+        //MonitoringUnit::R2PCIe,
+        MonitoringUnit::R3QPI,
+        //MonitoringUnit::QPI
     ];
 
     let mut event_names = HashMap::new();
@@ -160,10 +168,12 @@ pub fn print_unknown_events() {
         for code in 1..255 {
             for umask in 1..255 {
                 let id: isize = (*unit as isize) << 32 | (code as isize) << 8 | umask as isize;
-                let value = format!("{}_EVENT_{}_{}",
-                                    unit.to_intel_event_description().unwrap_or("CPU"),
-                                    code,
-                                    umask);
+                let value = format!(
+                    "{}_EVENT_{}_{}",
+                    unit.to_intel_event_description().unwrap_or("CPU"),
+                    code,
+                    umask
+                );
                 event_names.insert(id, value);
             }
         }
@@ -188,51 +198,63 @@ pub fn print_unknown_events() {
                     continue;
                 }
 
-                let e = EventDescription::new(Tuple::One(code),
-                                              Tuple::One(umask),
-                                              event_names.get(&id).unwrap().as_str(),
-                                              "Unknown Event",
-                                              None,
-                                              Counter::Programmable(15),
-                                              None,
-                                              None,
-                                              0,
-                                              MSRIndex::None,
-                                              0,
-                                              false,
-                                              0x0,
-                                              false,
-                                              false,
-                                              false,
-                                              PebsType::Regular,
-                                              false,
-                                              None,
-                                              false,
-                                              false,
-                                              None,
-                                              false,
-                                              unit.to_intel_event_description(),
-                                              None,
-                                              false);
+                let e = EventDescription::new(
+                    Tuple::One(code),
+                    Tuple::One(umask),
+                    event_names.get(&id).unwrap().as_str(),
+                    "Unknown Event",
+                    None,
+                    Counter::Programmable(15),
+                    None,
+                    None,
+                    0,
+                    MSRIndex::None,
+                    0,
+                    false,
+                    0x0,
+                    false,
+                    false,
+                    false,
+                    PebsType::Regular,
+                    false,
+                    None,
+                    false,
+                    false,
+                    None,
+                    false,
+                    unit.to_intel_event_description(),
+                    None,
+                    false,
+                    false,
+                    false,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                );
                 events.push(e);
             }
         }
 
         let mut storage_location = PathBuf::from("unknown_events");
-        let all_found_events = check_events(&storage_location,
-                                            ".",
-                                            vec![String::from("sleep"), String::from("1")],
-                                            Vec::new(),
-                                            Vec::new(),
-                                            false,
-                                            events.iter().collect());
+        let all_found_events = check_events(
+            &storage_location,
+            ".",
+            vec![String::from("sleep"), String::from("1")],
+            Vec::new(),
+            Vec::new(),
+            false,
+            events.iter().collect(),
+        );
         for &(ref name, ref unit) in all_found_events.iter() {
             let splitted: Vec<&str> = name.split("_").collect();
-            let r =
-                wtr.encode(vec![unit,
-                                &String::from(splitted[2]),
-                                &String::from(splitted[3]),
-                                name]);
+            let r = wtr.encode(vec![
+                unit,
+                &String::from(splitted[2]),
+                &String::from(splitted[3]),
+                name,
+            ]);
             assert!(r.is_ok());
         }
         let r = wtr.flush();

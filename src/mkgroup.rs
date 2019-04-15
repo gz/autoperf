@@ -1,31 +1,17 @@
-
 use std::collections::HashMap;
 
-
-
-
 use std::path::Path;
-
-
-
-
 
 use csv;
 use phf::Map;
 
-use x86::perfcnt::intel::counters::{IVYTOWN_CORE, IVYTOWN_UNCORE};
-use x86::perfcnt::intel::{EventDescription};
-
-
 use super::profile::{MonitoringUnit, PerfEvent, PerfEventGroup};
-
-
-
-static core_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_CORE;
-static uncore_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_UNCORE;
-
+use x86::perfcnt::intel::{events, EventDescription};
 
 pub fn mkgroup(ranking_file: &Path) {
+    let core_counter: &'static Map<&'static str, EventDescription<'static>> = &events().unwrap();
+    let uncore_counter: &'static Map<&'static str, EventDescription<'static>> = &events().unwrap();
+
     let mut res = HashMap::with_capacity(11);
     res.insert(MonitoringUnit::CPU, 4);
     res.insert(MonitoringUnit::UBox, 2);
@@ -40,10 +26,22 @@ pub fn mkgroup(ranking_file: &Path) {
     res.insert(MonitoringUnit::QPI, 4); // Not in the manual?
 
     // Accuracy,Config,Error,Event,F1 score,Precision/Recall,Samples,Samples detail,Test App
-
     // Accuracy,Error,Event,F1 score,Precision,Recall,Samples Test 0,Samples Test 1,Samples Test Total,Samples Training 0,Samples Training 1,Samples Training Total,Tested Application,Training Configs
-    type OutputRow = (f64, String, String, f64, f64, f64, String, String, String, String);
-    let mut rdr = csv::Reader::from_file(ranking_file).unwrap().has_headers(true);
+    type OutputRow = (
+        f64,
+        String,
+        String,
+        f64,
+        f64,
+        f64,
+        String,
+        String,
+        String,
+        String,
+    );
+    let mut rdr = csv::Reader::from_file(ranking_file)
+        .unwrap()
+        .has_headers(true);
     let mut events_added = HashMap::with_capacity(25);
 
     let mut group = PerfEventGroup::new(&res);
@@ -64,38 +62,30 @@ pub fn mkgroup(ranking_file: &Path) {
         } else {
             // Otherwise, let's see if we can still add it to the group:
             match maybe_e {
-                Some(event) => {
-                    match group.add_event(PerfEvent(event)) {
-                        Ok(()) => {
-                            events_added.insert(event_name, true);
-                            println!("{}", feature_name);
-                        }
-                        Err(e) => {
-                            info!("Unable to add event: '{}' to {:?} because of '{}'",
-                                  event_name,
-                                  event.unit,
-                                  e)
-                        }
+                Some(event) => match group.add_event(PerfEvent(event)) {
+                    Ok(()) => {
+                        events_added.insert(event_name, true);
+                        println!("{}", feature_name);
                     }
-                }
+                    Err(e) => info!(
+                        "Unable to add event: '{}' to {:?} because of '{}'",
+                        event_name, event.unit, e
+                    ),
+                },
                 None => {
                     let maybe_ue: Option<&'static EventDescription> =
                         uncore_counter.get(event_name.as_str());
                     match maybe_ue {
-                        Some(uncore_event) => {
-                            match group.add_event(PerfEvent(uncore_event)) {
-                                Ok(()) => {
-                                    events_added.insert(event_name, true);
-                                    println!("{}", feature_name);
-                                }
-                                Err(e) => {
-                                    info!("Unable to add event: '{}' to {:?} because of '{}'",
-                                          event_name,
-                                          uncore_event.unit,
-                                          e)
-                                }
+                        Some(uncore_event) => match group.add_event(PerfEvent(uncore_event)) {
+                            Ok(()) => {
+                                events_added.insert(event_name, true);
+                                println!("{}", feature_name);
                             }
-                        }
+                            Err(e) => info!(
+                                "Unable to add event: '{}' to {:?} because of '{}'",
+                                event_name, uncore_event.unit, e
+                            ),
+                        },
                         None => {
                             // panic!("Didn't find event {} in data set?", event_name);
                         }
@@ -103,6 +93,5 @@ pub fn mkgroup(ranking_file: &Path) {
                 }
             };
         }
-
     }
 }

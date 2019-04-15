@@ -1,20 +1,19 @@
-
 use std::io::prelude::*;
 
-use std::fs::File;
-use std::path::Path;
-use std::collections::HashMap;
-use std::cmp::Ord;
-use std::path::PathBuf;
-use phf::Map;
 use csv;
 use itertools::Itertools;
+use phf::Map;
+use std::cmp::Ord;
+use std::collections::HashMap;
+use std::fs::File;
+use std::path::Path;
+use std::path::PathBuf;
 
-use x86::perfcnt;
+use x86::perfcnt::intel::events::COUNTER_MAP;
 use x86::perfcnt::intel::{EventDescription, Tuple};
 
-use super::util::*;
 use super::profile::{MonitoringUnit, PerfEvent};
+use super::util::*;
 
 type EventMap = Map<&'static str, EventDescription<'static>>;
 type ArchitectureMap = HashMap<&'static str, (&'static str, &'static str, &'static str)>;
@@ -22,21 +21,23 @@ type ArchitectureMap = HashMap<&'static str, (&'static str, &'static str, &'stat
 /// Saves the event count for all architectures to a file.
 fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
     let mut writer = csv::Writer::from_file(csv_result).unwrap();
-    writer.encode(&["year",
-                  "architecture",
-                  "core events",
-                  "uncore events",
-                  "counters",
-                  "uncore groups"])
+    writer
+        .encode(&[
+            "year",
+            "architecture",
+            "core events",
+            "uncore events",
+            "counters",
+            "uncore groups",
+        ])
         .unwrap();
 
     for (key, &(name, year, counters)) in key_to_name.iter() {
-        let core_counters =
-            perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-core", key).as_str());
-        let uncore_counters =
-            perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-uncore", key).as_str());
+        let core_counters = COUNTER_MAP.get(format!("{}-core", key).as_str());
+        let uncore_counters = COUNTER_MAP.get(format!("{}-uncore", key).as_str());
 
-        let counter_groups: Vec<(MonitoringUnit, usize)> = uncore_counters.map_or(Vec::new(), |uc| {
+        let counter_groups: Vec<(MonitoringUnit, usize)> =
+            uncore_counters.map_or(Vec::new(), |uc| {
                 let mut units: Vec<(MonitoringUnit, PerfEvent)> = Vec::with_capacity(uc.len());
                 for ref e in uc.values() {
                     units.push((PerfEvent(&e).unit(), PerfEvent(&e)));
@@ -51,13 +52,13 @@ fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
                 counts
             });
 
-
         let cc_count = core_counters.map(|c| c.len()).unwrap_or(0);
         let uc_count = uncore_counters.map(|c| c.len()).unwrap_or(0);
 
-
-        let group_string =
-            counter_groups.into_iter().map(|(u, c)| format!("{}:{}", u, c)).join(";");
+        let group_string = counter_groups
+            .into_iter()
+            .map(|(u, c)| format!("{}:{}", u, c))
+            .join(";");
         let cc_count = cc_count.to_string();
         let uc_count = uc_count.to_string();
 
@@ -95,44 +96,63 @@ fn common_event_names(a: Option<&'static EventMap>, b: Option<&'static EventMap>
 /// Does pairwise comparison of all architectures and saves their shared events to a file.
 fn save_architecture_comparison(key_to_name: &ArchitectureMap, csv_result: &Path) {
     let mut writer = csv::Writer::from_file(csv_result).unwrap();
-    writer.encode(&["name1",
-                  "year1",
-                  "name2",
-                  "year2",
-                  "common core events",
-                  "common uncore events",
-                  "name1 core events",
-                  "name1 uncore events",
-                  "name2 core events",
-                  "name2 uncore events"])
+    writer
+        .encode(&[
+            "arch1",
+            "year1",
+            "arch2",
+            "year2",
+            "common core events",
+            "common uncore events",
+            "arch1 core events",
+            "arch1 uncore events",
+            "arch2 core events",
+            "arch2 uncore events",
+        ])
         .unwrap();
 
     for (key1, &(name1, year1, _)) in key_to_name.iter() {
         for (key2, &(name2, year2, _)) in key_to_name.iter() {
-            let core_counters1 =
-                perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-core", key1).as_str());
-            let uncore_counters1 =
-                perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-uncore", key1).as_str());
+            let core_counters1 = COUNTER_MAP.get(format!("{}-core", key1).as_str());
+            let uncore_counters1 = COUNTER_MAP.get(format!("{}-uncore", key1).as_str());
 
-            let core_counters2 =
-                perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-core", key2).as_str());
-            let uncore_counters2 =
-                perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-uncore", key2).as_str());
+            let core_counters2 = COUNTER_MAP.get(format!("{}-core", key2).as_str());
+            let uncore_counters2 = COUNTER_MAP.get(format!("{}-uncore", key2).as_str());
 
-            writer.encode(&[name1,
-                            year1,
-                            name2,
-                            year2,
-                            common_event_names(core_counters1, core_counters2)
-                                .to_string()
-                                .as_str(),
-                            common_event_names(uncore_counters1, uncore_counters2)
-                                .to_string()
-                                .as_str(),
-                            core_counters1.map(|c| c.len()).unwrap_or(0).to_string().as_str(),
-                            uncore_counters1.map(|c| c.len()).unwrap_or(0).to_string().as_str(),
-                            core_counters2.map(|c| c.len()).unwrap_or(0).to_string().as_str(),
-                            uncore_counters2.map(|c| c.len()).unwrap_or(0).to_string().as_str()]);
+            writer
+                .encode(&[
+                    name1,
+                    year1,
+                    name2,
+                    year2,
+                    common_event_names(core_counters1, core_counters2)
+                        .to_string()
+                        .as_str(),
+                    common_event_names(uncore_counters1, uncore_counters2)
+                        .to_string()
+                        .as_str(),
+                    core_counters1
+                        .map(|c| c.len())
+                        .unwrap_or(0)
+                        .to_string()
+                        .as_str(),
+                    uncore_counters1
+                        .map(|c| c.len())
+                        .unwrap_or(0)
+                        .to_string()
+                        .as_str(),
+                    core_counters2
+                        .map(|c| c.len())
+                        .unwrap_or(0)
+                        .to_string()
+                        .as_str(),
+                    uncore_counters2
+                        .map(|c| c.len())
+                        .unwrap_or(0)
+                        .to_string()
+                        .as_str(),
+                ])
+                .ok();
         }
     }
 }
@@ -159,10 +179,14 @@ fn edit_distance(a: &str, b: &str) -> i32 {
         for j in 0..len_b {
             let ind: i32 = if chars_a[i] == chars_b[j] { 0 } else { 1 };
 
-            let min = vec![matrix[i][j + 1] + 1, matrix[i + 1][j] + 1, matrix[i][j] + ind]
-                .into_iter()
-                .min()
-                .unwrap();
+            let min = vec![
+                matrix[i][j + 1] + 1,
+                matrix[i + 1][j] + 1,
+                matrix[i][j] + ind,
+            ]
+            .into_iter()
+            .min()
+            .unwrap();
 
             matrix[i + 1][j + 1] = if min == 0 { 0 } else { min };
         }
@@ -171,11 +195,12 @@ fn edit_distance(a: &str, b: &str) -> i32 {
 }
 
 /// Computes the edit distance of the event description for common events shared in 'a' and 'b'.
-fn common_event_desc_distance(writer: &mut csv::Writer<File>,
-                              a: Option<&'static EventMap>,
-                              b: Option<&'static EventMap>,
-                              uncore: bool)
-                              -> csv::Result<()> {
+fn common_event_desc_distance(
+    writer: &mut csv::Writer<File>,
+    a: Option<&'static EventMap>,
+    b: Option<&'static EventMap>,
+    uncore: bool,
+) -> csv::Result<()> {
     if a.is_none() || b.is_none() {
         return Ok(());
     }
@@ -187,15 +212,17 @@ fn common_event_desc_distance(writer: &mut csv::Writer<File>,
         match b_map.get(key1) {
             Some(value2) => {
                 assert_eq!(value1.event_name, value2.event_name);
-                let ed = edit_distance(value1.brief_description, value2.brief_description)
-                    .to_string();
+                let ed =
+                    edit_distance(value1.brief_description, value2.brief_description).to_string();
                 let uncore_str = if uncore { "true" } else { "false" };
 
-                try!(writer.encode(&[value1.event_name,
-                                     ed.as_str(),
-                                     uncore_str,
-                                     value1.brief_description,
-                                     value2.brief_description]))
+                try!(writer.encode(&[
+                    value1.event_name,
+                    ed.as_str(),
+                    uncore_str,
+                    value1.brief_description,
+                    value2.brief_description
+                ]))
             }
             None => {
                 // Ignore event names that are not shared in both architectures
@@ -208,42 +235,34 @@ fn common_event_desc_distance(writer: &mut csv::Writer<File>,
 
 /// Does a pairwise comparison of all architectures by computing edit distances of shared events.
 fn save_edit_distances(key_to_name: &ArchitectureMap, output_dir: &Path) {
-
     for (key1, &(name1, _, _)) in key_to_name.iter() {
         for (key2, &(name2, _, _)) in key_to_name.iter() {
-
             let mut csv_result = output_dir.to_path_buf();
             csv_result.push(format!("editdist_{}-vs-{}.csv", name1, name2));
 
             let mut writer = csv::Writer::from_file(csv_result).unwrap();
-            writer.encode(&["event name", "edit distance", "uncore", "desc1", "desc2"])
+            writer
+                .encode(&["event name", "edit distance", "uncore", "desc1", "desc2"])
                 .unwrap();
 
-            let core_counters1 =
-                perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-core", key1).as_str());
-            let uncore_counters1 =
-                perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-uncore", key1).as_str());
+            let core_counters1 = COUNTER_MAP.get(format!("{}-core", key1).as_str());
+            let uncore_counters1 = COUNTER_MAP.get(format!("{}-uncore", key1).as_str());
 
-            let core_counters2 =
-                perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-core", key2).as_str());
-            let uncore_counters2 =
-                perfcnt::intel::counters::COUNTER_MAP.get(format!("{}-uncore", key2).as_str());
+            let core_counters2 = COUNTER_MAP.get(format!("{}-core", key2).as_str());
+            let uncore_counters2 = COUNTER_MAP.get(format!("{}-uncore", key2).as_str());
 
-            common_event_desc_distance(&mut writer, core_counters1, core_counters2, false);
-            common_event_desc_distance(&mut writer, uncore_counters1, uncore_counters2, true);
+            common_event_desc_distance(&mut writer, core_counters1, core_counters2, false).ok();
+            common_event_desc_distance(&mut writer, uncore_counters1, uncore_counters2, true).ok();
         }
     }
 }
 
+/// Dump information about performance events into the given directory.
+/// TODO: This should dynamically select the architecture.
 fn save_event_descriptions(output_path: &Path) {
-    use x86::perfcnt::intel::counters::{IVYTOWN_CORE, IVYTOWN_UNCORE};
-    static core_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_CORE;
-    static uncore_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_UNCORE;
-
-    let mut pevents: Vec<PerfEvent> = core_counter.into_iter().map(|e| PerfEvent(e.1)).collect();
-    let mut unc_pevents: Vec<PerfEvent> =
-        uncore_counter.into_iter().map(|e| PerfEvent(e.1)).collect();
-    pevents.append(&mut unc_pevents);
+    let events: &'static Map<&'static str, EventDescription<'static>> =
+        &x86::perfcnt::intel::events().unwrap();
+    let pevents: Vec<PerfEvent> = events.into_iter().map(|e| PerfEvent(e.1)).collect();
 
     let mut storage_location = PathBuf::from(output_path);
     storage_location.push("ivytown_events.dat");
@@ -251,40 +270,53 @@ fn save_event_descriptions(output_path: &Path) {
     let r = wtr.encode(("unit", "code", "mask", "event_name"));
     assert!(r.is_ok());
 
-
     for event in pevents.iter() {
         //println!("{:?}", event.0.event_name);
         let unit = event.unit().to_perf_prefix().unwrap();
 
         match (&event.0.event_code, &event.0.umask) {
             (&Tuple::One(e1), &Tuple::One(m1)) => {
-                wtr.encode(vec![unit,
-                                &format!("{}", e1),
-                                &format!("{}", m1),
-                                &String::from(event.0.event_name)]);
-
+                wtr.encode(vec![
+                    unit,
+                    &format!("{}", e1),
+                    &format!("{}", m1),
+                    &String::from(event.0.event_name),
+                ])
+                .ok();
             }
             (&Tuple::Two(e1, e2), &Tuple::Two(m1, m2)) => {
-                wtr.encode(vec![unit,
-                                &format!("{}", e1),
-                                &format!("{}", m1),
-                                &String::from(event.0.event_name)]);
+                wtr.encode(vec![
+                    unit,
+                    &format!("{}", e1),
+                    &format!("{}", m1),
+                    &String::from(event.0.event_name),
+                ])
+                .ok();
 
-                wtr.encode(vec![unit,
-                                &format!("{}", e2),
-                                &format!("{}", m2),
-                                &String::from(event.0.event_name)]);
+                wtr.encode(vec![
+                    unit,
+                    &format!("{}", e2),
+                    &format!("{}", m2),
+                    &String::from(event.0.event_name),
+                ])
+                .ok();
             }
             (&Tuple::Two(e1, e2), &Tuple::One(m1)) => {
-                wtr.encode(vec![unit,
-                                &format!("{}", e1),
-                                &format!("{}", m1),
-                                &String::from(event.0.event_name)]);
+                wtr.encode(vec![
+                    unit,
+                    &format!("{}", e1),
+                    &format!("{}", m1),
+                    &String::from(event.0.event_name),
+                ])
+                .ok();
 
-                wtr.encode(vec![unit,
-                                &format!("{}", e2),
-                                &format!("{}", m1),
-                                &String::from(event.0.event_name)]);
+                wtr.encode(vec![
+                    unit,
+                    &format!("{}", e2),
+                    &format!("{}", m1),
+                    &String::from(event.0.event_name),
+                ])
+                .ok();
             }
             _ => unreachable!(),
         }
@@ -292,14 +324,13 @@ fn save_event_descriptions(output_path: &Path) {
 
     let r = wtr.flush();
     assert!(r.is_ok());
-
-
 }
 
 /// Generate all the stats about Intel events and save them to a file.
 pub fn stats(output_path: &Path) {
     mkdir(output_path);
 
+    // TODO: Ideally this should come from x86 crate: x86data/perfmon_data/mapfile.csv
     let mut key_to_name = HashMap::new();
     key_to_name.insert("GenuineIntel-6-1C", ("Bonnell", "2008", "4"));
     key_to_name.insert("GenuineIntel-6-1E", ("NehalemEP", "2009", "4"));
@@ -327,9 +358,8 @@ pub fn stats(output_path: &Path) {
 
     let mut csv_result_file = output_path.to_path_buf();
     csv_result_file.push("architecture_comparison.csv");
+
     save_architecture_comparison(&key_to_name, csv_result_file.as_path());
-
     save_edit_distances(&key_to_name, output_path);
-
     save_event_descriptions(output_path);
 }

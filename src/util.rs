@@ -1,17 +1,16 @@
-use std::io;
-use std::io::prelude::*;
-use std::fs;
-use std::fs::File;
-use std::path::PathBuf;
-use std::path::Path;
-use std::str::{FromStr, from_utf8_unchecked};
-use std::process::{Command, Output};
-use log::error as lerror;
-use nom::*;
-use x86::cpuid;
 use csv;
 use itertools::*;
-
+use log::error as lerror;
+use nom::*;
+use std::fs;
+use std::fs::File;
+use std::io;
+use std::io::prelude::*;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::{Command, Output};
+use std::str::{from_utf8_unchecked, FromStr};
+use x86::cpuid;
 
 pub type Node = u64;
 pub type Socket = u64;
@@ -97,11 +96,12 @@ pub struct MachineTopology {
     data: Vec<CpuInfo>,
 }
 
-fn save_file(cmd: &'static str,
-             output_path: &Path,
-             file: &'static str,
-             out: Output)
-             -> io::Result<String> {
+fn save_file(
+    cmd: &'static str,
+    output_path: &Path,
+    file: &'static str,
+    out: Output,
+) -> io::Result<String> {
     if out.status.success() {
         // Save to result directory:
         let mut out_file: PathBuf = output_path.to_path_buf();
@@ -111,17 +111,24 @@ fn save_file(cmd: &'static str,
         try!(f.write(content.as_bytes()));
         Ok(content)
     } else {
-        lerror!("{} command: got unknown exit status was: {}",
-               cmd,
-               out.status);
-        debug!("stderr:\n{}",
-               String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string()));
+        lerror!(
+            "{} command: got unknown exit status was: {}",
+            cmd,
+            out.status
+        );
+        debug!(
+            "stderr:\n{}",
+            String::from_utf8(out.stderr).unwrap_or("Can't parse output".to_string())
+        );
         unreachable!()
     }
 }
 
 pub fn save_lstopo(output_path: &Path) -> io::Result<String> {
-    let out = try!(Command::new("lstopo").arg("--of console").arg("--taskset").output());
+    let out = try!(Command::new("lstopo")
+        .arg("--of console")
+        .arg("--taskset")
+        .output());
     save_file("lstopo", output_path, "lstopo.txt", out)
 }
 
@@ -131,7 +138,7 @@ pub fn save_cpuid(output_path: &Path) -> io::Result<String> {
 }
 
 pub fn save_likwid_topology(output_path: &Path) -> io::Result<String> {
-    let out = try!(Command::new("likwid-topology").arg("-gc").output());
+    let out = try!(Command::new("likwid-topology").arg("-g").arg("-c").output());
     save_file("likwid-topology", output_path, "likwid_topology.txt", out)
 }
 
@@ -141,14 +148,18 @@ pub fn save_numa_topology(output_path: &Path) -> io::Result<String> {
 }
 
 pub fn save_cpu_topology(output_path: &Path) -> io::Result<String> {
-    let out = try!(Command::new("lscpu").arg("--parse=NODE,SOCKET,CORE,CPU,CACHE").output());
+    let out = try!(Command::new("lscpu")
+        .arg("--parse=NODE,SOCKET,CORE,CPU,CACHE")
+        .output());
     save_file("lscpu", output_path, "lscpu.csv", out)
 }
 
 impl MachineTopology {
     pub fn new() -> MachineTopology {
-        let lscpu_out =
-            Command::new("lscpu").arg("--parse=NODE,SOCKET,CORE,CPU,CACHE").output().unwrap();
+        let lscpu_out = Command::new("lscpu")
+            .arg("--parse=NODE,SOCKET,CORE,CPU,CACHE")
+            .output()
+            .unwrap();
         let lscpu_string = String::from_utf8(lscpu_out.stdout).unwrap_or(String::new());
 
         let numactl_out = Command::new("numactl").arg("--hardware").output().unwrap();
@@ -170,7 +181,8 @@ impl MachineTopology {
     }
 
     pub fn from_strings(lscpu_output: String, numactl_output: String) -> MachineTopology {
-        let no_comments: Vec<&str> = lscpu_output.split('\n')
+        let no_comments: Vec<&str> = lscpu_output
+            .split('\n')
             .filter(|s| s.trim().len() > 0 && !s.trim().starts_with("#"))
             .collect();
 
@@ -180,10 +192,14 @@ impl MachineTopology {
 
         let mut data: Vec<CpuInfo> = Vec::with_capacity(rows.len());
         for row in rows {
-            let caches: Vec<u64> = row.4.split(":").map(|s| u64::from_str(s).unwrap()).collect();
+            let caches: Vec<u64> = row
+                .4
+                .split(":")
+                .map(|s| u64::from_str(s).unwrap())
+                .collect();
             assert_eq!(caches.len(), 4);
-            let node: NodeInfo = get_node_info(row.0, &numactl_output)
-                .expect("Can't find node in numactl output?");
+            let node: NodeInfo =
+                get_node_info(row.0, &numactl_output).expect("Can't find node in numactl output?");
             let tuple: CpuInfo = CpuInfo {
                 node: node,
                 socket: row.1,
@@ -245,10 +261,13 @@ impl MachineTopology {
     pub fn l1_size(&self) -> Option<u64> {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_cache_parameters().map(|mut cparams| {
-            let cache = cparams.find(|c| c.level() == 1 && c.cache_type() == cpuid::CacheType::DATA)
+            let cache = cparams
+                .find(|c| c.level() == 1 && c.cache_type() == cpuid::CacheType::DATA)
                 .unwrap();
-            (cache.associativity() * cache.physical_line_partitions() *
-             cache.coherency_line_size() * cache.sets()) as u64
+            (cache.associativity()
+                * cache.physical_line_partitions()
+                * cache.coherency_line_size()
+                * cache.sets()) as u64
         })
     }
 
@@ -262,11 +281,13 @@ impl MachineTopology {
     pub fn l2_size(&self) -> Option<u64> {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_cache_parameters().map(|mut cparams| {
-            let cache =
-                cparams.find(|c| c.level() == 2 && c.cache_type() == cpuid::CacheType::UNIFIED)
-                    .unwrap();
-            (cache.associativity() * cache.physical_line_partitions() *
-             cache.coherency_line_size() * cache.sets()) as u64
+            let cache = cparams
+                .find(|c| c.level() == 2 && c.cache_type() == cpuid::CacheType::UNIFIED)
+                .unwrap();
+            (cache.associativity()
+                * cache.physical_line_partitions()
+                * cache.coherency_line_size()
+                * cache.sets()) as u64
         })
     }
 
@@ -280,11 +301,13 @@ impl MachineTopology {
     pub fn l3_size(&self) -> Option<u64> {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_cache_parameters().map(|mut cparams| {
-            let cache =
-                cparams.find(|c| c.level() == 3 && c.cache_type() == cpuid::CacheType::UNIFIED)
-                    .unwrap();
-            (cache.associativity() * cache.physical_line_partitions() *
-             cache.coherency_line_size() * cache.sets()) as u64
+            let cache = cparams
+                .find(|c| c.level() == 3 && c.cache_type() == cpuid::CacheType::UNIFIED)
+                .unwrap();
+            (cache.associativity()
+                * cache.physical_line_partitions()
+                * cache.coherency_line_size()
+                * cache.sets()) as u64
         })
     }
 
@@ -313,8 +336,12 @@ impl MachineTopology {
     }
 
     fn cores_on_socket(&self, socket: Socket) -> Vec<Core> {
-        let mut cores: Vec<Core> =
-            self.data.iter().filter(|c| c.socket == socket).map(|c| c.core).collect();
+        let mut cores: Vec<Core> = self
+            .data
+            .iter()
+            .filter(|c| c.socket == socket)
+            .map(|c| c.core)
+            .collect();
         cores.sort();
         cores.dedup();
         cores
@@ -328,15 +355,24 @@ impl MachineTopology {
     }
 
     pub fn same_socket(&self) -> Vec<Vec<&CpuInfo>> {
-        self.sockets().into_iter().map(|s| self.cpus_on_socket(s)).collect()
+        self.sockets()
+            .into_iter()
+            .map(|s| self.cpus_on_socket(s))
+            .collect()
     }
 
     pub fn same_core(&self) -> Vec<Vec<&CpuInfo>> {
-        self.cores().into_iter().map(|c| self.cpus_on_core(c)).collect()
+        self.cores()
+            .into_iter()
+            .map(|c| self.cpus_on_core(c))
+            .collect()
     }
 
     pub fn same_node(&self) -> Vec<Vec<&CpuInfo>> {
-        self.nodes().into_iter().map(|c| self.cpus_on_node(c)).collect()
+        self.nodes()
+            .into_iter()
+            .map(|c| self.cpus_on_node(c))
+            .collect()
     }
 
     pub fn same_l1(&self) -> Vec<Vec<&CpuInfo>> {
@@ -352,7 +388,10 @@ impl MachineTopology {
     }
 
     pub fn same_l3_cores(&self) -> Vec<Vec<&CpuInfo>> {
-        self.l3().into_iter().map(|l3| self.cores_on_l3(l3)).collect()
+        self.l3()
+            .into_iter()
+            .map(|l3| self.cores_on_l3(l3))
+            .collect()
     }
 
     pub fn whole_machine(&self) -> Vec<Vec<&CpuInfo>> {
@@ -369,14 +408,16 @@ impl MachineTopology {
 
 // TODO: Should ideally be generic:
 pub fn socket_uncore_devices() -> Vec<&'static str> {
-    vec!["uncore_ha_0",
-         "uncore_imc_0",
-         "uncore_imc_1",
-         "uncore_imc_2",
-         "uncore_imc_3",
-         "uncore_pcu",
-         "uncore_r2pcie",
-         "uncore_r3qpi_0",
-         "uncore_r3qpi_1",
-         "uncore_ubox"]
+    vec![
+        "uncore_ha_0",
+        "uncore_imc_0",
+        "uncore_imc_1",
+        "uncore_imc_2",
+        "uncore_imc_3",
+        "uncore_pcu",
+        "uncore_r2pcie",
+        "uncore_r3qpi_0",
+        "uncore_r3qpi_1",
+        "uncore_ubox",
+    ]
 }

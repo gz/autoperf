@@ -1,30 +1,13 @@
 name: autoperf
-version: "0.1"
+version: "0.2"
 author: Gerd Zellweger <mail@gerdzellweger.com>
-about: Uses less domain knowledge, but more time.
+about: Use perf with less domain knowledge, but more time.
 args:
     - verbose:
         short: v
         multiple: true
-        help: Sets the level of verbosity.
+        help: Be more verbose.
 subcommands:
-    - stats:
-        about: Generates statistics about performance events.
-        args:
-            - directory:
-                help: Output folder.
-                required: true
-    - mkgroup:
-        settings:
-            - TrailingVarArg
-        about: Given a machine, form the largest possible group of events from a given ranking input file.
-        args:
-            - file:
-                short: i
-                long: input
-                help: Input file (weka ranking).
-                value_name: FILE
-                takes_value: true
     - profile:
         settings:
             - TrailingVarArg
@@ -43,28 +26,12 @@ subcommands:
             - record:
                 short: r
                 long: record
-                help: Use `perf record` instead of `perf stat` (not recommended due to sampling rate differences).
+                help: Use `perf record` instead of `perf stat` (not recommended due to sampling rate issues).
                 takes_value: true
             - COMMAND:
                 help: Command to execute.
                 required: true
                 multiple: true
-    - scale:
-        settings:
-            - TrailingVarArg
-        about: Measure all available H/W events for commands using `perf stat` with increasing number of threads.
-        args:
-            - debug:
-                short: d
-                long: debug
-                help: Print debug information verbosely.
-            - dryrun:
-                short: r
-                long: dryrun
-                help: Don't run anything, just print what it would do.
-            - directory:
-                help: Path of manifest directory.
-                required: true
     - pair:
         about: Run every program in the manifest alone as well as pairwise together and measure all events.
         args:
@@ -117,5 +84,40 @@ subcommands:
             - directory:
                 help: Set input directory.
                 required: true
+    - stats:
+        about: Dump statistics about performance events on Intel architectures.
+        args:
+            - directory:
+                help: Where to store the generated output (CSV) files.
+                required: true
     - search:
-        about: Find and record events potentially not covered in Intel public records.
+        about: Find performance events potentially not covered in Intel publicly available manuals.
+
+#    - scale:
+#        settings:
+#            - TrailingVarArg
+#        about: Measure all available H/W events for commands using `perf stat` with increasing number of threads.
+#        args:
+#            - debug:
+#                short: d
+#                long: debug
+#                help: Print debug information verbosely.
+#            - dryrun:
+#                short: r
+#                long: dryrun
+#                help: Don't run anything, just print what it would do.
+#            - directory:
+#                help: Path of manifest directory.
+#                required: true
+
+#    - mkgroup:
+#        settings:
+#            - TrailingVarArg
+#        about: Given a machine, form the largest possible group of events from a given ranking input file.
+#        args:
+#            - file:
+#                short: i
+#                long: input
+#                help: Input file (weka ranking).
+#                value_name: FILE
+#                takes_value: true
