@@ -15,7 +15,7 @@ use wait_timeout::ChildExt;
 use rustc_serialize::Encodable;
 use itertools::Itertools;
 
-use x86::shared::cpuid;
+use x86::cpuid;
 use toml;
 
 use profile;

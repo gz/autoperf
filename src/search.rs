@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use csv;
 use pbr::ProgressBar;
-use x86::shared::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter, PebsType};
+use x86::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter, PebsType};
 
 use super::profile;
 use super::profile::{PerfEvent, MonitoringUnit};

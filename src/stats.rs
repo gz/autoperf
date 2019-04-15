@@ -10,8 +10,8 @@ use phf::Map;
 use csv;
 use itertools::Itertools;
 
-use x86::shared::perfcnt;
-use x86::shared::perfcnt::intel::{EventDescription, Tuple};
+use x86::perfcnt;
+use x86::perfcnt::intel::{EventDescription, Tuple};
 
 use super::util::*;
 use super::profile::{MonitoringUnit, PerfEvent};
@@ -236,7 +236,7 @@ fn save_edit_distances(key_to_name: &ArchitectureMap, output_dir: &Path) {
 }
 
 fn save_event_descriptions(output_path: &Path) {
-    use x86::shared::perfcnt::intel::counters::{IVYTOWN_CORE, IVYTOWN_UNCORE};
+    use x86::perfcnt::intel::counters::{IVYTOWN_CORE, IVYTOWN_UNCORE};
     static core_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_CORE;
     static uncore_counter: &'static Map<&'static str, EventDescription<'static>> = &IVYTOWN_UNCORE;
 

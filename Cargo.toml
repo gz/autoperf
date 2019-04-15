@@ -8,17 +8,17 @@ authors = [
 ]
 
 [dependencies]
-pbr = "0.3.*"
+pbr = "*"
 log = "0.3"
 env_logger = "0.3"
 csv = "0.*"
 lazy_static = "0.1.*"
-perfcnt = "0.3.*"
+perfcnt = "0.*"
 toml = "0.2"
 nom = "^1.2.3"
 libc = "0.2.16"
 clap = { version = "2", features = ["yaml"] }
-x86 = { path = "../rust-x86/" }
+x86 = { version = "0.15", features = ["performance-counter"] }
 phf = "0.7.*"
 itertools = "0.5"
 rustc-serialize = "0.3"

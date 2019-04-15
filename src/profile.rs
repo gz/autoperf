@@ -13,9 +13,9 @@ use std::error;
 use std::fmt;
 use csv;
 use pbr::ProgressBar;
-use x86::shared::perfcnt::intel::{core_counters, uncore_counters};
-use x86::shared::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter, PebsType};
-use x86::shared::cpuid;
+use x86::perfcnt::intel::{core_counters, uncore_counters};
+use x86::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter, PebsType};
+use x86::cpuid;
 
 use super::util::*;
 

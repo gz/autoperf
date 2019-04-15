@@ -13,10 +13,10 @@ use std::fmt;
 use csv;
 use phf::Map;
 
-use x86::shared::perfcnt::intel::counters::{IVYTOWN_CORE, IVYTOWN_UNCORE};
-use x86::shared::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter, core_counters,
+use x86::perfcnt::intel::counters::{IVYTOWN_CORE, IVYTOWN_UNCORE};
+use x86::perfcnt::intel::{EventDescription, Tuple, MSRIndex, Counter, core_counters,
                                   uncore_counters};
-use x86::shared::cpuid;
+use x86::cpuid;
 
 use super::profile::{MonitoringUnit, PerfEvent, PerfEventGroup};
 

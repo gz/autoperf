@@ -6,7 +6,7 @@ args:
     - verbose:
         short: v
         multiple: true
-        help: Sets the level of verbosity
+        help: Sets the level of verbosity.
 subcommands:
     - stats:
         about: Generates statistics about performance events.

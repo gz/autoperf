@@ -6,8 +6,9 @@ use std::path::PathBuf;
 use std::path::Path;
 use std::str::{FromStr, from_utf8_unchecked};
 use std::process::{Command, Output};
+use log::error as lerror;
 use nom::*;
-use x86::shared::cpuid;
+use x86::cpuid;
 use csv;
 use itertools::*;
 
@@ -110,7 +111,7 @@ fn save_file(cmd: &'static str,
         try!(f.write(content.as_bytes()));
         Ok(content)
     } else {
-        error!("{} command: got unknown exit status was: {}",
+        lerror!("{} command: got unknown exit status was: {}",
                cmd,
                out.status);
         debug!("stderr:\n{}",
