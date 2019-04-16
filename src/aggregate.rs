@@ -10,7 +10,9 @@ use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
 use toml;
-use util::*;
+use log::*;
+
+use crate::util::*;
 
 use perfcnt::linux::perf_file::PerfFile;
 use perfcnt::linux::perf_format::{EventData, EventDesc, EventType};
@@ -48,7 +50,7 @@ fn parse_perf_csv_file(
     writer: &mut csv::Writer<File>,
 ) -> io::Result<()> {
     // Check if it's a file:
-    let meta: Metadata = try!(fs::metadata(path));
+    let meta: Metadata = fs::metadata(path)?;
     if !meta.file_type().is_file() {
         error!("Not a file {:?}", path);
     }
@@ -322,14 +324,14 @@ fn parse_perf_file(
     writer: &mut csv::Writer<File>,
 ) -> io::Result<()> {
     // Check if it's a file:
-    let meta: Metadata = try!(fs::metadata(path));
+    let meta: Metadata = fs::metadata(path)?;
     if !meta.file_type().is_file() {
         error!("Not a file {:?}", path);
     }
     // TODO: Should just pass Path to PerfFile
-    let mut file = try!(File::open(path));
+    let mut file = File::open(path)?;
     let mut buf: Vec<u8> = Vec::with_capacity(meta.len() as usize);
-    try!(file.read_to_end(&mut buf));
+    file.read_to_end(&mut buf)?;
     let pf = PerfFile::new(buf);
 
     // debug!("GroupDescriptions: {:?}", pf.get_group_descriptions());
@@ -396,7 +398,7 @@ impl Filter {
     }
 }
 
-pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Path) {
+pub fn aggregate(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Path) {
     if !path.exists() {
         error!("Input directory does not exist {:?}", path);
         process::exit(1);

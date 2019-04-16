@@ -6,6 +6,7 @@ authors = [
     "Besmira Nushi <besmira.nushi@microsoft.com>",
     "Gerd Zellweger <mail@gerdzellweger.com>"
 ]
+edition = '2018'
 
 [dependencies]
 pbr = "*"

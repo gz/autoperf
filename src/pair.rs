@@ -10,15 +10,16 @@ use std::thread;
 
 use std::fmt;
 
-use itertools::Itertools;
+use itertools::{Itertools, iproduct};
 use rustc_serialize::Encodable;
 use std::time::Duration;
 use wait_timeout::ChildExt;
 
 use toml;
+use log::*;
 
 use super::util::*;
-use profile;
+use crate::profile;
 
 fn get_hostname() -> Option<String> {
     use libc::gethostname;
@@ -157,12 +158,12 @@ impl<'a> fmt::Display for Deployment<'a> {
         let a: Vec<Cpu> = self.a.iter().map(|c| c.cpu).collect();
         let b: Vec<Cpu> = self.b.iter().map(|c| c.cpu).collect();
 
-        try!(write!(f, "Deployment Plan for {}:\n", self.description));
-        try!(write!(f, "-- Program A cores: {:?}\n", a));
-        try!(write!(f, "-- Program B cores: {:?}\n", b));
-        try!(write!(f, "-- Use memory:\n"));
+        write!(f, "Deployment Plan for {}:\n", self.description)?;
+        write!(f, "-- Program A cores: {:?}\n", a)?;
+        write!(f, "-- Program B cores: {:?}\n", b)?;
+        write!(f, "-- Use memory:\n")?;
         for n in self.mem.iter() {
-            try!(write!(f, " - On node {}: {} Bytes\n", n.node, n.memory));
+            write!(f, " - On node {}: {} Bytes\n", n.node, n.memory)?;
         }
         Ok(())
     }
@@ -433,21 +434,21 @@ impl<'a> Run<'a> {
         what.read_to_string(&mut stdout)?;
         let mut stdout_path = self.output_path.clone();
         stdout_path.push(filename);
-        let mut f = try!(File::create(stdout_path.as_path()));
+        let mut f = File::create(stdout_path.as_path())?;
         f.write_all(stdout.as_bytes())
     }
 
     fn save_run_information(&self) -> io::Result<()> {
         let mut run_toml_path = self.output_path.clone();
         run_toml_path.push("run.toml");
-        let mut f = try!(File::create(run_toml_path.as_path()));
+        let mut f = File::create(run_toml_path.as_path())?;
         let mut e = toml::Encoder::new();
         self.encode(&mut e).unwrap();
-        try!(f.write_all(toml::encode_str(&e.toml).as_bytes()));
+        f.write_all(toml::encode_str(&e.toml).as_bytes())?;
 
         let mut run_txt_path = self.output_path.clone();
         run_txt_path.push("run.txt");
-        let mut f = try!(File::create(run_txt_path.as_path()));
+        let mut f = File::create(run_txt_path.as_path())?;
         f.write_all(format!("{}", self).as_bytes())
     }
 
@@ -482,7 +483,7 @@ impl<'a> Run<'a> {
             thread::sleep(one_min);
         }
 
-        try!(self.profile_a());
+        self.profile_a()?;
 
         match maybe_app_b {
             Some(mut app_b) => {
@@ -499,7 +500,7 @@ impl<'a> Run<'a> {
 
                         let mut completed_path = self.output_path.clone();
                         completed_path.push("completed");
-                        try!(fs::remove_file(completed_path));
+                        fs::remove_file(completed_path)?;
 
                         panic!(
                             "B has crashed during measurements {:?}. This is bad.",
@@ -508,8 +509,8 @@ impl<'a> Run<'a> {
                         // TODO: save error code and continue (?)
                     }
                     None => {
-                        try!(app_b.kill());
-                        try!(app_b.wait());
+                        app_b.kill()?;
+                        app_b.wait()?;
                         app_b
                             .stdout
                             .map(|mut c| self.save_output("B_stdout.txt", &mut c));
@@ -528,26 +529,26 @@ impl<'a> Run<'a> {
 
 impl<'a> fmt::Display for Run<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(write!(
+        write!(
             f,
             "A: {:?} {:?}\n",
             self.a.get_env(false, &self.deployment.a),
             self.a.get_cmd(false, &self.deployment.a)
-        ));
-        try!(write!(f, "A Breakpoints: {:?}\n", self.a.breakpoints));
-        try!(write!(f, "A Checkpoints: {:?}\n", self.a.checkpoints));
+        )?;
+        write!(f, "A Breakpoints: {:?}\n", self.a.breakpoints)?;
+        write!(f, "A Checkpoints: {:?}\n", self.a.checkpoints)?;
         match self.b {
             Some(b) => {
-                try!(write!(
+                write!(
                     f,
                     "B: {:?} {:?}\n",
                     b.get_env(true, &self.deployment.b),
                     b.get_cmd(true, &self.deployment.b)
-                ));
-                try!(write!(f, "{}:\n", &self.deployment));
+                )?;
+                write!(f, "{}:\n", &self.deployment)?;
             }
             None => {
-                try!(write!(f, "No other program running."));
+                write!(f, "No other program running.")?;
             }
         }
         Ok(())

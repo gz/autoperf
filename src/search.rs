@@ -9,7 +9,7 @@ use std::process::Command;
 use csv;
 
 use x86::perfcnt::intel::{Counter, EventDescription, MSRIndex, PebsType, Tuple};
-
+use log::*;
 use super::profile;
 use super::profile::{MonitoringUnit, PerfEvent};
 
@@ -237,7 +237,7 @@ pub fn print_unknown_events() {
             }
         }
 
-        let mut storage_location = PathBuf::from("unknown_events");
+        let storage_location = PathBuf::from("unknown_events");
         let all_found_events = check_events(
             &storage_location,
             ".",

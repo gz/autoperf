@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::str::{from_utf8_unchecked, FromStr};
 use x86::cpuid;
+use log::*;
 
 pub type Node = u64;
 pub type Socket = u64;
@@ -108,9 +109,9 @@ fn save_file(
         // Save to result directory:
         let mut out_file: PathBuf = output_path.to_path_buf();
         out_file.push(file);
-        let mut f = try!(File::create(out_file.as_path()));
+        let mut f = File::create(out_file.as_path())?;
         let content = String::from_utf8(out.stdout).unwrap_or(String::new());
-        try!(f.write(content.as_bytes()));
+        f.write(content.as_bytes())?;
         Ok(content)
     } else {
         lerror!(
@@ -127,32 +128,32 @@ fn save_file(
 }
 
 pub fn save_lstopo(output_path: &Path) -> io::Result<String> {
-    let out = try!(Command::new("lstopo")
+    let out = Command::new("lstopo")
         .arg("--of console")
         .arg("--taskset")
-        .output());
+        .output()?;
     save_file("lstopo", output_path, "lstopo.txt", out)
 }
 
 pub fn save_cpuid(output_path: &Path) -> io::Result<String> {
-    let out = try!(Command::new("cpuid").output());
+    let out = Command::new("cpuid").output()?;
     save_file("cpuid", output_path, "cpuid.txt", out)
 }
 
 pub fn save_likwid_topology(output_path: &Path) -> io::Result<String> {
-    let out = try!(Command::new("likwid-topology").arg("-g").arg("-c").output());
+    let out = Command::new("likwid-topology").arg("-g").arg("-c").output()?;
     save_file("likwid-topology", output_path, "likwid_topology.txt", out)
 }
 
 pub fn save_numa_topology(output_path: &Path) -> io::Result<String> {
-    let out = try!(Command::new("numactl").arg("--hardware").output());
+    let out = Command::new("numactl").arg("--hardware").output()?;
     save_file("numactl", output_path, "numactl.dat", out)
 }
 
 pub fn save_cpu_topology(output_path: &Path) -> io::Result<String> {
-    let out = try!(Command::new("lscpu")
+    let out = Command::new("lscpu")
         .arg("--parse=NODE,SOCKET,CORE,CPU,CACHE")
-        .output());
+        .output()?;
     save_file("lscpu", output_path, "lscpu.csv", out)
 }
 

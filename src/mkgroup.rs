@@ -7,6 +7,7 @@ use phf::Map;
 
 use super::profile::{MonitoringUnit, PerfEvent, PerfEventGroup};
 use x86::perfcnt::intel::{events, EventDescription};
+use log::*;
 
 pub fn mkgroup(ranking_file: &Path) {
     let core_counter: &'static Map<&'static str, EventDescription<'static>> = &events().unwrap();

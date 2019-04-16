@@ -214,13 +214,13 @@ fn common_event_desc_distance(
                     edit_distance(value1.brief_description, value2.brief_description).to_string();
                 let uncore_str = if uncore { "true" } else { "false" };
 
-                try!(writer.encode(&[
+                writer.encode(&[
                     value1.event_name,
                     ed.as_str(),
                     uncore_str,
                     value1.brief_description,
                     value2.brief_description
-                ]))
+                ])?
             }
             None => {
                 // Ignore event names that are not shared in both architectures

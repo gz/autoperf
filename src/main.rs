@@ -1,28 +1,8 @@
-extern crate libc;
-#[macro_use]
-extern crate lazy_static;
-extern crate nom;
-#[macro_use]
-extern crate log;
-extern crate env_logger;
-#[macro_use]
-extern crate clap;
-extern crate csv;
-extern crate pbr;
-extern crate perfcnt;
-extern crate phf;
-extern crate rustc_serialize;
-extern crate toml;
-extern crate wait_timeout;
-extern crate x86;
-#[macro_use]
-extern crate itertools;
-
-use clap::App;
+use clap::{App, load_yaml};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-mod extract;
+mod aggregate;
 mod mkgroup;
 mod pair;
 mod profile;
@@ -30,8 +10,9 @@ mod scale;
 mod search;
 mod stats;
 mod util;
+use log::*;
 
-use extract::extract;
+use aggregate::aggregate;
 use pair::pair;
 use profile::profile;
 use stats::stats;
@@ -67,7 +48,7 @@ fn main() {
             None,
         );
     }
-    if let Some(matches) = matches.subcommand_matches("extract") {
+    if let Some(matches) = matches.subcommand_matches("aggregate") {
         let input_directory = Path::new(matches.value_of("directory").unwrap_or("out"));
         let output_path: PathBuf = match matches.value_of("output") {
             Some(v) => PathBuf::from(v),
@@ -80,7 +61,7 @@ fn main() {
         let uncore_filter: &str = matches.value_of("uncore").unwrap_or("exclusive");
         let core_filter: &str = matches.value_of("core").unwrap_or("exclusive");
 
-        extract(
+        aggregate(
             input_directory,
             core_filter,
             uncore_filter,

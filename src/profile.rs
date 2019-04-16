@@ -15,7 +15,9 @@ use std::process::Command;
 use std::str::FromStr;
 use x86::cpuid;
 use x86::perfcnt::intel::{events, Counter, EventDescription, MSRIndex, PebsType, Tuple};
+use lazy_static::lazy_static;
 
+use log::*;
 use super::util::*;
 
 lazy_static! {
@@ -1130,7 +1132,7 @@ pub fn profile<'a, 'b>(
     for group in event_groups {
         let idx = pb.inc();
 
-        let mut event_names: Vec<&str> = group.get_event_names();
+        let event_names: Vec<&str> = group.get_event_names();
         let counters: Vec<String> = group.get_perf_config_strings();
 
         let mut record_path = PathBuf::new();

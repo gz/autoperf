@@ -6,17 +6,13 @@ args:
     - verbose:
         short: v
         multiple: true
-        help: Be more verbose.
+        help: Do more verbose logging (-v = warn, -vv = info, -vvv = debug, -vvvv = trace, default is error).
 subcommands:
     - profile:
         settings:
             - TrailingVarArg
         about: Measure all available H/W events for a command using `perf stat`.
         args:
-            - debug:
-                short: d
-                long: debug
-                help: Print debug information verbosely.
             - output:
                 short: o
                 long: output
@@ -32,25 +28,21 @@ subcommands:
                 help: Command to execute.
                 required: true
                 multiple: true
-    - extract:
+    - aggregate:
         about: Merge counter measurements generated with the `profile` or `pair` command in a single CSV file.
         args:
-            - debug:
-                short: d
-                long: debug
-                help: Print verbose debug information.
             - core:
                 short: c
                 long: core
                 takes_value: true
                 possible_values: [ all, shared, exclusive, none ]
-                help: Which core events to include (default exclusive).
+                help: Which core events to include (default exclusive = only cores where program was running on).
             - uncore:
                 short: u
                 long: uncore
                 takes_value: true
                 possible_values: [ all, shared, exclusive, none ]
-                help: Which uncore events to include (default exclusive).
+                help: Which uncore events to include (default exclusive = only uncore units that are exclusively used by program).
             - output:
                 short: o
                 long: output
