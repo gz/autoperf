@@ -32,30 +32,6 @@ subcommands:
                 help: Command to execute.
                 required: true
                 multiple: true
-    - pair:
-        about: Run every program in the manifest alone as well as pairwise together and measure all events.
-        args:
-            - debug:
-                short: d
-                long: debug
-                help: Print verbose debug information.
-            - start:
-                short: b
-                long: base
-                help: Skip the first x configuration (used to evaluate the same manifest simultaneously on multiple identical machines).
-                takes_value: true
-            - step:
-                short: s
-                long: step
-                help: Only evaluate every x-th configuration (used to evaluate the same manifest simultaneously on multiple identical machines).
-                takes_value: true
-            - dryrun:
-                short: r
-                long: dryrun
-                help: Don't run anything, just print what it would do.
-            - directory:
-                help: Path of manifest directory.
-                required: true
     - extract:
         about: Merge counter measurements generated with the `profile` or `pair` command in a single CSV file.
         args:
@@ -121,3 +97,29 @@ subcommands:
 #                help: Input file (weka ranking).
 #                value_name: FILE
 #                takes_value: true
+
+
+#    - pair:
+#        about: Run every program in the manifest alone as well as pairwise together and measure all events.
+#        args:
+#            - debug:
+#                short: d
+#                long: debug
+#                help: Print verbose debug information.
+#            - start:
+#                short: b
+#                long: base
+#                help: Skip the first x configuration (used to evaluate the same manifest simultaneously on multiple identical machines).
+#                takes_value: true
+#            - step:
+#                short: s
+#                long: step
+#                help: Only evaluate every x-th configuration (used to evaluate the same manifest simultaneously on multiple identical machines).
+#                takes_value: true
+#            - dryrun:
+#                short: r
+#                long: dryrun
+#                help: Don't run anything, just print what it would do.
+#            - directory:
+#                help: Path of manifest directory.
+#                required: true

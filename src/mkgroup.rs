@@ -20,7 +20,7 @@ pub fn mkgroup(ranking_file: &Path) {
     res.insert(MonitoringUnit::IMC, 4);
     res.insert(MonitoringUnit::IRP, 4);
     res.insert(MonitoringUnit::PCU, 4);
-    res.insert(MonitoringUnit::QPI_LL, 4);
+    res.insert(MonitoringUnit::QPI, 4);
     res.insert(MonitoringUnit::R2PCIe, 4);
     res.insert(MonitoringUnit::R3QPI, 2); // According to the manual this is 3 but then it multiplexes...
     res.insert(MonitoringUnit::QPI, 4); // Not in the manual?

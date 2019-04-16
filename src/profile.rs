@@ -27,46 +27,64 @@ lazy_static! {
     };
 
     static ref PMU_COUNTERS: HashMap<MonitoringUnit, usize> = {
-        // TODO: How can I get this info from /sys/bus/event_source?
         let cpuid = cpuid::CpuId::new();
         let cpu_counter = cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters()) as usize;
         let mut res = HashMap::with_capacity(11);
         res.insert(MonitoringUnit::CPU, cpu_counter);
+        let (family, model) = cpuid.get_feature_info().map_or((0,0), |fi| (fi.family_id(), ((fi.extended_model_id() as u8) << 4) | fi.model_id() as u8));
 
-        cpuid.get_feature_info().map(|fi| {
-            // IvyBridge EP
-            if fi.family_id() == 0x6 && fi.model_id() == 0xe {
-                res.insert(MonitoringUnit::UBox, 2);
-                res.insert(MonitoringUnit::CBox, 4);
-                res.insert(MonitoringUnit::HA, 4);
-                res.insert(MonitoringUnit::IMC, 4);
-                res.insert(MonitoringUnit::IRP, 4);
-                res.insert(MonitoringUnit::PCU, 4);
-                res.insert(MonitoringUnit::QPI_LL, 4);
-                res.insert(MonitoringUnit::R2PCIe, 4);
-                res.insert(MonitoringUnit::R3QPI, 2); // According to the manual this is 3 but then it multiplexes...
-                res.insert(MonitoringUnit::QPI, 4); // Not in the manual?
+        let ctr_config = include_str!("counters.toml");
+        println!("ctr_config = {}", ctr_config);
+        let mut parser = toml::Parser::new(ctr_config);
+
+        let doc = match parser.parse() {
+            Some(doc) => doc,
+            None => {
+                error!("Can't parse the counter configuration file:\n{:?}", parser.errors);
+                std::process::exit(9);
             }
-            else {
-                error!("Don't know this CPU, can't infer #counters for offcore stuff. Assume conservative defaults...");
-                res.insert(MonitoringUnit::UBox, 2);
-                res.insert(MonitoringUnit::HA, 2);
-                res.insert(MonitoringUnit::IRP, 2);
-                res.insert(MonitoringUnit::PCU, 2);
-                res.insert(MonitoringUnit::QPI_LL, 2);
-                res.insert(MonitoringUnit::R2PCIe, 2);
-                res.insert(MonitoringUnit::R3QPI, 2);
-                res.insert(MonitoringUnit::QPI, 2);
-                res.insert(MonitoringUnit::CBox, 2);
-                res.insert(MonitoringUnit::IMC, 2);
-                res.insert(MonitoringUnit::Arb, 4);
-                res.insert(MonitoringUnit::M2M, 4);
-                res.insert(MonitoringUnit::CHA, 4);
-                res.insert(MonitoringUnit::M3UPI, 4);
-                res.insert(MonitoringUnit::IIO, 4);
-                res.insert(MonitoringUnit::UPI_LL, 4);
+        };
+
+        trace!("Trying to find architecture for family = {:#x} model = {:#x}", family, model);
+        let mut found: bool = false;
+        for (name, architecture) in doc {
+            let architecture = architecture.as_table().expect("counters.toml architectures must be a table");
+            let cfamily = &architecture["family"];
+            for cmodel in architecture["models"].as_slice().expect("counters.toml models must be a list.") {
+                error!("model = {}", model);
+                let cfamily = cfamily.as_integer().expect("Family must be int.") as u8;
+                let cmodel = cmodel.as_integer().expect("Model must be int.") as u8;
+                if family == cfamily && model == cmodel {
+                    trace!("Running on {}, reading MonitoringUnit limits from config", name);
+                    found = true;
+
+                    for (unit, limit) in architecture["programmable_counters"].as_table().expect("programmable_counters must be a table") {
+                        let unit = MonitoringUnit::new(unit.as_str());
+                        let limit = limit.as_integer().expect("Counter limit should be an integer");
+                        res.insert(unit, limit as usize);
+                    }
+                }
             }
-        });
+        }
+
+        if !found {
+            warn!("Didn't recogize this architecture so we can't infer #counters for MonitoringUnit (Please update counters.toml for family = {:#x} model = {:#x})", family, model);
+            res.insert(MonitoringUnit::UBox, 2);
+            res.insert(MonitoringUnit::HA, 2);
+            res.insert(MonitoringUnit::IRP, 2);
+            res.insert(MonitoringUnit::PCU, 2);
+            res.insert(MonitoringUnit::R2PCIe, 2);
+            res.insert(MonitoringUnit::R3QPI, 2);
+            res.insert(MonitoringUnit::QPI, 2);
+            res.insert(MonitoringUnit::CBox, 2);
+            res.insert(MonitoringUnit::IMC, 2);
+            res.insert(MonitoringUnit::Arb, 4);
+            res.insert(MonitoringUnit::M2M, 4);
+            res.insert(MonitoringUnit::CHA, 4);
+            res.insert(MonitoringUnit::M3UPI, 4);
+            res.insert(MonitoringUnit::IIO, 4);
+            res.insert(MonitoringUnit::UPI_LL, 4);
+        }
 
         res
     };
@@ -92,7 +110,7 @@ lazy_static! {
         ignored
     };
 
-    // Sometimes the perfmon data is missing the errata information (as is the case with the IvyBridge file).\
+    // Sometimes the perfmon data is missing the errata information (as is the case with the IvyBridge file).
     // We provide a list of IvyBridge events instead here.
     static ref ISOLATE_EVENTS: Vec<&'static str> = {
         let cpuid = cpuid::CpuId::new();
@@ -214,8 +232,6 @@ pub enum MonitoringUnit {
     QPI,
     /// Ring to QPI
     R3QPI,
-    /// QPI Link Layer
-    QPI_LL,
     /// IIO Coherency
     IRP,
     /// Ring to PCIe
@@ -250,7 +266,6 @@ impl fmt::Display for MonitoringUnit {
             MonitoringUnit::UBox => write!(f, "UBox"),
             MonitoringUnit::QPI => write!(f, "QPI"),
             MonitoringUnit::R3QPI => write!(f, "R3QPI"),
-            MonitoringUnit::QPI_LL => write!(f, "QPI_LL"),
             MonitoringUnit::IRP => write!(f, "IRP"),
             MonitoringUnit::R2PCIe => write!(f, "R2PCIe"),
             MonitoringUnit::IMC => write!(f, "IMC"),
@@ -276,7 +291,7 @@ impl MonitoringUnit {
             "imph-u" => MonitoringUnit::Arb,
             "arb" => MonitoringUnit::Arb,
             "r3qpi" => MonitoringUnit::R3QPI,
-            "qpi ll" => MonitoringUnit::QPI_LL,
+            "qpi ll" => MonitoringUnit::QPI,
             "irp" => MonitoringUnit::IRP,
             "r2pcie" => MonitoringUnit::R2PCIe,
             "imc" => MonitoringUnit::IMC,
@@ -288,6 +303,9 @@ impl MonitoringUnit {
             "m3upi" => MonitoringUnit::M3UPI,
             "iio" => MonitoringUnit::IIO,
             "upi ll" => MonitoringUnit::UPI_LL,
+            "upi" => MonitoringUnit::UPI_LL,
+            "ubo" => MonitoringUnit::UBox,
+            "qpi" => MonitoringUnit::QPI,
             _ => {
                 error!("Don't support MonitoringUnit {}", unit);
                 MonitoringUnit::Unknown
@@ -303,7 +321,6 @@ impl MonitoringUnit {
             MonitoringUnit::SBox => Some("SBO"),
             MonitoringUnit::Arb => Some("ARB"),
             MonitoringUnit::R3QPI => Some("R3QPI"),
-            MonitoringUnit::QPI_LL => Some("QPI LL"),
             MonitoringUnit::IRP => Some("IRP"),
             MonitoringUnit::R2PCIe => Some("R2PCIE"),
             MonitoringUnit::IMC => Some("IMC"),
@@ -328,7 +345,6 @@ impl MonitoringUnit {
             MonitoringUnit::SBox => Some("uncore_sbox"),
             MonitoringUnit::Arb => Some("uncore_arb"),
             MonitoringUnit::R3QPI => Some("uncore_r3qpi"), // Adds postfix value
-            MonitoringUnit::QPI_LL => Some("uncore_qpi"),  // Adds postfix value
             MonitoringUnit::IRP => Some("uncore_irp"), // According to libpfm4 (lib/pfmlib_intel_ivbep_unc_irp.c)
             MonitoringUnit::R2PCIe => Some("uncore_r2pcie"),
             MonitoringUnit::IMC => Some("uncore_imc"), // Adds postfix value

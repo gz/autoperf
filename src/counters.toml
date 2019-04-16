@@ -1,0 +1,23 @@
+[broadwell]
+family = 6
+models = [61, 71, 79, 86]
+fixed_counters = { CPU = 3, UBO = 1, IMC = 1 }
+programmable_counters = { CPU = 4, UBO = 2, CBO = 4, HA = 4, IMC = 4, IRP = 4, PCU = 4, QPI = 4, R2PCIE = 4, R3QPI = 3, SBO = 4  }
+
+[haswell]
+family = 6
+models = [60, 69, 70, 63]
+fixed_counters = { CPU = 3, UBO = 1, IMC = 1 }
+programmable_counters = { CPU = 4, UBO = 2, CBO = 4, HA = 4, IMC = 4, IRP = 4, PCU = 4, QPI = 4, R2PCIE = 4, R3QPI = 3, SBO = 4  }
+
+[ivybridge]
+family = 6
+models = [62, 58]
+fixed_counters = { CPU = 3, UBO = 1, IMC = 1 }
+programmable_counters = { CPU = 4, UBO = 2, CBO = 4, HA = 4, IMC = 4, IRP = 4, PCU = 4, QPI = 4, R2PCIE = 4, R3QPI = 3, SBO = 4  }
+
+[skylake]
+family = 6
+models = [78, 94, 142, 158, 85]
+fixed_counters = { CPU = 3, UBO = 1, IMC = 1 }
+programmable_counters = { CPU = 4, UPI = 4, CHA = 4, IIO = 4, IMC = 4, IRP = 4, M2M = 4, M3UPI = 4, PCU = 4, UBO = 2, CBO = 4 }

@@ -132,7 +132,7 @@ fn parse_perf_csv_file(
             }
             if value_string.trim() == "<not supported>" {
                 error!(
-                    "{:?}: Event '{}' was not supported. This is a bug, please report it!",
+                    "{:?}: Event '{}' was not measured correctly with perf. This is a bug, please report it!",
                     path.as_os_str(),
                     event_name
                 );
@@ -455,9 +455,10 @@ pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Pat
 
         (cpus, breakpoints)
     } else {
-        warn!("Couldn't find a run.toml, we include counter values from all CPUs and sockets");
+        debug!("Couldn't find a run.toml, we include counter values from all CPUs and sockets");
         let cpus: Vec<u64> = mt.cores();
-        let breakpoint: Vec<String> = Vec::new(); // No breakpoints
+        // No breakpoints
+        let breakpoint: Vec<String> = Vec::new();
         (cpus, breakpoint)
     };
 
@@ -567,4 +568,6 @@ pub fn extract(path: &Path, cpu_filter: &str, uncore_filter: &str, save_to: &Pat
             _ => panic!("Unknown file extension, I can't parse this."),
         };
     }
+
+    info!("Merging completed");
 }

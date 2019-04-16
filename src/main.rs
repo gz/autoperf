@@ -41,22 +41,7 @@ use mkgroup::mkgroup;
 use search::print_unknown_events;
 
 fn setup_logging() {
-    use env_logger::LogBuilder;
-    use log::{LogLevelFilter, LogRecord};
-
-    let format = |record: &LogRecord| {
-        format!(
-            "[{}] {}:{}: {}",
-            record.level(),
-            record.location().file(),
-            record.location().line(),
-            record.args()
-        )
-    };
-
-    let mut builder = LogBuilder::new();
-    builder.format(format).filter(None, LogLevelFilter::Debug);
-    builder.init().unwrap();
+    env_logger::init();
 }
 
 fn main() {
