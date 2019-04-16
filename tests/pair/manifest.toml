@@ -1,0 +1,37 @@
+[experiment]
+configurations = ["L3-SMT", "L3-SMT-cores"]
+alone = false
+profile_only_a = ["echo", "p2"]
+#profile_only_b = ["echo", "p2"]
+
+[program1]
+name = "echo"
+binary = "echo"
+default_working_dir = "~"
+arguments = ["a", "b", "c"]
+antagonist_arguments = ["a", "b", "c"]
+breakpoints = ["0x123", "0x123"]
+checkpoints = ["0x123", "0x123"]
+env = { KEY = "value" }
+use_watch_repeat = false
+alone = false
+
+[program2]
+name = "p2"
+binary = "p2"
+default_working_dir = "~"
+arguments = ["a", "b", "c"]
+antagonist_arguments = ["a", "b", "c"]
+breakpoints = ["0x123", "0x123"]
+checkpoints = ["0x123", "0x123"]
+env = { KEY = "value" }
+use_watch_repeat = false
+alone = false
+
+#Don't document these two features
+#openmp = false
+#parsec = false
+
+# speical vars in CMD are:
+#NUM_THREADS
+#MANIFEST_DIR
