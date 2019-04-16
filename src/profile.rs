@@ -19,6 +19,9 @@ use x86::perfcnt::intel::{events, Counter, EventDescription, MSRIndex, PebsType,
 use super::util::*;
 
 lazy_static! {
+
+    /// Check if HT is enabled on this CPU (if HT is disabled it doubles the amount of available
+    /// performance counters on a core).
     static ref HT_AVAILABLE: bool = {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_extended_topology_info().unwrap().any(|t| {
@@ -26,6 +29,9 @@ lazy_static! {
         })
     };
 
+    /// For every MonitoringUnit try to figure out how many counters we support.
+    /// This is handled through a config file since Linux doesn't export this information in
+    /// it's PMU devices (but probably should)...
     static ref PMU_COUNTERS: HashMap<MonitoringUnit, usize> = {
         let cpuid = cpuid::CpuId::new();
         let cpu_counter = cpuid.get_performance_monitoring_info().map_or(0, |info| info.number_of_counters()) as usize;
@@ -58,6 +64,7 @@ lazy_static! {
                     trace!("Running on {}, reading MonitoringUnit limits from config", name);
                     found = true;
 
+                    // TODO: We should ideally get both, prgrammable and fixed counters:
                     for (unit, limit) in architecture["programmable_counters"].as_table().expect("programmable_counters must be a table") {
                         let unit = MonitoringUnit::new(unit.as_str());
                         let limit = limit.as_integer().expect("Counter limit should be an integer");
@@ -89,6 +96,7 @@ lazy_static! {
         res
     };
 
+    /// Find the linux PMU devices that we need to program through perf
     static ref PMU_DEVICES: Vec<String> = {
         let paths = fs::read_dir("/sys/bus/event_source/devices/").expect("Can't read devices directory.");
         let mut devices = Vec::with_capacity(15);
@@ -101,7 +109,7 @@ lazy_static! {
         devices
     };
 
-    // Bogus events that have some weird description
+    /// Bogus or clocks that we don't want to measure or tend to break things
     static ref IGNORE_EVENTS: HashMap<&'static str, bool> = {
         let mut ignored = HashMap::with_capacity(1);
         ignored.insert("UNC_CLOCK.SOCKET", true); // Just says 'fixed' and does not name which counter :/
@@ -110,43 +118,42 @@ lazy_static! {
         ignored
     };
 
-    // Sometimes the perfmon data is missing the errata information (as is the case with the IvyBridge file).
-    // We provide a list of IvyBridge events instead here.
+    /// Which events should be measured in isolation on this architecture.
     static ref ISOLATE_EVENTS: Vec<&'static str> = {
         let cpuid = cpuid::CpuId::new();
-        cpuid.get_feature_info().map_or(
-            vec![],
-            |fi| {
-                // IvyBridge and IvyBridge-EP, is it correct to check only extended model and not model?
-                if fi.family_id() == 0x6 && fi.extended_model_id() == 0x3 {
-                    vec![   "MEM_UOPS_RETIRED.ALL_STORES",
-                            "MEM_LOAD_UOPS_RETIRED.L1_MISS",
-                            "MEM_LOAD_UOPS_RETIRED.HIT_LFB",
-                            "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_HITM",
-                            "MEM_LOAD_UOPS_RETIRED.L2_HIT",
-                            "MEM_UOPS_RETIRED.SPLIT_LOADS",
-                            "MEM_UOPS_RETIRED.ALL_LOADS",
-                            "MEM_LOAD_UOPS_LLC_MISS_RETIRED.LOCAL_DRAM",
-                            "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_NONE",
-                            "MEM_LOAD_UOPS_RETIRED.L1_HIT",
-                            "MEM_UOPS_RETIRED.STLB_MISS_STORES",
-                            "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_HIT",
-                            "MEM_LOAD_UOPS_RETIRED.LLC_MISS",
-                            "MEM_LOAD_UOPS_RETIRED.L2_MISS",
-                            "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_MISS",
-                            "MEM_UOPS_RETIRED.STLB_MISS_LOADS",
-                            "MEM_UOPS_RETIRED.LOCK_LOADS",
-                            "MEM_LOAD_UOPS_RETIRED.LLC_HIT",
-                            "MEM_UOPS_RETIRED.SPLIT_STORES",
-                            // Those are IvyBridge-EP events:
-                            "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_DRAM",
-                            "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_HITM",
-                            "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_FWD"]
-                }
-                else {
-                    vec![]
-                }
-        })
+        let (family, model) = cpuid.get_feature_info().map_or((0,0), |fi| (fi.family_id(), ((fi.extended_model_id() as u8) << 4) | fi.model_id() as u8));
+        
+        // Sometimes the perfmon data is missing the errata information
+        // as is the case for IvyBridge where MEM_LOAD* things can't be measured
+        // together with other things.
+        if family == 0x6 && (model == 62 || model == 58) {
+            vec![   "MEM_UOPS_RETIRED.ALL_STORES",
+                    "MEM_LOAD_UOPS_RETIRED.L1_MISS",
+                    "MEM_LOAD_UOPS_RETIRED.HIT_LFB",
+                    "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_HITM",
+                    "MEM_LOAD_UOPS_RETIRED.L2_HIT",
+                    "MEM_UOPS_RETIRED.SPLIT_LOADS",
+                    "MEM_UOPS_RETIRED.ALL_LOADS",
+                    "MEM_LOAD_UOPS_LLC_MISS_RETIRED.LOCAL_DRAM",
+                    "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_NONE",
+                    "MEM_LOAD_UOPS_RETIRED.L1_HIT",
+                    "MEM_UOPS_RETIRED.STLB_MISS_STORES",
+                    "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_HIT",
+                    "MEM_LOAD_UOPS_RETIRED.LLC_MISS",
+                    "MEM_LOAD_UOPS_RETIRED.L2_MISS",
+                    "MEM_LOAD_UOPS_LLC_HIT_RETIRED.XSNP_MISS",
+                    "MEM_UOPS_RETIRED.STLB_MISS_LOADS",
+                    "MEM_UOPS_RETIRED.LOCK_LOADS",
+                    "MEM_LOAD_UOPS_RETIRED.LLC_HIT",
+                    "MEM_UOPS_RETIRED.SPLIT_STORES",
+                    // Those are IvyBridge-EP events:
+                    "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_DRAM",
+                    "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_HITM",
+                    "MEM_LOAD_UOPS_LLC_MISS_RETIRED.REMOTE_FWD"]
+        }
+        else {
+            vec![]
+        }
     };
 }
 
@@ -172,8 +179,8 @@ fn execute_perf(
                 String::from_utf8(out.stderr).unwrap_or(String::from("Unable to read stderr!"));
 
             if out.status.success() {
-                // debug!("stdout:\n{:?}", stdout);
-                // debug!("stderr:\n{:?}", stderr);
+                trace!("stdout:\n{:?}", stdout);
+                trace!("stderr:\n{:?}", stderr);
             } else if !out.status.success() {
                 error!(
                     "perf command: {} got unknown exit status was: {}",
@@ -632,14 +639,24 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
     }
 }
 
+/// Adding a new event to a group of existing events (that can be measured
+/// together) can fail for a variety of reasons which are encoded in this type.
 #[derive(Debug)]
 pub enum AddEventError {
+    /// We couldn't measure any more offcore events
     OffcoreCapacityReached,
+    /// We don't have more counters left on this monitoring unit
     UnitCapacityReached(MonitoringUnit),
+    /// We have a constraint that we can't measure the new event together with
+    /// an existing event in the group
     CounterConstraintConflict,
+    /// We have a conflict with filters
     FilterConstraintConflict,
+    /// The errata specifies an issue with this event (we tend to isolate these)
     ErrataConflict,
+    /// This counter must be measured alone
     TakenAloneConflict,
+    /// This is one of these events that we manually specified to be isolated
     IsolatedEventConflict,
 }
 
