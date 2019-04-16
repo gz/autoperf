@@ -415,6 +415,7 @@ impl<'a> Run<'a> {
             bps,
             false,
             None,
+            false,
         );
         Ok(())
     }
@@ -488,7 +489,7 @@ impl<'a> Run<'a> {
     fn profile(&mut self) -> io::Result<()> {
         mkdir(&self.output_path);
         if self.is_completed() {
-            info!(
+            warn!(
                 "Run {} already completed, skipping.",
                 self.output_path.to_string_lossy()
             );

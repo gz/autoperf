@@ -13,6 +13,10 @@ subcommands:
             - TrailingVarArg
         about: Measure all available H/W events for a command using `perf stat`.
         args:
+            - dryrun:
+                short: d
+                long: dryrun
+                help: Don't run anything, just print what we would do.
             - output:
                 short: o
                 long: output
@@ -31,6 +35,10 @@ subcommands:
     - pair:
         about: Run a set of programs pairwise together on the machine (while measuring all counters).
         args:
+            - dryrun:
+                short: d
+                long: dryrun
+                help: Don't run anything, just print what we would do.
             - start:
                 short: b
                 long: base
@@ -41,10 +49,6 @@ subcommands:
                 long: step
                 help: Only evaluate every x-th configuration (used to evaluate the same manifest simultaneously on multiple identical machines).
                 takes_value: true
-            - dryrun:
-                short: r
-                long: dryrun
-                help: Don't run anything, just print what it would do.
             - directory:
                 help: Path of manifest directory.
                 required: true

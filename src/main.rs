@@ -47,7 +47,8 @@ fn main() {
             .unwrap()
             .map(|s| s.to_string())
             .collect();
-
+        
+        let dryrun: bool = matches.is_present("dryrun");
         profile(
             output_path,
             ".",
@@ -56,6 +57,7 @@ fn main() {
             Default::default(),
             record,
             None,
+            dryrun
         );
     }
     if let Some(matches) = matches.subcommand_matches("aggregate") {

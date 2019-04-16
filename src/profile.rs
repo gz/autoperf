@@ -164,6 +164,7 @@ fn execute_perf(
     cmd: &Vec<String>,
     counters: &Vec<String>,
     datafile: &Path,
+    dryrun: bool,
 ) -> (String, String, String) {
     assert!(cmd.len() >= 1);
     let perf = perf.arg("-o").arg(datafile.as_os_str());
@@ -173,39 +174,45 @@ fn execute_perf(
     let perf = perf.args(cmd.as_slice());
     let perf_cmd_str: String = format!("{:?}", perf).replace("\"", "");
 
-    let (stdout, stderr) = match perf.output() {
-        Ok(out) => {
-            let stdout =
-                String::from_utf8(out.stdout).unwrap_or(String::from("Unable to read stdout!"));
-            let stderr =
-                String::from_utf8(out.stderr).unwrap_or(String::from("Unable to read stderr!"));
+    let (stdout, stderr) = if !dryrun {
+        match perf.output() {
+            Ok(out) => {
+                let stdout =
+                    String::from_utf8(out.stdout).unwrap_or(String::from("Unable to read stdout!"));
+                let stderr =
+                    String::from_utf8(out.stderr).unwrap_or(String::from("Unable to read stderr!"));
 
-            if out.status.success() {
-                trace!("stdout:\n{:?}", stdout);
-                trace!("stderr:\n{:?}", stderr);
-            } else if !out.status.success() {
-                error!(
-                    "perf command: {} got unknown exit status was: {}",
-                    perf_cmd_str, out.status
-                );
-                debug!("stdout:\n{}", stdout);
-                debug!("stderr:\n{}", stderr);
+                if out.status.success() {
+                    trace!("stdout:\n{:?}", stdout);
+                    trace!("stderr:\n{:?}", stderr);
+                } else if !out.status.success() {
+                    error!(
+                        "perf command: {} got unknown exit status was: {}",
+                        perf_cmd_str, out.status
+                    );
+                    debug!("stdout:\n{}", stdout);
+                    debug!("stderr:\n{}", stderr);
+                }
+
+                if !datafile.exists() {
+                    error!(
+                        "perf command: {} succeeded but did not produce the required file {:?} \
+                        (you should file a bug report!)",
+                        perf_cmd_str, datafile
+                    );
+                }
+
+                (stdout, stderr)
             }
-
-            if !datafile.exists() {
-                error!(
-                    "perf command: {} succeeded but did not produce the required file {:?} \
-                     (you should file a bug report!)",
-                    perf_cmd_str, datafile
-                );
+            Err(err) => {
+                error!("Executing {} failed : {}", perf_cmd_str, err);
+                (String::new(), String::new())
             }
-
-            (stdout, stderr)
         }
-        Err(err) => {
-            error!("Executing {} failed : {}", perf_cmd_str, err);
-            (String::new(), String::new())
-        }
+    }
+    else {
+        warn!("Dry run mode -- would execute: {}", perf_cmd_str);
+        (String::new(), String::new())
     };
 
     (perf_cmd_str, stdout, stderr)
@@ -1069,6 +1076,7 @@ pub fn profile<'a, 'b>(
     breakpoints: Vec<String>,
     record: bool,
     events: Option<Vec<&'a EventDescription<'b>>>,
+    dryrun: bool,
 ) where
     'b: 'a,
 {
@@ -1125,7 +1133,7 @@ pub fn profile<'a, 'b>(
     let record_path = Path::new("/dev/null");
     let mut perf = get_perf_command(cmd_working_dir, output_path, &env, &breakpoints, record);
     perf.arg("-n"); // null run - don’t start any counters
-    let (_, _, _) = execute_perf(&mut perf, &cmd, &Vec::new(), &record_path);
+    let (_, _, _) = execute_perf(&mut perf, &cmd, &Vec::new(), &record_path, dryrun);
     debug!("Warmup complete, let's start measuring.");
 
     let mut pb = ProgressBar::new(event_groups.len() as u64);
@@ -1145,21 +1153,23 @@ pub fn profile<'a, 'b>(
 
         let mut perf = get_perf_command(cmd_working_dir, output_path, &env, &breakpoints, record);
         let (executed_cmd, stdout, stdin) =
-            execute_perf(&mut perf, &cmd, &counters, record_path.as_path());
-        let r = wtr.encode(vec![
-            cmd.join(" "),
-            event_names.join(","),
-            counters.join(","),
-            String::new(),
-            filename,
-            executed_cmd,
-            stdout,
-            stdin,
-        ]);
-        assert!(r.is_ok());
+            execute_perf(&mut perf, &cmd, &counters, record_path.as_path(), dryrun);
+        if !dryrun {
+            let r = wtr.encode(vec![
+                cmd.join(" "),
+                event_names.join(","),
+                counters.join(","),
+                String::new(),
+                filename,
+                executed_cmd,
+                stdout,
+                stdin,
+            ]);
+            assert!(r.is_ok());
 
-        let r = wtr.flush();
-        assert!(r.is_ok());
+            let r = wtr.flush();
+            assert!(r.is_ok());
+        }
     }
 
     // Mark this run as completed:
