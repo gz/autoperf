@@ -1,5 +1,3 @@
-use std::io::prelude::*;
-
 use csv;
 use itertools::Itertools;
 use phf::Map;

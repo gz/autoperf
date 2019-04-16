@@ -222,6 +222,7 @@ pub fn get_known_events<'a>() -> Vec<&'a EventDescription<'static>> {
         .collect()
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Hash, Eq, PartialEq, Debug, Copy, Clone, PartialOrd, Ord)]
 pub enum MonitoringUnit {
     /// Devices
@@ -1330,7 +1331,7 @@ pub fn check_for_perf_paranoia() -> bool {
     let mut file = File::open(path).expect("perf_event_paranoid file does not exist?");
     let mut s = String::new();
 
-    return match file.read_to_string(&mut s) {
+    let res = match file.read_to_string(&mut s) {
         Ok(_) => {
             let digit = i64::from_str(s.trim()).unwrap_or_else(|_op| {
                 warn!(
@@ -1348,9 +1349,9 @@ pub fn check_for_perf_paranoia() -> bool {
                 );
                 error!("\tsudo sh -c 'echo -1 > {}'", path.display());
                 error!("to disable.");
-                return false;
+                false
             }
-            return true;
+            else { true }
         }
 
         Err(why) => {
@@ -1358,4 +1359,6 @@ pub fn check_for_perf_paranoia() -> bool {
             std::process::exit(4);
         }
     };
+
+    res
 }
