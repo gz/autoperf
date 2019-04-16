@@ -1,12 +1,12 @@
 name: autoperf
 version: "0.2"
 author: Gerd Zellweger <mail@gerdzellweger.com>
-about: Use perf with less domain knowledge, but more time.
+about: Use performance counters with little domain knowledge.
 args:
     - verbose:
         short: v
         multiple: true
-        help: Do more verbose logging (-v = warn, -vv = info, -vvv = debug, -vvvv = trace, default is error).
+        help: Do more verbose logging (-v = info, -vv = debug, -vvv = trace, default is warn).
 subcommands:
     - profile:
         settings:
@@ -29,7 +29,7 @@ subcommands:
                 required: true
                 multiple: true
     - pair:
-        about: Run a set of programs pairwise together on the same machine (while measuring counters).
+        about: Run a set of programs pairwise together on the machine (while measuring all counters).
         args:
             - start:
                 short: b
@@ -81,10 +81,14 @@ subcommands:
     - search:
         about: Find performance events potentially not covered in Intel publicly available manuals.
 
+#
+# We don't support these two subcommands at the moment:
+#
+
 #    - scale:
 #        settings:
 #            - TrailingVarArg
-#        about: Measure all available H/W events for commands using `perf stat` with increasing number of threads.
+#        about: Measure all available H/W events for an application using `perf stat`. Do multiple runs and increase the number of threads.
 #        args:
 #            - debug:
 #                short: d

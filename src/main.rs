@@ -20,14 +20,24 @@ use stats::stats;
 use mkgroup::mkgroup;
 use search::print_unknown_events;
 
-fn setup_logging() {
-    env_logger::init().ok();
+
+fn setup_logging(lvl: &str) {
+    use env_logger::Env;
+    env_logger::from_env(Env::default().default_filter_or(lvl)).init();
 }
 
 fn main() {
-    setup_logging();
     let yaml = load_yaml!("cmd.yml");
     let matches = App::from_yaml(yaml).get_matches();
+    
+    let level = match matches.occurrences_of("verbose") {
+        0 => "warn",
+        1 => "info",
+        2 => "debug",
+        3 => "trace",
+        _ => "trace",
+    };
+    setup_logging(level);
 
     if let Some(matches) = matches.subcommand_matches("profile") {
         let output_path = Path::new(matches.value_of("output").unwrap_or("out"));
