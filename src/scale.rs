@@ -1,5 +1,6 @@
 use std::path::Path;
 
+#[allow(unused)]
 pub fn scale(_manifest_folder: &Path, _dryrun: bool, _start: usize, _stepping: usize) {
     // let canonical_manifest_path = fs::canonicalize(&manifest_folder)
     // .expect("canonicalize manifest path does not work");

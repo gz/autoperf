@@ -1,7 +1,6 @@
 extern crate libc;
 #[macro_use]
 extern crate lazy_static;
-#[macro_use]
 extern crate nom;
 #[macro_use]
 extern crate log;
@@ -41,7 +40,7 @@ use mkgroup::mkgroup;
 use search::print_unknown_events;
 
 fn setup_logging() {
-    env_logger::init();
+    env_logger::init().ok();
 }
 
 fn main() {

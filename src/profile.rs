@@ -1027,62 +1027,6 @@ where
     groups
 }
 
-struct PerfRun<'a> {
-    cmd: Vec<&'a str>,
-    env: Vec<(String, String)>,
-    breakpoints: Vec<String>,
-}
-
-struct Profile<'a> {
-    output_path: &'a Path,
-    cmd: Vec<&'a str>,
-    env: Vec<(String, String)>,
-    breakpoints: Vec<String>,
-    record: bool,
-    csv_logfile: csv::Writer<File>,
-}
-
-impl<'a> Profile<'a> {
-    pub fn new(
-        output_path: &'a Path,
-        cmd: Vec<&'a str>,
-        env: Vec<(String, String)>,
-        breakpoints: Vec<String>,
-        record: bool,
-    ) -> csv::Result<Profile<'a>> {
-        assert!(cmd.len() >= 1);
-        create_out_directory(output_path);
-
-        let mut perf_log = PathBuf::new();
-        perf_log.push(output_path);
-        perf_log.push("perf.csv");
-
-        let mut wrtr = csv::Writer::from_file(perf_log).unwrap();
-        try!(wrtr.encode((
-            "command",
-            "event_names",
-            "perf_events",
-            "breakpoints",
-            "datafile",
-            "perf_command",
-            "stdout",
-            "stderr"
-        )));
-        Ok(Profile {
-            output_path: output_path,
-            cmd: cmd,
-            env: env,
-            breakpoints: breakpoints,
-            record: record,
-            csv_logfile: wrtr,
-        })
-    }
-
-    pub fn get_runs(&self) -> Vec<PerfRun> {
-        Vec::new()
-    }
-}
-
 pub fn get_perf_command(
     cmd_working_dir: &str,
     _output_path: &Path,

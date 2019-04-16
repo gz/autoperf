@@ -52,14 +52,14 @@ struct Deployment<'a> {
 impl<'a> Deployment<'a> {
     pub fn new(
         desc: &'static str,
-        halfA: Vec<&'a CpuInfo>,
-        halfB: Vec<&'a CpuInfo>,
+        half_a: Vec<&'a CpuInfo>,
+        half_b: Vec<&'a CpuInfo>,
         mem: Vec<NodeInfo>,
     ) -> Deployment<'a> {
         Deployment {
             description: desc,
-            a: halfA,
-            b: halfB,
+            a: half_a,
+            b: half_b,
             mem: mem,
         }
     }
@@ -430,13 +430,11 @@ impl<'a> Run<'a> {
 
     fn save_output<T: io::Read>(&self, filename: &str, what: &mut T) -> io::Result<()> {
         let mut stdout = String::new();
-        what.read_to_string(&mut stdout);
+        what.read_to_string(&mut stdout)?;
         let mut stdout_path = self.output_path.clone();
         stdout_path.push(filename);
         let mut f = try!(File::create(stdout_path.as_path()));
-        try!(f.write_all(stdout.as_bytes()));
-
-        Ok(())
+        f.write_all(stdout.as_bytes())
     }
 
     fn save_run_information(&self) -> io::Result<()> {
@@ -474,7 +472,7 @@ impl<'a> Run<'a> {
             return Ok(());
         }
 
-        self.save_run_information();
+        self.save_run_information()?;
 
         // Profile together with B
         let maybe_app_b: Option<Child> = self.start_b();
@@ -725,7 +723,7 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
     let mut i = 0;
     for run in runs.iter_mut().skip(start).step(stepping) {
         if !dryrun {
-            run.profile();
+            run.profile().ok();
         } else {
             println!("{}", run);
         }

@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use csv;
 use itertools::*;
 use log::error as lerror;
