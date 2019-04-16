@@ -19,7 +19,7 @@ use toml;
 use log::*;
 
 use super::util::*;
-use crate::profile;
+use super::profile;
 
 fn get_hostname() -> Option<String> {
     use libc::gethostname;
@@ -176,6 +176,7 @@ struct Program<'a> {
     binary: String,
     working_dir: String,
     args: Vec<String>,
+    env: Vec<(String, String)>,
     antagonist_args: Vec<String>,
     breakpoints: Vec<String>,
     checkpoints: Vec<String>,
@@ -193,7 +194,7 @@ impl<'a> Program<'a> {
     ) -> Program<'a> {
         let name: String = config["name"]
             .as_str()
-            .expect("program.binary not a string")
+            .expect("program.name not a string")
             .to_string();
         let binary: String = config["binary"]
             .as_str()
@@ -242,11 +243,21 @@ impl<'a> Program<'a> {
                         .iter()
                         .map(|s| {
                             s.as_str()
-                                .expect("program1 argument not a string?")
+                                .expect("program2 argument not a string?")
                                 .to_string()
                         })
                         .collect()
                 });
+        let env: Vec<(String, String)> = config["env"]
+            .as_table()
+            .expect("program.env not a table?")
+            .iter()
+            .map(|(k,v)| {
+                (k.as_str().to_string(), 
+                 v.as_str().expect("env value needs to be a string").to_string())
+            })
+            .collect();
+
         let breakpoints: Vec<String> = config.get("breakpoints").map_or(Vec::new(), |bs| {
             bs.as_slice()
                 .expect("program.breakpoints not an array?")
@@ -258,6 +269,7 @@ impl<'a> Program<'a> {
                 })
                 .collect()
         });
+        // TODO: this is currently not in use (remove?)
         let checkpoints: Vec<String> = config.get("checkpoints").map_or(Vec::new(), |cs| {
             cs.as_slice()
                 .expect("program.checkpoints not an array?")
@@ -276,12 +288,14 @@ impl<'a> Program<'a> {
             binary: binary,
             is_openmp: openmp,
             is_parsec: parsec,
+            env: env,
             alone: alone,
             working_dir: working_dir,
             use_watch_repeat: watch_repeat,
             args: args,
             antagonist_args: antagonist_args,
             breakpoints: breakpoints,
+            // TODO: this is currently not in use (remove?)
             checkpoints: checkpoints,
         }
     }
@@ -310,6 +324,7 @@ impl<'a> Program<'a> {
     fn get_env(&self, antagonist: bool, cores: &Vec<&CpuInfo>) -> Vec<(String, String)> {
         let mut env: Vec<(String, String)> = Vec::with_capacity(2);
         let cpus: Vec<String> = cores.iter().map(|c| format!("{}", c.cpu)).collect();
+        // TODO: remove this feature:
         if self.is_openmp {
             env.push((String::from("OMP_PROC_BIND"), String::from("true")));
             env.push((
@@ -317,7 +332,8 @@ impl<'a> Program<'a> {
                 format!("{{{}}}", cpus.join(",")),
             ));
         }
-        if self.is_parsec {
+        // TODO: remove this feature:
+        else if self.is_parsec {
             assert!(!self.is_openmp);
             env.push((
                 String::from("LD_PRELOAD"),
@@ -334,6 +350,11 @@ impl<'a> Program<'a> {
             if antagonist {
                 env.push((String::from("PARSEC_REPEAT"), String::from("1")));
             }
+        }
+
+        // keep this one:
+        for (k,v) in self.env.clone() {
+            env.push((k, v));
         }
 
         env
@@ -378,6 +399,7 @@ impl<'a> Run<'a> {
         let cmd = self.a.get_cmd(false, &self.deployment.a);
         let env = self.a.get_env(false, &self.deployment.a);
         let mut bps: Vec<String> = self.a.breakpoints.iter().map(|s| s.to_string()).collect();
+        // TODO: this is currently not in use (remove?)
         bps.extend(self.a.checkpoints.iter().map(|s| s.to_string()));
         // let cps = self.a.checkpoints.iter().map(|s| s.to_string()).collect();
 
@@ -531,7 +553,7 @@ impl<'a> fmt::Display for Run<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "A: {:?} {:?}\n",
+            "A: ENV = {:?} CMD = {:?}\n",
             self.a.get_env(false, &self.deployment.a),
             self.a.get_cmd(false, &self.deployment.a)
         )?;
@@ -545,7 +567,7 @@ impl<'a> fmt::Display for Run<'a> {
                     b.get_env(true, &self.deployment.b),
                     b.get_cmd(true, &self.deployment.b)
                 )?;
-                write!(f, "{}:\n", &self.deployment)?;
+                write!(f, "{}", &self.deployment)?;
             }
             None => {
                 write!(f, "No other program running.")?;
