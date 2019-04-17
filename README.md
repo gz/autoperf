@@ -10,7 +10,7 @@ minimizes the total number of runs and avoids multiplexing of events on
 counters.
 
 <p align="center">
-  <img src="./doc/intro.svg">
+  <img src="./doc/intro.svg?sanitize=1">
 </p>
 
 # Installation
