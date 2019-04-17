@@ -97,9 +97,9 @@ $ open out/correlation_heatmap.png
 ```
 
 Event correlation for the `autoperf profile sleep 2` command
-above looks like this (every dot represents the correlation between two
-measured performance events, on a Skylake machine which had
-around 1.7k non-zero event measurement):
+above looks like this (every dot represents the correlation of the timeseries 
+between two measured performance events, this is from a Skylake machine with
+around 1700 non-zero event measurement):
 ![Correlation Heatmap](/doc/correlation_heatmap.png)
 
 You can look at individual events too:
