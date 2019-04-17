@@ -20,7 +20,7 @@ $ sudo apt-get install likwid cpuid hwloc numactl util-linux
 
 To run some sample analysis scripts, you'll need these python3 libraries:
 ```
-$ pip3 install ascii_graph
+$ pip3 install ascii_graph matplotlib pandas
 ```
 
 You'll also need Rust which is best installed using rustup:
@@ -78,6 +78,17 @@ $ autoperf aggregate ./out
 ``` 
 This will do some sanity checking and produce a `results.csv` file including 
 all repeated runs.
+
+## Analyzing results
+
+Now you have all the data, so you can start asking some questions. As an
+example the following script tells you which events were correlated
+when your program was running:
+
+```
+$ python3 analyze/profile/plot_correlation_heatmap.py ./out
+$ open out/heatmap.png
+```
 
 ## Running pairwise combinations of programs
 
@@ -139,4 +150,3 @@ all possible configurations and documentation in the comments is shown in
   * Full-SMT-L3: Use the whole machines, programs allocate an entire L3/socket (use hyper-threads).
   * Full-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are left idle).
   * Full-SMT-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are used).
-
