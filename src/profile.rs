@@ -76,16 +76,16 @@ lazy_static! {
 
         if !found {
             warn!("Didn't recogize this architecture so we can't infer #counters for MonitoringUnit (Please update counters.toml for family = {:#x} model = {:#x})", family, model);
-            res.insert(MonitoringUnit::UBox, 2);
-            res.insert(MonitoringUnit::HA, 2);
-            res.insert(MonitoringUnit::IRP, 2);
-            res.insert(MonitoringUnit::PCU, 2);
-            res.insert(MonitoringUnit::R2PCIe, 2);
-            res.insert(MonitoringUnit::R3QPI, 2);
-            res.insert(MonitoringUnit::QPI, 2);
+            res.insert(MonitoringUnit::UBox, 4);
+            res.insert(MonitoringUnit::HA, 4);
+            res.insert(MonitoringUnit::IRP, 4);
+            res.insert(MonitoringUnit::PCU, 4);
+            res.insert(MonitoringUnit::R2PCIe, 4);
+            res.insert(MonitoringUnit::R3QPI, 4);
+            res.insert(MonitoringUnit::QPI, 4);
             res.insert(MonitoringUnit::CBox, 2);
-            res.insert(MonitoringUnit::IMC, 2);
-            res.insert(MonitoringUnit::Arb, 4);
+            res.insert(MonitoringUnit::IMC, 4);
+            res.insert(MonitoringUnit::Arb, 2);
             res.insert(MonitoringUnit::M2M, 4);
             res.insert(MonitoringUnit::CHA, 4);
             res.insert(MonitoringUnit::M3UPI, 4);
