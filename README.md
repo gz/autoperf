@@ -128,5 +128,5 @@ You can read more about our experiments here:
 Last but not least, autoperf can also simplify your work with performance counters in many other scenarios:
  * Find out what performance events are relevant for your workload
  * Analyzing and finding performance issues in your code or with different versions of your code
- * Find classifiers to detect hardware exploits (side channels/spectre/meltdown etc.)
+ * Generate classifiers to detect hardware exploits (side channels/spectre/meltdown etc.)
  * ...
