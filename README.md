@@ -5,8 +5,8 @@ counters on Intel machines. Rather than trying to learn how to measure every
 event and manually programming event values in counter registers or perf, you
 can use autoperf which will repeatedly run your program until it has measured
 every single performance event on your machine. autoperf tries to compute a
-near-optimal schedule that maximizes the amount of events measured per run,
-minimizes the total number of runs and avoids multiplexing of events on
+schedule that maximizes the amount of events measured per run, and
+minimizes the total number of runs while avoiding multiplexing of events on
 counters.
 
 <p align="center">
