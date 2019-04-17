@@ -2,8 +2,8 @@
 
 autoperf vastly simplifies the instrumentation of programs with performance
 counters on Intel machines. Rather than trying to learn how to measure every
-event and manually programming event values in counter registers, you run your
-program with autoperf which will repeatedly run your program until it has
+event and manually programming event values in counter registers, you can use
+autoperf which will repeatedly run your program until it has
 measured every single performance event on your machine.
 
 # How-to use
@@ -60,18 +60,28 @@ env = { LC_ALL = "C" }
 use_watch_repeat = true
 ```
 
-Saving this as a file called `manifest.toml` and stored in a folder called `pairings`
-you could call `autoperf` with the following arguments:
+After saving this as a file called `manifest.toml` in a folder called
+`pairings` you could call `autoperf` with the following arguments:
+
 ```
 $ autoperf pair ./pairings
 ```
-If you want to get a sense for what this command would be doing you can use the `-d` which just prints
-the commands rather than launching any programs and doing any perf instrumentation.
+
+This essentially does what the profile command does, but for every individual
+program defined in the manifest. In addition, it does even more profile
+commands for programA while continously running programB or programC in the
+background (once this is done it does the same for programB and programC).
+
+If this is confusing and you want to get first hand experience of what we would
+really be running here you can also pass the `-d` argument to the pair
+sub-command. In this case, autoperf just prints a plan of what it would be
+doing, rather than launching any programs.
 
 ### Manifest settings
 
-The manifest format has quite a few configuration parameters. A full manifest file with
-all possible configurations is shown in `./tests/pair/manifest.toml`.
+The manifest format has a few configuration parameters. A full manifest file with
+all possible configurations and documentation in the comments is shown in 
+`./tests/pair/manifest.toml`.
 
 * **configuration** is a list of possible mappings of the program to cores:
   * L1-SMT: Programs are placed on a single core, each gets one hyper-thread.
