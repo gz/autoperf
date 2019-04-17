@@ -71,9 +71,9 @@ until every performance event is measured. For example,
 ```
 $ autoperf profile sleep 2
 ```
-will repeatedly run `sleep 2` while measuring events with performance
-counters. After it is done you will find an `out` folder with many csv files
-that contain measurements from individual runs.
+will repeatedly run `sleep 2` while measuring different performance events 
+with performance counters every time. Once completed, you will find an `out`
+folder with many csv files that contain measurements from individual runs.
 
 ## Aggregating results
 
@@ -88,7 +88,7 @@ all the measured data.
 ## Analyze results
 
 Now you have all the data, so you can start asking some questions. As an
-example the following script tells you which events were correlated
+example, the following script tells you how events were correlated
 when your program was running:
 
 ```
@@ -96,7 +96,7 @@ $ python3 analyze/profile/correlation.py ./out
 $ open out/correlation_heatmap.png
 ```
 
-For example, visualizing event correlation for the profiled `sleep 2` command
+Event correlation for the `autoperf profile sleep 2` command
 above looks like this (every dot represents the correlation between two
 measured performance events, on a Skylake machine which had
 around 1.7k non-zero event measurement):
@@ -108,23 +108,24 @@ python3 analyze/profile/event_detail.py --resultdir ./out --features AVG.OFFCORE
 ```
 ![Plot events](/doc/perf_event_plot.png)
 
-There are more scripts in the `analyze` folder to better work with the captured data-sets. Have a look.
+There are more scripts in the `analyze` folder to better work with the captured 
+data-sets. Have a look.
 
 ## What do I use this for?
 
 autoperf allows you to quickly gather lots of performance (or training) data and
 reason about it quantitatively. For example, we initially developed autoperf to
 build ML classifiers that the Barrelfish scheduler could use for detecting
-application slowdown and make better scheduling decisions. autoperf meant that
-we needed no domain knowledge about events, aside from how to measure them they
-could be treated as a black-box.
+application slowdown and make better scheduling decisions. autoperf can gather
+that data to generate such classifiers without requiring domain knowledge about 
+events, aside from how to measure them.
 
 You can read more about our experiments here:
 
 * https://dl.acm.org/citation.cfm?id=2967360.2967375 
 * https://www.research-collection.ethz.ch/handle/20.500.11850/155854
 
-But we found that autoperf can greatly simplify your life in many other scenarios too:
+Last but not least, autoperf can also simplify your life in many other scenarios:
  * Find out what performance events are relevant for your workload
  * Analyzing and finding performance issues in your code
  * Find classifiers to detect hardware exploits (side channels/spectre/meltdown etc.)
