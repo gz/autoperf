@@ -4,3 +4,5 @@ Cargo.lock
 .sync-config.cson
 __pycache__
 .ipynb_checkpoints
+.vscode
+.DS_Store
