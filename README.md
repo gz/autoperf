@@ -6,6 +6,37 @@ event and manually programming event values in counter registers, you can use
 autoperf which will repeatedly run your program until it has
 measured every single performance event on your machine.
 
+# Installation
+
+autoperf is known to work with Ubuntu 18.04 on Skylake and
+IvyBridge/SandyBridge architectures. Other architectures should work too, but
+may not work right out of the box. Please file a bug request. Currently we
+require `perf` from the Linux project and a few other libraries that can be
+installed using:
+
+```
+$ sudo apt-get install likwid cpuid hwloc numactl util-linux
+```
+
+You'll also need Rust which is best installed using rustup:
+```
+$ curl https://sh.rustup.rs -sSf | sh
+```
+
+autoperf is published on crates.io, so once you have rust and cargo, you can
+install it like this:
+```
+$ cargo install autoperf
+```
+
+Or clone and build this repository:
+```
+$ git clone git@github.com:gz/autoperf.git
+$ cd autoperf
+$ cargo build --release
+$ ./target/release/autoperf --help
+```
+
 # How-to use
 
 autoperf has a few commands, use `--help` to get a better overview of all the
@@ -93,33 +124,3 @@ all possible configurations and documentation in the comments is shown in
   * Full-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are left idle).
   * Full-SMT-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are used).
 
-# Installation
-
-autoperf is known to work with Ubuntu 18.04 on Skylake and
-IvyBridge/SandyBridge architectures. Other architectures should work too, but
-may not work right out of the box. Please file a bug request. Currently we
-require `perf` from the Linux project and a few other libraries that can be
-installed using:
-
-```
-$ sudo apt-get install likwid cpuid hwloc numactl util-linux
-```
-
-You'll also need Rust which is best installed using rustup:
-```
-$ curl https://sh.rustup.rs -sSf | sh
-```
-
-autoperf is published on crates.io, so once you have rust and cargo, you can
-install it like this:
-```
-$ cargo install autoperf
-```
-
-Or clone and build this repository:
-```
-$ git clone git@github.com:gz/autoperf.git
-$ cd autoperf
-$ cargo build --release
-$ ./target/release/autoperf --help
-```
