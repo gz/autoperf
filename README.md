@@ -107,7 +107,7 @@ python3 analyze/profile/event_detail.py --resultdir ./out --features AVG.OFFCORE
 ## What do I use this for?
 
 autoperf allows you to quickly gather lots of performance (training) data and
-reason about it quantitaively. For example, we initially developed autoperf to
+reason about it quantitatively. For example, we initially developed autoperf to
 build ML classifiers that the Barrelfish scheduler could use for detecting
 application slowdown and make better scheduling decisions. autoperf meant that
 we needed no domain knowledge about events, aside from how to measure them they
