@@ -104,7 +104,7 @@ python3 analyze/profile/event_detail.py --resultdir ./out --features AVG.OFFCORE
 ```
 ![Plot events](/doc/perf_event_plot.png)
 
-There are more scripts in analyze to better work with the captured data-sets. Have a look.
+There are more scripts in the `analyze` folder to better work with the captured data-sets. Have a look.
 
 ## What do I use this for?
 
