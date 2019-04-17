@@ -8,10 +8,10 @@ use std::process::Command;
 
 use csv;
 
-use x86::perfcnt::intel::{Counter, EventDescription, MSRIndex, PebsType, Tuple};
-use log::*;
 use super::profile;
 use super::profile::{MonitoringUnit, PerfEvent};
+use log::*;
+use x86::perfcnt::intel::{Counter, EventDescription, MSRIndex, PebsType, Tuple};
 
 pub fn event_is_documented(
     events: &Vec<PerfEvent>,

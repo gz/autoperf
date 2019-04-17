@@ -2,6 +2,7 @@ use std;
 use std::collections::HashMap;
 
 use csv;
+use lazy_static::lazy_static;
 use pbr::ProgressBar;
 use std::error;
 use std::error::Error;
@@ -15,10 +16,9 @@ use std::process::Command;
 use std::str::FromStr;
 use x86::cpuid;
 use x86::perfcnt::intel::{events, Counter, EventDescription, MSRIndex, PebsType, Tuple};
-use lazy_static::lazy_static;
 
-use log::*;
 use super::util::*;
+use log::*;
 
 lazy_static! {
 
@@ -42,7 +42,6 @@ lazy_static! {
         let (family, model) = cpuid.get_feature_info().map_or((0,0), |fi| (fi.family_id(), ((fi.extended_model_id() as u8) << 4) | fi.model_id() as u8));
 
         let ctr_config = include_str!("counters.toml");
-        println!("ctr_config = {}", ctr_config);
         let mut parser = toml::Parser::new(ctr_config);
 
         let doc = match parser.parse() {
@@ -59,7 +58,6 @@ lazy_static! {
             let architecture = architecture.as_table().expect("counters.toml architectures must be a table");
             let cfamily = &architecture["family"];
             for cmodel in architecture["models"].as_slice().expect("counters.toml models must be a list.") {
-                error!("model = {}", model);
                 let cfamily = cfamily.as_integer().expect("Family must be int.") as u8;
                 let cmodel = cmodel.as_integer().expect("Model must be int.") as u8;
                 if family == cfamily && model == cmodel {
@@ -124,7 +122,7 @@ lazy_static! {
     static ref ISOLATE_EVENTS: Vec<&'static str> = {
         let cpuid = cpuid::CpuId::new();
         let (family, model) = cpuid.get_feature_info().map_or((0,0), |fi| (fi.family_id(), ((fi.extended_model_id() as u8) << 4) | fi.model_id() as u8));
-        
+
         // Sometimes the perfmon data is missing the errata information
         // as is the case for IvyBridge where MEM_LOAD* things can't be measured
         // together with other things.
@@ -197,7 +195,7 @@ fn execute_perf(
                 if !datafile.exists() {
                     error!(
                         "perf command: {} succeeded but did not produce the required file {:?} \
-                        (you should file a bug report!)",
+                         (you should file a bug report!)",
                         perf_cmd_str, datafile
                     );
                 }
@@ -209,8 +207,7 @@ fn execute_perf(
                 (String::new(), String::new())
             }
         }
-    }
-    else {
+    } else {
         warn!("Dry run mode -- would execute: {}", perf_cmd_str);
         (String::new(), String::new())
     };
@@ -1306,8 +1303,9 @@ pub fn check_for_perf_paranoia() -> bool {
                 error!("\tsudo sh -c 'echo -1 > {}'", path.display());
                 error!("to disable.");
                 false
+            } else {
+                true
             }
-            else { true }
         }
 
         Err(why) => {

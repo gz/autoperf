@@ -20,7 +20,7 @@ $ sudo apt-get install likwid cpuid hwloc numactl util-linux
 
 You'll also need Rust which is best installed using rustup:
 ```
-$ curl https://sh.rustup.rs -sSf | sh
+$ curl https://sh.rustup.rs -sSf | sh -s -- -y
 $ source $HOME/.cargo/env
 ```
 
@@ -32,7 +32,7 @@ $ cargo install autoperf
 
 Or clone and build this repository:
 ```
-$ git clone git@github.com:gz/autoperf.git
+$ git clone https://github.com/gz/autoperf.git
 $ cd autoperf
 $ cargo build --release
 $ ./target/release/autoperf --help

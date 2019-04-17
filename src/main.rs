@@ -1,4 +1,4 @@
-use clap::{App, load_yaml};
+use clap::{load_yaml, App};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -20,7 +20,6 @@ use stats::stats;
 use mkgroup::mkgroup;
 use search::print_unknown_events;
 
-
 fn setup_logging(lvl: &str) {
     use env_logger::Env;
     env_logger::from_env(Env::default().default_filter_or(lvl)).init();
@@ -29,7 +28,7 @@ fn setup_logging(lvl: &str) {
 fn main() {
     let yaml = load_yaml!("cmd.yml");
     let matches = App::from_yaml(yaml).get_matches();
-    
+
     let level = match matches.occurrences_of("verbose") {
         0 => "warn",
         1 => "info",
@@ -47,7 +46,7 @@ fn main() {
             .unwrap()
             .map(|s| s.to_string())
             .collect();
-        
+
         let dryrun: bool = matches.is_present("dryrun");
         profile(
             output_path,
@@ -57,7 +56,7 @@ fn main() {
             Default::default(),
             record,
             None,
-            dryrun
+            dryrun,
         );
     }
     if let Some(matches) = matches.subcommand_matches("aggregate") {

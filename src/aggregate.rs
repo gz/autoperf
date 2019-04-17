@@ -1,4 +1,5 @@
 use csv;
+use log::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
@@ -10,7 +11,6 @@ use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
 use toml;
-use log::*;
 
 use crate::util::*;
 

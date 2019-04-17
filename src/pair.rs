@@ -10,16 +10,16 @@ use std::thread;
 
 use std::fmt;
 
-use itertools::{Itertools, iproduct};
+use itertools::{iproduct, Itertools};
 use rustc_serialize::Encodable;
 use std::time::Duration;
 use wait_timeout::ChildExt;
 
-use toml;
 use log::*;
+use toml;
 
-use super::util::*;
 use super::profile;
+use super::util::*;
 
 fn get_hostname() -> Option<String> {
     use libc::gethostname;
@@ -248,15 +248,20 @@ impl<'a> Program<'a> {
                         })
                         .collect()
                 });
-        let env: Vec<(String, String)> = config["env"]
-            .as_table()
-            .expect("program.env not a table?")
-            .iter()
-            .map(|(k,v)| {
-                (k.as_str().to_string(), 
-                 v.as_str().expect("env value needs to be a string").to_string())
-            })
-            .collect();
+        let env: Vec<(String, String)> = config.get("env").map_or(Vec::new(), |t| {
+            t.as_table()
+                .expect("program.env not a table?")
+                .iter()
+                .map(|(k, v)| {
+                    (
+                        k.as_str().to_string(),
+                        v.as_str()
+                            .expect("env value needs to be a string")
+                            .to_string(),
+                    )
+                })
+                .collect()
+        });
 
         let breakpoints: Vec<String> = config.get("breakpoints").map_or(Vec::new(), |bs| {
             bs.as_slice()
@@ -353,7 +358,7 @@ impl<'a> Program<'a> {
         }
 
         // keep this one:
-        for (k,v) in self.env.clone() {
+        for (k, v) in self.env.clone() {
             env.push((k, v));
         }
 

@@ -1,11 +1,15 @@
 #!/usr/bin/bash
+# We run all commands of the README.md file and hope it works
+set -ex
+export RUST_BACKTRACE=1
+export RUST_LOG='trace'
 
 sudo apt-get install likwid cpuid hwloc numactl util-linux
 
-curl https://sh.rustup.rs -sSf | sh
+curl https://sh.rustup.rs -sSf | sh -s -- -y
 source $HOME/.cargo/env
 
-git clone git@github.com:gz/autoperf.git
+git clone https://github.com/gz/autoperf.git
 
 cd autoperf
 cargo build --release
@@ -15,9 +19,8 @@ sudo sh -c 'echo 0 >> /proc/sys/kernel/kptr_restrict'
 sudo sh -c 'echo 0 > /proc/sys/kernel/nmi_watchdog'
 sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'
 
-cargo run --release -- stats
-cargo run --release -- profile echo test
-cargo run --release -- aggregate ./out
+cargo run --release -- stats stats_out
+cargo run --release -- profile -d echo test
 
 mkdir pairings
 cat <<EOT >> pairings/manifest.toml

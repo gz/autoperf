@@ -3,6 +3,7 @@
 use csv;
 use itertools::*;
 use log::error as lerror;
+use log::*;
 use nom::*;
 use std::fs;
 use std::fs::File;
@@ -13,7 +14,6 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::str::{from_utf8_unchecked, FromStr};
 use x86::cpuid;
-use log::*;
 
 pub type Node = u64;
 pub type Socket = u64;
@@ -141,7 +141,10 @@ pub fn save_cpuid(output_path: &Path) -> io::Result<String> {
 }
 
 pub fn save_likwid_topology(output_path: &Path) -> io::Result<String> {
-    let out = Command::new("likwid-topology").arg("-g").arg("-c").output()?;
+    let out = Command::new("likwid-topology")
+        .arg("-g")
+        .arg("-c")
+        .output()?;
     save_file("likwid-topology", output_path, "likwid_topology.txt", out)
 }
 

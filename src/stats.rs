@@ -219,7 +219,7 @@ fn common_event_desc_distance(
                     ed.as_str(),
                     uncore_str,
                     value1.brief_description,
-                    value2.brief_description
+                    value2.brief_description,
                 ])?
             }
             None => {
