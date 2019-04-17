@@ -102,7 +102,7 @@ You can look at individual events too:
 ```
 python3 analyze/profile/event_detail.py --resultdir ./out --features AVG.OFFCORE_RESPONSE.ALL_RFO.L3_MISS.REMOTE_HIT_FORWARD
 ```
-![Plotting individual events](/doc/perf_event_plot.png]
+![Plot events](/doc/perf_event_plot.png)
 
 ## What do I use this for?
 
