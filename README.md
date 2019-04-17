@@ -87,8 +87,8 @@ when your program was running:
 
 ```
 $ python3 analyze/profile/correlation.py ./out
-$ open out/heatmap.png
+$ open out/correlation_heatmap.png
 ```
 
-For example, the output from the `sleep 2` command above looks like this (every dot represents the correlation between two measured performance events, this was done on a Skylake machine which had around 1.7k non-zero event measurement):
+For example, visualizing event correlation for the profiles `sleep 2` command above looks like this (every dot represents the correlation between two measured performance events, this was done on a Skylake machine which had around 1.7k non-zero event measurement):
 ![Correlation Heatmap](/doc/correlation_heatmap.png)
