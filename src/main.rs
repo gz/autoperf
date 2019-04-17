@@ -40,7 +40,6 @@ fn main() {
 
     if let Some(matches) = matches.subcommand_matches("profile") {
         let output_path = Path::new(matches.value_of("output").unwrap_or("out"));
-        let record: bool = matches.is_present("record");
         let cmd: Vec<String> = matches
             .values_of("COMMAND")
             .unwrap()
@@ -54,7 +53,7 @@ fn main() {
             cmd,
             Default::default(),
             Default::default(),
-            record,
+            false,
             None,
             dryrun,
         );

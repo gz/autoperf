@@ -112,9 +112,3 @@ subcommands:
 #                help: Input file (weka ranking).
 #                value_name: FILE
 #                takes_value: true
-
-#            - record:
-#                short: r
-#                long: record
-#                help: Use `perf record` instead of `perf stat` (not recommended due to sampling rate issues).
-#                takes_value: true
