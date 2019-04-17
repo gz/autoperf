@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Gathers and prints some information gathered from the CSV file.
-Mostly intended for sanity cecking only.
+Gathers and prints some information about the results.csv file from a profile run.
+Intended for quick sanity checking of the results.
 """
 
 import sys, os
