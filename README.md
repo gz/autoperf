@@ -9,9 +9,7 @@ near-optimal schedule that maximizes the amount of events measured per run,
 minimizes the total number of runs and avoids multiplexing of events on
 counters.
 
-<p align="center">
-  <img src="./doc/intro.svg?sanitize=1">
-</p>
+![screencast](./doc/intro.svg)
 
 # Installation
 
