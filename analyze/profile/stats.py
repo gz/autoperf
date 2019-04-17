@@ -43,7 +43,7 @@ def samples_histogram(df, lengths_fn):
 
 if __name__ == '__main__':
     data_directory = sys.argv[1]
-    df = pd.read_csv(os.path.join(data_directory, 'result.csv'), index_col=0, skipinitialspace=True)
+    df = pd.read_csv(os.path.join(data_directory, 'results.csv'), index_col=0, skipinitialspace=True)
 
     all_events = df.index.unique()
     all_zero = get_all_zero_events(df)
@@ -56,12 +56,12 @@ if __name__ == '__main__':
     # Sample histogram
     graph = Pyasciigraph()
     for line in graph.graph('Recorded CPU samples histogram:', samples_histogram(df, yield_cpu_sample_lengths)):
-        print(line.encode('utf-8'))
+        print(line)
 
+    graph = Pyasciigraph()
     for line in graph.graph('Recorded uncore samples histogram:', samples_histogram(df, yield_uncore_sample_lengths)):
-        print(line.encode('utf-8'))
+        print(line)
 
-    # TODO: Should be CPU events
-    print("The five events with fewest samples are:")
-    for idx in sorted(df.index.unique(), key=lambda x: len(df.loc[[x], 'SAMPLE_VALUE']))[:100]:
+    print("The 25 events with fewest samples are:")
+    for idx in sorted(df.index.unique(), key=lambda x: len(df.loc[[x], 'SAMPLE_VALUE']))[:25]:
         print(idx, ":", len(df.loc[[idx], 'SAMPLE_VALUE']), "samples")

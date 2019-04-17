@@ -4,6 +4,9 @@ import sys
 import numpy as np
 import pandas as pd
 
+import matplotlib
+matplotlib.use('Agg')
+
 from matplotlib import pyplot as plt, font_manager
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -11,7 +14,7 @@ colors = LinearSegmentedColormap.from_list('seismic',
                                            ['#ca0020', '#ffffff', '#2a99d6'])
 
 def heatmap(plot_output_dir, data):
-    plt.style.use([os.path.join(sys.path[0], 'ethplot.mplstyle')])
+    plt.style.use([os.path.join(sys.path[0], "..", 'ethplot.mplstyle')])
     fig, ax = plt.subplots()
 
     ax.xaxis.set_visible(False)
@@ -32,7 +35,7 @@ def main():
     else:
         plot_output_dir = '.'
 
-    data_file = os.path.join(plot_output_dir, 'event_correlation.dat')
+    data_file = os.path.join(plot_output_dir, 'correlation_matrix.csv')
 
     data = pd.read_csv(data_file, sep='\t', header=0, index_col=0)
     heatmap(plot_output_dir, data)

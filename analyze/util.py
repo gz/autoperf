@@ -74,7 +74,7 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
     """
     # Parse file
     raw_data = pd.read_csv(f, sep=',', skipinitialspace=True)
-    raw_data.sortlevel(inplace=True)
+    raw_data.sort_index(inplace=True)
 
     # Convert time
     time_to_ms(raw_data)

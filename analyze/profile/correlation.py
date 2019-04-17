@@ -54,11 +54,11 @@ def persist_excluded_events(excluded_events_file, excluded_events):
             f.write('{}\n'.format(i))
 
 def correlation_matrix(data_directory):
-    df = load_as_X(os.path.join(data_directory, 'result.csv'))
+    df = util.load_as_X(os.path.join(data_directory, 'results.csv'))
 
     correlation_matrix = df.corr()
     # Ensure all values in correlation matrix are valid
-    assert not correlation_matrix.isnull().values.any()
+    #assert not correlation_matrix.isnull().values.any()
 
     correlation_file = os.path.join(data_directory, 'correlation_matrix.csv')
     correlation_matrix.to_csv(correlation_file)
@@ -69,8 +69,6 @@ def correlation_matrix(data_directory):
     #print y.shape
     #print df.shape
     #print ig(df, y)
-
-    sys.exit(1)
 
     # Get event names
     """
@@ -94,7 +92,7 @@ def correlation_matrix(data_directory):
 
 
 def usage(progname):
-    print('usage:', progname, '[data_input_dir]', file=sys.stderr)
+    print('usage:', progname, '[data_input_dir]')
     sys.exit(0)
 
 if __name__ == '__main__':

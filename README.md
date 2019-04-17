@@ -18,6 +18,11 @@ installed using:
 $ sudo apt-get install likwid cpuid hwloc numactl util-linux
 ```
 
+To run some sample analysis scripts, you'll need these python3 libraries:
+```
+$ pip3 install ascii_graph
+```
+
 You'll also need Rust which is best installed using rustup:
 ```
 $ curl https://sh.rustup.rs -sSf | sh -s -- -y
