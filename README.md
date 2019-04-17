@@ -17,7 +17,7 @@ counters.
 
 autoperf is known to work with Ubuntu 18.04 on Skylake and
 IvyBridge/SandyBridge architectures. All Intel architectures should work,
-please file a bug request if they don't. autoperf builds on `perf` from the
+please file a bug request if it doesn't. autoperf builds on `perf` from the
 Linux project and a few other libraries that can be installed using:
 
 ```
