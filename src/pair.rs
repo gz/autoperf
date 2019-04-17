@@ -749,10 +749,10 @@ pub fn pair(manifest_folder: &Path, dryrun: bool, start: usize, stepping: usize)
         if !dryrun {
             run.profile().ok();
         } else {
-            println!("{}", run);
+            warn!("Dryrun mode: {}", run);
         }
         i += 1;
     }
 
-    println!("{} runs completed.", i);
+    info!("{} runs completed.", i);
 }

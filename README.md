@@ -1,77 +1,79 @@
+# autoperf
+
+autoperf vastly simplifies the instrumentation of programs with performance
+counters on Intel machines. Rather than trying to learn how to measure every
+event and manually programming event values in counter registers, you run your
+program with autoperf which will repeatedly run your program until it has
+measured every single performance event on your machine.
+
 # How-to use
 
-To profile an application use:
-`$ cargo run -- profile myprogram -args1`
-This will put a `results.csv` file in your default (result) output directory which can be parsed by Python.
+autoperf has a few commands, use `--help` to get a better overview of all the
+options.
 
-To generate a CSV result file from intermediate source files run:
-`$ cargo run -- extract <path>`
+## Profiling
 
-To compute pairwise placements of programs:
-`$ cargo run -- profile <manifest path>`
-TODO: explain manifest
+The **profile** command instruments a single program by running it multiple times
+until every performance event is measured. For example,
+```
+$ autoperf profile echo test
+```
+will repeatedly run `echo test` while measuring events with performance
+counters. After it is done you will find an `out` folder with many csv files
+that contain measurements from individual runs.
 
-# Install dependencies
+## Aggregating results
 
-Dependencies:
+To combine all those runs into a single CSV result file you can use the
+**aggregate** command: 
 ```
-$ sudo apt-get install likwid cpuid hwloc numactl util-linux libtbb2
-For parsec binary (swaptons):
-$ sudo apt-get install libtbb2
-```
+$ autoperf aggregate ./out
+``` 
+This will do some sanity checking and produce a `results.csv` file including 
+all repeated runs.
 
-Rust:
-```
-$ curl https://sh.rustup.rs -sSf | sh
-$ cd autoperf
-$ rustup override set nightly
-```
+## Running pairwise combinations of programs
 
-Python:
-```
-$ sudo apt-get install python3-dev python3-tk python3-pip
-$ sudo -H pip3 install pandas numpy ascii_graph scipy toml sklearn bokeh flask matplotlib mlxtend pydotplus
-```
+A more advanced feature is the pairwise instrumentation of programs.
+Say you have a set of programs and you want to study their pairwise 
+interactions with each other. You would first define a manifest like this:
 
-For documentation only:
 ```
-$ apt-get install libzmq3-dev
-$ sudo -H pip install jupyter
-```
+[experiment]
+configurations = ["L3-SMT", "L3-SMT-cores"]
 
-For weka (ranking.py):
-```
-$ sudo apt-get install openjdk-8-jdk
-```
+[programA]
+name = "gcc"
+binary = "gcc"
+arguments = ["-j", "4", "out.c", "-o", "out"]
 
-# Workflow
+[programB]
+name = "objdump"
+binary = "objdump"
+arguments = ["--disassemble", "/bin/true"]
 
-Generate result files after set-up:
-```
-python3 analyze/classify/runtimes.py --data ../results
-python3 analyze/classify/extract_all.py --uncore shared --data ../results
-python3 analyze/classify/generate_matrix.py --uncore shared --features max mean min rbmerge2 std --data ../results
-python3 analyze/classify/find_all_zero.py --uncore shared --features max mean min rbmerge2 std --data ../results
-python3 analyze/classify/svm.py --uncore shared --features max mean min rbmerge2 std --data ../results --weka
-# TODO: python3 scripts/pair/ranking.py
+[programC]
+name = "cat"
+binary = "cat"
+arguments = ["/var/log/messages"]
+env = { LC_ALL = "C" }
+use_watch_repeat = true
 ```
 
-Evaluation:
+Saving this as a file called `manifest.toml` and stored in a folder called `pairings`
+you could call `autoperf` with the following arguments:
 ```
-python3 analyze/classify/svm_heatmap.py --uncore shared --features max mean min rbmerge2 std --dropzero --data ../results
-python3 analyze/classify/svm.py  --uncore shared --features max mean min rbmerge2 --dropzero --data ../results
-python3 analyze/classify/svm_topk.py ../results-babybel --config L3-SMT L3-SMT-cores  --features
+$ autoperf pair ./pairings
 ```
+If you want to get a sense for what this command would be doing you can use the `-d` which just prints
+the commands rather than launching any programs and doing any perf instrumentation.
 
-python3 scripts/pair/svm_topk.py ../results-babybel --config L3-SMT L3-SMT-cores  --features ../results-babybel/weka_cross_validated_cfssubset_bestfirst_L3-SMT_L3-SMT-cores.txt --ranking ../results-babybel/weka_correlation_ranking_L3-SMT_L3-SMT-cores.txt
+### Manifest settings
 
-# Stuff not documented in perf
-  * PCU has umask which is supposed to be and'ed with event= attribute (from pmu-tools ucevent.py)
-  * Intel Unit to perf device translation (libpfm4 source code and ucevent.py)
-  * /sys/bus does not expose how many counters a device has
-  * cbox to core mapping is not readable from /sys
+The manifest format has quite a few configuration parameters. A full manifest file with
+all possible configurations is shown in `./tests/pair/manifest.toml`.
 
-# Deployments
+* **configuration** is a list of possible mappings of the program to cores:
   * L1-SMT: Programs are placed on a single core, each gets one hyper-thread.
   * L3-SMT: Programs are placed on a single socket, applications each gets one hyper-thread interleaved (i.e., cores are shared between apps).
   * L3-SMT-cores: Programs are placed on a single socket, applications get a full core (i.e., hyper-threads are not shared between apps).
@@ -81,45 +83,33 @@ python3 scripts/pair/svm_topk.py ../results-babybel --config L3-SMT L3-SMT-cores
   * Full-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are left idle).
   * Full-SMT-cores: Use the whole machine, programs use cores from all sockets interleaved (hyper-threads are used).
 
-# TODO
-Wednesday:
-  * Finish heatmaps
-Thursday:
-  * Aggregate 4 samples in one
-  * Finish and run various ranking scripts over night
-  * Finalize feature selection plots
-Friday:
-  * Check Onurs benchmarks
-  * Check splash2
-Not today:
-  * Scale out analysis
-  * TODO: Should probably have return codes in perf.csv and check them as well!
-  * Exchange the whole zero event computation with VarianceThreshold?
+# Installation
 
-
-# Related projects
-  * git clone git://git.code.sf.net/p/perfmon2/perfmon2 perfmon2-perfmon2
-  * git clone git://git.code.sf.net/p/perfmon2/libpfm4 perfmon2-libpfm4
-
-
-# Ranking Computation
+autoperf is known to work with Ubuntu 18.04 on Skylake and
+IvyBridge/SandyBridge architectures. Other architectures should work too, but
+may not work right out of the box. Please file a bug request. Currently we
+require `perf` from the Linux project and a few other libraries that can be
+installed using:
 
 ```
-rm /mnt/local/zgerd/results-babybel/ranking/*
- rsync -av /home/gz/workspace/autoperf/ emmentaler3:/mnt/local/zgerd/autoperf/
- rsync -av /home/gz/workspace/results-babybel/matrices/ emmentaler3:/mnt/local/zgerd/results-babybel/matrices/
-python3 analyze/classify/ranking.py --data ../results-babybel --features mean std min max rbmerge --dropzero --ranking cfs --start 0 --step 3
+$ sudo apt-get install likwid cpuid hwloc numactl util-linux
+```
 
-rm /mnt/local/zgerd/results-babybel/ranking/*
-rsync -av /home/gz/workspace/autoperf/ sgs-r820-01.ethz.ch:/mnt/local/zgerd/autoperf/
-rsync -av /home/gz/workspace/results-babybel/matrices/ sgs-r820-01.ethz.ch:/mnt/local/zgerd/results-babybel/matrices/
-python3 analyze/classify/ranking.py --data ../results-babybel --features mean std min max rbmerge --dropzero --ranking cfs --start 1 --step 3
+You'll also need Rust which is best installed using rustup:
+```
+$ curl https://sh.rustup.rs -sSf | sh
+```
 
+autoperf is published on crates.io, so once you have rust and cargo, you can
+install it like this:
+```
+$ cargo install autoperf
+```
 
-rm /home/ubuntu/results-babybel/ranking/*
-rsync -av -e "ssh -A emmentaler1 ssh" /home/gz/workspace/autoperf/ ubuntu@babybel2:/home/ubuntu/autoperf/
-rsync -av -e "ssh -A emmentaler1 ssh" /home/gz/workspace/results-babybel/matrices/ ubuntu@babybel2:/home/ubuntu/results-babybel/matrices/
-python3 analyze/classify/ranking.py --data ../results-babybel --features mean std min max rbmerge --dropzero --ranking cfs --start 2 --step 3
-
-
+Or clone and build this repository:
+```
+$ git clone git@github.com:gz/autoperf.git
+$ cd autoperf
+$ cargo build --release
+$ ./target/release/autoperf --help
 ```
