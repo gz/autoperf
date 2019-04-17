@@ -625,8 +625,11 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
 
     pub fn perf_qualifiers(&self) -> String {
         let mut qualifiers = String::from("S");
-        if self.0.pebs == PebsType::PebsOnly {
+        if self.0.pebs == PebsType::PebsOrRegular {
             qualifiers.push('p');
+        } else if self.0.pebs == PebsType::PebsOnly {
+            // Adding a 'p' here is counterproducive (breaks perf), at least for Skylake
+            // So do nothing
         }
         qualifiers
     }
@@ -1134,16 +1137,19 @@ pub fn profile<'a, 'b>(
     debug!("Warmup complete, let's start measuring.");
 
     let mut pb = ProgressBar::new(event_groups.len() as u64);
-    for group in event_groups {
-        let idx = pb.inc();
+
+    for (idx, group) in event_groups.iter().enumerate() {
+        if !dryrun {
+            pb.inc();
+        }
 
         let event_names: Vec<&str> = group.get_event_names();
         let counters: Vec<String> = group.get_perf_config_strings();
 
         let mut record_path = PathBuf::new();
         let filename = match record {
-            false => format!("{}_stat.csv", idx),
-            true => format!("{}_perf.data", idx),
+            false => format!("{}_stat.csv", idx+1),
+            true => format!("{}_perf.data", idx+1),
         };
         record_path.push(output_path);
         record_path.push(&filename);
