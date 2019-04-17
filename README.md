@@ -121,5 +121,5 @@ You can read more about our experiments here:
 Of course autoperf can greatly simplify your life in many other scenarios too:
  * Find out what performance events are relevant for your workload
  * Analyzing and finding performance issues in your code
- * Find the best classifiers to detect hardware exploits (side channels/Spectre/Meltdown etc.)
+ * Find classifiers to detect hardware exploits (side channels/spectre/meltdown etc.)
  * ...

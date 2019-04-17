@@ -55,13 +55,13 @@ subcommands:
                 long: core
                 takes_value: true
                 possible_values: [ all, shared, exclusive, none ]
-                help: Which core events to include (default exclusive = only cores where program was running on).
+                help: Which core events to include (default all, exclusive = only cores where program was running on, none = drop core events).
             - uncore:
                 short: u
                 long: uncore
                 takes_value: true
                 possible_values: [ all, shared, exclusive, none ]
-                help: Which uncore events to include (default exclusive = only uncore units that are exclusively used by program).
+                help: Which uncore events to include (default all, exclusive = only uncore units that are exclusively used by program, none = drop uncore events).
             - output:
                 short: o
                 long: output

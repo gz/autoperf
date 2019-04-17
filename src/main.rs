@@ -69,8 +69,8 @@ fn main() {
                 pb
             }
         };
-        let uncore_filter: &str = matches.value_of("uncore").unwrap_or("exclusive");
-        let core_filter: &str = matches.value_of("core").unwrap_or("exclusive");
+        let uncore_filter: &str = matches.value_of("uncore").unwrap_or("all");
+        let core_filter: &str = matches.value_of("core").unwrap_or("all");
 
         aggregate(
             input_directory,
