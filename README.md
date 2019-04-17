@@ -91,5 +91,5 @@ $ open out/heatmap.png
 ```
 
 For example, the output from the `sleep 2` command above looks like this:
-![Correlation Heatmap](/doc/correlation_heatmap.png]
+![Correlation Heatmap](/doc/correlation_heatmap.png)
 Every dot represents a correlation between two events.
