@@ -9,6 +9,10 @@ near-optimal schedule that maximizes the amount of events measured per run,
 minimizes the total number of runs and avoids multiplexing of events on
 counters.
 
+<p align="center">
+  <img src="./doc/intro.svg">
+</p>
+
 # Installation
 
 autoperf is known to work with Ubuntu 18.04 on Skylake and
