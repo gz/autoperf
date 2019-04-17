@@ -23,11 +23,6 @@ subcommands:
                 help: Set output directory.
                 value_name: DIRECTORY
                 takes_value: true
-            - record:
-                short: r
-                long: record
-                help: Use `perf record` instead of `perf stat` (not recommended due to sampling rate issues).
-                takes_value: true
             - COMMAND:
                 help: Command to execute.
                 required: true
@@ -118,3 +113,8 @@ subcommands:
 #                value_name: FILE
 #                takes_value: true
 
+#            - record:
+#                short: r
+#                long: record
+#                help: Use `perf record` instead of `perf stat` (not recommended due to sampling rate issues).
+#                takes_value: true
