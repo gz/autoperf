@@ -9,6 +9,8 @@ authors = [
 ]
 edition = '2018'
 license = "MIT"
+repository = "https://github.com/gz/autoperf"
+documentation = "https://docs.rs/autoperf"
 
 [dependencies]
 pbr = "1.0.1"
