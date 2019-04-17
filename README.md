@@ -12,16 +12,16 @@ events on counters.
 # Installation
 
 autoperf is known to work with Ubuntu 18.04 on Skylake and
-IvyBridge/SandyBridge architectures. Other architectures should work too, but
-may not work right out of the box. Please file a bug request. Currently we
-require `perf` from the Linux project and a few other libraries that can be
+IvyBridge/SandyBridge architectures. All Intel architectures should work 
+- please file a bug request if they don't. autoperf builds on `perf` 
+from the Linux project and a few other libraries that can be
 installed using:
 
 ```
 $ sudo apt-get install likwid cpuid hwloc numactl util-linux
 ```
 
-To run some sample analysis scripts, you'll need these python3 libraries:
+To run the example analysis scripts, you'll need these python3 libraries:
 ```
 $ pip3 install ascii_graph matplotlib pandas
 ```
@@ -38,7 +38,7 @@ install it like this:
 $ cargo install autoperf
 ```
 
-Or clone and build this repository:
+Or clone and build the repository yourself:
 ```
 $ git clone https://github.com/gz/autoperf.git
 $ cd autoperf
@@ -49,14 +49,14 @@ $ ./target/release/autoperf --help
 autoperf uses perf internally to interface with Linux and the performance
 counter hardware. perf recommends that the following settings are disabled.
 Therefore, autoperf will check the values of those configurations and refuse to
-start if they are not set to the values below:
+start if they are not set like below:
 ```
 sudo sh -c 'echo 0 >> /proc/sys/kernel/kptr_restrict'
 sudo sh -c 'echo 0 > /proc/sys/kernel/nmi_watchdog'
 sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'
 ```
 
-# Quick and simple how-to
+# How-to
 
 autoperf has a few commands, use `--help` to get a better overview of all the
 options.
@@ -82,7 +82,7 @@ $ autoperf aggregate ./out
 This will do some sanity checking and produce a `results.csv` file which contains 
 all the measured data.
 
-## Analyzing results
+## Analyze results
 
 Now you have all the data, so you can start asking some questions. As an
 example the following script tells you which events were correlated
