@@ -1,36 +1,47 @@
 [experiment]
+# configurations: [e \in { "L1-SMT", "L3-SMT", "L3-SMT-cores", "L3-cores", "Full-L3", "Full-SMT-L3", "Full-cores", "Full-SMT-cores" }] 
+# Specifies a series of different affinity mappings for the programs
 configurations = ["L3-SMT", "L3-SMT-cores"]
+# alone: bool 
+# Also run and profile programs in isolation
 alone = true
-#profile_only_a = ["echo", "p2"]
-#profile_only_b = ["echo", "p2"]
+# profile_only_a = ["prog_name1", "prog_name2", ...]
+# Limit protagonist programs (programs being profiled) to the specified subset
+profile_only_a = ["echo", "p2"]
+# profile_only_b = ["prog_name1", "prog_name2", ...]
+# Limit antagonist programs to the specified subset
+profile_only_b = ["echo", "p2"]
 
 [program1]
+# name: String
+# Program name
 name = "echo"
+# binary: String
+# Program binary path to invoke
 binary = "echo"
-default_working_dir = "~"
+# default_working_dir: String
+# Sets the working dir of program to the following path
+default_working_dir = "/tmp"
+# arguments: [String]
+# Passes the following arguments to the program
 arguments = ["a", "b", "c"]
+# antagonist_arguments: [String]
+# When run as an antagonist, use the following arguments instead
 antagonist_arguments = ["a", "b", "c"]
+# breakpoints: [String, String]
+# Set the following two breakpoints with perf (used to identify critical sections for measurements)
 breakpoints = ["0x123", "0x123"]
+# env: { String -> String }
+# Augment the program environment with the following key--value pairs
 env = { KEY = "value" }
+# use_watch_repeat: bool
+# When run as an antagonist use watch to repeatedly run program (while protagonist is running)
 use_watch_repeat = false
+# alone: bool
+# Don't run this program alone
 alone = false
 
-[program2]
-name = "p2"
-binary = "p2"
-default_working_dir = "~"
-arguments = ["a", "b", "c"]
-antagonist_arguments = ["a", "b", "c"]
-breakpoints = ["0x123", "0x123"]
-env = { KEY = "value" }
-use_watch_repeat = false
-alone = false
-
-#Don't document these two features
-#openmp = false
-#parsec = false
-#checkpoints = ["0x123", "0x123"]
-
-# speical vars in CMD are:
-#NUM_THREADS
-#MANIFEST_DIR
+#The following features are depreacated and will be removed:
+# openmp = false
+# parsec = false
+# checkpoints = ["0x123", "0x123"]

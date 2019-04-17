@@ -2,7 +2,7 @@
 # We run all commands of the README.md file and hope it works
 set -ex
 export RUST_BACKTRACE=1
-export RUST_LOG='trace'
+export RUST_LOG='autoperf=trace'
 
 sudo apt-get install likwid cpuid hwloc numactl util-linux
 
