@@ -29,19 +29,19 @@ To run the example analysis scripts, you'll need these python3 libraries:
 $ pip3 install ascii_graph matplotlib pandas argparse numpy
 ```
 
-You'll also need Rust which is best installed using rustup:
+You'll also need the rust compiler which is best installed using rustup:
 ```
 $ curl https://sh.rustup.rs -sSf | sh -s -- -y
 $ source $HOME/.cargo/env
 ```
 
-autoperf is published on crates.io, so once you have rust and cargo, you can
-install it like this:
+autoperf is published on crates.io, so once you have rust and cargo installed, 
+you can get it directly from there:
 ```
 $ cargo install autoperf
 ```
 
-Or clone and build the repository yourself:
+Or alternatively, clone and build the repository yourself:
 ```
 $ git clone https://github.com/gz/autoperf.git
 $ cd autoperf
