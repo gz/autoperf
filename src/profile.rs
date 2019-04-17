@@ -1089,7 +1089,7 @@ pub fn profile<'a, 'b>(
     let mut completed_file: PathBuf = output_path.to_path_buf();
     completed_file.push("completed");
     if completed_file.exists() {
-        info!(
+        warn!(
             "Run {} already completed, skipping.",
             output_path.to_string_lossy()
         );
