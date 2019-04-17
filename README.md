@@ -125,8 +125,8 @@ You can read more about our experiments here:
 * https://dl.acm.org/citation.cfm?id=2967360.2967375 
 * https://www.research-collection.ethz.ch/handle/20.500.11850/155854
 
-Last but not least, autoperf can also simplify your life in many other scenarios:
+Last but not least, autoperf can also simplify your work with performance counters in many other scenarios:
  * Find out what performance events are relevant for your workload
- * Analyzing and finding performance issues in your code
+ * Analyzing and finding performance issues in your code or with different versions of your code
  * Find classifiers to detect hardware exploits (side channels/spectre/meltdown etc.)
  * ...
