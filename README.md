@@ -107,7 +107,7 @@ python3 analyze/profile/event_detail.py --resultdir ./out --features AVG.OFFCORE
 
 ## What do I use this for?
 
-autoperf allows you to quickly gather lots of performance (training) data and
+autoperf allows you to quickly gather lots of performance (or training) data and
 reason about it quantitatively. For example, we initially developed autoperf to
 build ML classifiers that the Barrelfish scheduler could use for detecting
 application slowdown and make better scheduling decisions. autoperf meant that
@@ -119,7 +119,7 @@ You can read more about our experiments here:
 * https://dl.acm.org/citation.cfm?id=2967360.2967375 
 * https://www.research-collection.ethz.ch/handle/20.500.11850/155854
 
-Of course autoperf can greatly simplify your life in many other scenarios too:
+But we found that autoperf can greatly simplify your life in many other scenarios too:
  * Find out what performance events are relevant for your workload
  * Analyzing and finding performance issues in your code
  * Find classifiers to detect hardware exploits (side channels/spectre/meltdown etc.)

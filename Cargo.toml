@@ -1,6 +1,6 @@
 [package]
 name = "autoperf"
-version = "0.1.0"
+version = "0.9"
 authors = [
     "Denny Lin <dennylin93@connect.hku.hk>",
     "Besmira Nushi <besmira.nushi@microsoft.com>",
