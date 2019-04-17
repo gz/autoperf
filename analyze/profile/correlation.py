@@ -54,11 +54,12 @@ def persist_excluded_events(excluded_events_file, excluded_events):
             f.write('{}\n'.format(i))
 
 def correlation_matrix(data_directory):
-    df = util.load_as_X(os.path.join(data_directory, 'results.csv'))
+    df = util.load_as_X(os.path.join(data_directory, 'results.csv'), cut_off_nan=True, remove_zero=True)
 
     correlation_matrix = df.corr()
     # Ensure all values in correlation matrix are valid
-    #assert not correlation_matrix.isnull().values.any()
+    print(correlation_matrix)
+    assert not correlation_matrix.isnull().values.any()
 
     correlation_file = os.path.join(data_directory, 'correlation_matrix.csv')
     correlation_matrix.to_csv(correlation_file)

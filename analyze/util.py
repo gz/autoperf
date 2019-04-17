@@ -74,7 +74,12 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
     """
     # Parse file
     raw_data = pd.read_csv(f, sep=',', skipinitialspace=True)
+    raw_data.set_index(['EVENT_NAME'], inplace=True)
     raw_data.sort_index(inplace=True)
+
+    # Remove events whose deltas are all 0:
+    if remove_zero:
+        raw_data = raw_data.drop(get_all_zero_events(raw_data))
 
     # Convert time
     time_to_ms(raw_data)
@@ -121,10 +126,6 @@ def load_as_X(f, aggregate_samples=['mean'], remove_zero=False, cut_off_nan=True
             else:
                 assert "Unknown aggregation: {}. Supported are: [mean, std, max, min, rbmerge, cut1, cut2, cut4].".format(agg)
     df = pd.concat(aggregates, axis=1)
-
-    # Remove events whose deltas are all 0:
-    if remove_zero:
-        df = df.drop(get_all_zero_events(df))
 
     # Cut off everything after first row with a NaN value
     if cut_off_nan:

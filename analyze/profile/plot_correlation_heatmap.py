@@ -37,7 +37,8 @@ def main():
 
     data_file = os.path.join(plot_output_dir, 'correlation_matrix.csv')
 
-    data = pd.read_csv(data_file, sep='\t', header=0, index_col=0)
+    data = pd.read_csv(data_file, header=0, index_col=0)
+    print(data)
     heatmap(plot_output_dir, data)
 
 if __name__ == '__main__':
