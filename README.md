@@ -90,6 +90,5 @@ $ python3 analyze/profile/correlation.py ./out
 $ open out/heatmap.png
 ```
 
-For example, the output from the `sleep 2` command above looks like this:
+For example, the output from the `sleep 2` command above looks like this (every dot represents the correlation between two events):
 ![Correlation Heatmap](/doc/correlation_heatmap.png)
-Every dot represents a correlation between two events.
