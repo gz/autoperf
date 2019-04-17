@@ -21,6 +21,7 @@ $ sudo apt-get install likwid cpuid hwloc numactl util-linux
 You'll also need Rust which is best installed using rustup:
 ```
 $ curl https://sh.rustup.rs -sSf | sh
+$ source $HOME/.cargo/env
 ```
 
 autoperf is published on crates.io, so once you have rust and cargo, you can
@@ -35,6 +36,16 @@ $ git clone git@github.com:gz/autoperf.git
 $ cd autoperf
 $ cargo build --release
 $ ./target/release/autoperf --help
+```
+
+autoperf uses perf internally to interface with Linux and the performance
+counter hardware. perf recommends that the following settings are disabled.
+Therefore, autoperf will check the values of those configurations and refuse to
+start if they are not set to the values below:
+```
+sudo sh -c 'echo 0 >> /proc/sys/kernel/kptr_restrict'
+sudo sh -c 'echo 0 > /proc/sys/kernel/nmi_watchdog'
+sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'
 ```
 
 # How-to use
