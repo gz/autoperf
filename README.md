@@ -9,7 +9,9 @@ near-optimal schedule that maximizes the amount of events measured per run,
 minimizes the total number of runs and avoids multiplexing of events on
 counters.
 
-![screencast](./doc/intro.svg)
+<p align="center">
+    <img src="https://gz.github.io/autoperf/doc/intro.svg">
+</p>
 
 # Installation
 
