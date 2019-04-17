@@ -20,4 +20,4 @@ programmable_counters = { CPU = 4, UBO = 2, CBO = 4, HA = 4, IMC = 4, IRP = 4, P
 family = 6
 models = [78, 94, 142, 158, 85]
 fixed_counters = { CPU = 3, UBO = 1, IMC = 1 }
-programmable_counters = { CPU = 4, UPI = 4, CHA = 4, IIO = 4, IMC = 4, IRP = 4, M2M = 4, M3UPI = 4, PCU = 4, UBO = 2, CBO = 4 }
+programmable_counters = { CPU = 4, UPI = 4, CHA = 4, IIO = 4, IMC = 4, IRP = 4, M2M = 4, M3UPI = 4, PCU = 4, UBO = 2, CBO = 4, ARB = 2 }
