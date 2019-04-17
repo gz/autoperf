@@ -94,7 +94,7 @@ $ open out/correlation_heatmap.png
 
 For example, visualizing event correlation for the profiled `sleep 2` command
 above looks like this (every dot represents the correlation between two
-measured performance events, this was done on a Skylake machine which had
+measured performance events, on a Skylake machine which had
 around 1.7k non-zero event measurement):
 ![Correlation Heatmap](/doc/correlation_heatmap.png)
 
@@ -103,6 +103,7 @@ You can look at individual events too:
 python3 analyze/profile/event_detail.py --resultdir ./out --features AVG.OFFCORE_RESPONSE.ALL_RFO.L3_MISS.REMOTE_HIT_FORWARD
 ```
 ![Plot events](/doc/perf_event_plot.png)
+
 
 ## What do I use this for?
 
