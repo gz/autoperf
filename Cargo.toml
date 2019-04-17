@@ -1,5 +1,6 @@
 [package]
 name = "autoperf"
+description = "Automate the recording and instrumentation of programs with performance counters."
 version = "0.9.0"
 authors = [
     "Denny Lin <dennylin93@connect.hku.hk>",
