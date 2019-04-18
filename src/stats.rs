@@ -31,14 +31,15 @@ fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
         .unwrap();
 
     for (key, &(name, year, counters)) in key_to_name.iter() {
-        let core_counters = COUNTER_MAP.get(format!("{}-core", key).as_str());
-        let uncore_counters = COUNTER_MAP.get(format!("{}-uncore", key).as_str());
-
+        let events = COUNTER_MAP.get(format!("{}", key).as_str());
+        
         let counter_groups: Vec<(MonitoringUnit, usize)> =
-            uncore_counters.map_or(Vec::new(), |uc| {
+            events.map_or(Vec::new(), |uc| {
                 let mut units: Vec<(MonitoringUnit, PerfEvent)> = Vec::with_capacity(uc.len());
                 for ref e in uc.values() {
-                    units.push((PerfEvent(&e).unit(), PerfEvent(&e)));
+                    if e.uncore {
+                        units.push((PerfEvent(&e).unit(), PerfEvent(&e)));
+                    }
                 }
                 units.sort_by(|a, b| a.0.cmp(&b.0));
 
@@ -50,8 +51,14 @@ fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
                 counts
             });
 
-        let cc_count = core_counters.map(|c| c.len()).unwrap_or(0);
-        let uc_count = uncore_counters.map(|c| c.len()).unwrap_or(0);
+        let cc_count = events.map(|c| {
+            let filtered: Vec<&EventDescription> = c.values().filter(|e| !e.uncore).collect();
+            filtered.len()
+        }).unwrap_or(0);
+        let uc_count = events.map(|c| {
+            let filtered: Vec<&EventDescription> = c.values().filter(|e| e.uncore).collect();
+            filtered.len()
+        }).unwrap_or(0);
 
         let group_string = counter_groups
             .into_iter()
@@ -100,22 +107,16 @@ fn save_architecture_comparison(key_to_name: &ArchitectureMap, csv_result: &Path
             "year1",
             "arch2",
             "year2",
-            "common core events",
-            "common uncore events",
-            "arch1 core events",
-            "arch1 uncore events",
-            "arch2 core events",
-            "arch2 uncore events",
+            "common events",
+            "arch1 events",
+            "arch2 events",
         ])
         .unwrap();
 
     for (key1, &(name1, year1, _)) in key_to_name.iter() {
         for (key2, &(name2, year2, _)) in key_to_name.iter() {
-            let core_counters1 = COUNTER_MAP.get(format!("{}-core", key1).as_str());
-            let uncore_counters1 = COUNTER_MAP.get(format!("{}-uncore", key1).as_str());
-
-            let core_counters2 = COUNTER_MAP.get(format!("{}-core", key2).as_str());
-            let uncore_counters2 = COUNTER_MAP.get(format!("{}-uncore", key2).as_str());
+            let events1 = COUNTER_MAP.get(format!("{}", key1).as_str());
+            let events2 = COUNTER_MAP.get(format!("{}", key2).as_str());
 
             writer
                 .encode(&[
@@ -123,28 +124,15 @@ fn save_architecture_comparison(key_to_name: &ArchitectureMap, csv_result: &Path
                     year1,
                     name2,
                     year2,
-                    common_event_names(core_counters1, core_counters2)
+                    common_event_names(events1, events2)
                         .to_string()
                         .as_str(),
-                    common_event_names(uncore_counters1, uncore_counters2)
-                        .to_string()
-                        .as_str(),
-                    core_counters1
+                    events1
                         .map(|c| c.len())
                         .unwrap_or(0)
                         .to_string()
                         .as_str(),
-                    uncore_counters1
-                        .map(|c| c.len())
-                        .unwrap_or(0)
-                        .to_string()
-                        .as_str(),
-                    core_counters2
-                        .map(|c| c.len())
-                        .unwrap_or(0)
-                        .to_string()
-                        .as_str(),
-                    uncore_counters2
+                    events2
                         .map(|c| c.len())
                         .unwrap_or(0)
                         .to_string()
@@ -243,14 +231,10 @@ fn save_edit_distances(key_to_name: &ArchitectureMap, output_dir: &Path) {
                 .encode(&["event name", "edit distance", "uncore", "desc1", "desc2"])
                 .unwrap();
 
-            let core_counters1 = COUNTER_MAP.get(format!("{}-core", key1).as_str());
-            let uncore_counters1 = COUNTER_MAP.get(format!("{}-uncore", key1).as_str());
+            let events1 = COUNTER_MAP.get(format!("{}", key1).as_str());
+            let events2 = COUNTER_MAP.get(format!("{}", key2).as_str());
 
-            let core_counters2 = COUNTER_MAP.get(format!("{}-core", key2).as_str());
-            let uncore_counters2 = COUNTER_MAP.get(format!("{}-uncore", key2).as_str());
-
-            common_event_desc_distance(&mut writer, core_counters1, core_counters2, false).ok();
-            common_event_desc_distance(&mut writer, uncore_counters1, uncore_counters2, true).ok();
+            common_event_desc_distance(&mut writer, events1, events2, false).ok();
         }
     }
 }
