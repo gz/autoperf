@@ -7,7 +7,7 @@ export RUST_LOG='autoperf=trace'
 sudo apt-get update
 sudo apt-get install likwid cpuid hwloc numactl util-linux
 
-curl https://sh.rustup.rs -sSf | sh -s -- -y
+curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
 source $HOME/.cargo/env
 
 git clone https://github.com/gz/autoperf.git
@@ -17,7 +17,7 @@ cargo build --release
 ./target/release/autoperf --help
 
 sudo sh -c 'echo 0 >> /proc/sys/kernel/kptr_restrict'
-sudo sh -c 'echo 0 > /proc/sys/kernel/nmi_watchdog'
+sudo sh -c 'echo 0 > /proc/sys/kernel/nmi_watchdog' || true # This fails on travis!
 sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'
 
 cargo run --release -- stats stats_out

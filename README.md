@@ -21,6 +21,7 @@ please file a bug request if it doesn't. autoperf builds on `perf` from the
 Linux project and a few other libraries that can be installed using:
 
 ```
+$ sudo apt-get update
 $ sudo apt-get install likwid cpuid hwloc numactl util-linux
 ```
 
@@ -39,7 +40,7 @@ $ source $HOME/.cargo/env
 autoperf is published on crates.io, so once you have rust and cargo installed, 
 you can get it directly from there:
 ```
-$ cargo install autoperf
+$ cargo +nightly install autoperf
 ```
 
 Or alternatively, clone and build the repository yourself:
