@@ -88,7 +88,7 @@ all the measured data.
 
 ## Analyze results
 
-Performance events are measured individually on every cores (and other
+Performance events are measured individually on every core (and other
 monitoring units). The `timeseries.py` can aggregate events by taking the
 average, stddef, min, max etc. and producing a time-series matrix ([see a
 reduced example](../master/doc/timeseries.csv)).
