@@ -82,7 +82,7 @@ To combine all those runs into a single CSV result file you can use the
 ```
 $ autoperf aggregate ./out
 ``` 
-This will do some sanity checking and produce a `results.csv` ([reduced example](../blob/master/doc/results.csv)) file which contains 
+This will do some sanity checking and produce a `results.csv` ([reduced example](../master/doc/results.csv)) file which contains 
 all the measured data.
 
 ## Analyze results
