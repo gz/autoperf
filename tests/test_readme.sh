@@ -4,6 +4,7 @@ set -ex
 export RUST_BACKTRACE=1
 export RUST_LOG='autoperf=trace'
 
+sudo apt-get update
 sudo apt-get install likwid cpuid hwloc numactl util-linux
 
 curl https://sh.rustup.rs -sSf | sh -s -- -y
