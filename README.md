@@ -29,9 +29,10 @@ To run the example analysis scripts, you'll need these python3 libraries:
 $ pip3 install ascii_graph matplotlib pandas argparse numpy
 ```
 
-You'll also need the rust compiler which is best installed using rustup:
+You'll also need the *nightly version* of the rust compiler which is 
+best installed using rustup:
 ```
-$ curl https://sh.rustup.rs -sSf | sh -s -- -y
+$ curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
 $ source $HOME/.cargo/env
 ```
 
