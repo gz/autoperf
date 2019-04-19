@@ -28,37 +28,40 @@ fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
             "counters",
             "uncore groups",
         ])
-        .unwrap();
+        .expect(format!("Can't write {:?} header", csv_result).as_str());
 
     for (key, &(name, year, counters)) in key_to_name.iter() {
         let events = COUNTER_MAP.get(format!("{}", key).as_str());
-        
-        let counter_groups: Vec<(MonitoringUnit, usize)> =
-            events.map_or(Vec::new(), |uc| {
-                let mut units: Vec<(MonitoringUnit, PerfEvent)> = Vec::with_capacity(uc.len());
-                for ref e in uc.values() {
-                    if e.uncore {
-                        units.push((PerfEvent(&e).unit(), PerfEvent(&e)));
-                    }
+
+        let counter_groups: Vec<(MonitoringUnit, usize)> = events.map_or(Vec::new(), |uc| {
+            let mut units: Vec<(MonitoringUnit, PerfEvent)> = Vec::with_capacity(uc.len());
+            for ref e in uc.values() {
+                if e.uncore {
+                    units.push((PerfEvent(&e).unit(), PerfEvent(&e)));
                 }
-                units.sort_by(|a, b| a.0.cmp(&b.0));
+            }
+            units.sort_by(|a, b| a.0.cmp(&b.0));
 
-                let mut counts: Vec<(MonitoringUnit, usize)> = Vec::with_capacity(10);
-                for (key, group) in &units.into_iter().group_by(|&(unit, _)| unit) {
-                    counts.push((key, group.count()));
-                }
+            let mut counts: Vec<(MonitoringUnit, usize)> = Vec::with_capacity(10);
+            for (key, group) in &units.into_iter().group_by(|&(unit, _)| unit) {
+                counts.push((key, group.count()));
+            }
 
-                counts
-            });
+            counts
+        });
 
-        let cc_count = events.map(|c| {
-            let filtered: Vec<&EventDescription> = c.values().filter(|e| !e.uncore).collect();
-            filtered.len()
-        }).unwrap_or(0);
-        let uc_count = events.map(|c| {
-            let filtered: Vec<&EventDescription> = c.values().filter(|e| e.uncore).collect();
-            filtered.len()
-        }).unwrap_or(0);
+        let cc_count = events
+            .map(|c| {
+                let filtered: Vec<&EventDescription> = c.values().filter(|e| !e.uncore).collect();
+                filtered.len()
+            })
+            .unwrap_or(0);
+        let uc_count = events
+            .map(|c| {
+                let filtered: Vec<&EventDescription> = c.values().filter(|e| e.uncore).collect();
+                filtered.len()
+            })
+            .unwrap_or(0);
 
         let group_string = counter_groups
             .into_iter()
@@ -75,7 +78,9 @@ fn save_event_counts(key_to_name: &ArchitectureMap, csv_result: &Path) {
         row.push(counters);
         row.push(group_string.as_str());
 
-        writer.encode(&row.as_slice()).unwrap();
+        writer
+            .encode(&row.as_slice())
+            .expect(format!("Can't write for for {:?} file", csv_result).as_str());
     }
 }
 
@@ -100,7 +105,8 @@ fn common_event_names(a: Option<&'static EventMap>, b: Option<&'static EventMap>
 
 /// Does pairwise comparison of all architectures and saves their shared events to a file.
 fn save_architecture_comparison(key_to_name: &ArchitectureMap, csv_result: &Path) {
-    let mut writer = csv::Writer::from_file(csv_result).unwrap();
+    let mut writer = csv::Writer::from_file(csv_result)
+        .expect(format!("Can't write {:?} file", csv_result).as_str());
     writer
         .encode(&[
             "arch1",
@@ -111,7 +117,7 @@ fn save_architecture_comparison(key_to_name: &ArchitectureMap, csv_result: &Path
             "arch1 events",
             "arch2 events",
         ])
-        .unwrap();
+        .expect(format!("Can't write {:?} header", csv_result).as_str());
 
     for (key1, &(name1, year1, _)) in key_to_name.iter() {
         for (key2, &(name2, year2, _)) in key_to_name.iter() {
@@ -124,19 +130,9 @@ fn save_architecture_comparison(key_to_name: &ArchitectureMap, csv_result: &Path
                     year1,
                     name2,
                     year2,
-                    common_event_names(events1, events2)
-                        .to_string()
-                        .as_str(),
-                    events1
-                        .map(|c| c.len())
-                        .unwrap_or(0)
-                        .to_string()
-                        .as_str(),
-                    events2
-                        .map(|c| c.len())
-                        .unwrap_or(0)
-                        .to_string()
-                        .as_str(),
+                    common_event_names(events1, events2).to_string().as_str(),
+                    events1.map(|c| c.len()).unwrap_or(0).to_string().as_str(),
+                    events2.map(|c| c.len()).unwrap_or(0).to_string().as_str(),
                 ])
                 .ok();
         }
@@ -226,10 +222,11 @@ fn save_edit_distances(key_to_name: &ArchitectureMap, output_dir: &Path) {
             let mut csv_result = output_dir.to_path_buf();
             csv_result.push(format!("editdist_{}-vs-{}.csv", name1, name2));
 
-            let mut writer = csv::Writer::from_file(csv_result).unwrap();
+            let mut writer = csv::Writer::from_file(csv_result.clone())
+                .expect(format!("Can't open {:?}", csv_result).as_str());
             writer
                 .encode(&["event name", "edit distance", "uncore", "desc1", "desc2"])
-                .unwrap();
+                .expect(format!("Can't write {:?} header", csv_result).as_str());
 
             let events1 = COUNTER_MAP.get(format!("{}", key1).as_str());
             let events2 = COUNTER_MAP.get(format!("{}", key2).as_str());
@@ -239,22 +236,22 @@ fn save_edit_distances(key_to_name: &ArchitectureMap, output_dir: &Path) {
     }
 }
 
-/// Dump information about performance events into the given directory.
-/// TODO: This should dynamically select the architecture.
+/// Dump information about performance events on your machine into the given directory.
 fn save_event_descriptions(output_path: &Path) {
     let events: &'static Map<&'static str, EventDescription<'static>> =
-        &x86::perfcnt::intel::events().unwrap();
+        &x86::perfcnt::intel::events().expect("Can't get events for arch");
     let pevents: Vec<PerfEvent> = events.into_iter().map(|e| PerfEvent(e.1)).collect();
 
     let mut storage_location = PathBuf::from(output_path);
     storage_location.push("ivytown_events.dat");
-    let mut wtr = csv::Writer::from_file(storage_location).unwrap();
+    let mut wtr = csv::Writer::from_file(storage_location.clone())
+        .expect(format!("Can't open {:?}", storage_location).as_str());
     let r = wtr.encode(("unit", "code", "mask", "event_name"));
     assert!(r.is_ok());
 
     for event in pevents.iter() {
         //println!("{:?}", event.0.event_name);
-        let unit = event.unit().to_perf_prefix().unwrap();
+        let unit = event.unit().to_perf_prefix().unwrap_or("none");
 
         match (&event.0.event_code, &event.0.umask) {
             (&Tuple::One(e1), &Tuple::One(m1)) => {
