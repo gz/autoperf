@@ -91,7 +91,7 @@ all the measured data.
 Performance events are measured individually on every cores (and other
 monitoring units). The `timeseries.py` can aggregate events by taking the
 average, stddef, min, max etc. and producing a time-series matrix ([see a
-reduced example](../master/doc/timeseries.csv).
+reduced example](../master/doc/timeseries.csv)).
 
 ```
 python3 analyze/profile/timeseries.py ./out
