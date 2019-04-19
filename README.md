@@ -82,10 +82,20 @@ To combine all those runs into a single CSV result file you can use the
 ```
 $ autoperf aggregate ./out
 ``` 
-This will do some sanity checking and produce a `results.csv` ([reduced example](../master/doc/results.csv)) file which contains 
+This will do some sanity checking and produce a `results.csv` 
+([reduced example](../master/doc/results.csv)) file which contains 
 all the measured data.
 
 ## Analyze results
+
+Performance events are measured individually on every cores (and other
+monitoring units). The `timeseries.py` can aggregate events by taking the
+average, stddef, min, max etc. and producing a time-series matrix ([see a
+reduced example](../master/doc/timeseries.csv).
+
+```
+python3 analyze/profile/timeseries.py ./out
+```
 
 Now you have all the data, so you can start asking some questions. As an
 example, the following script tells you how events were correlated
