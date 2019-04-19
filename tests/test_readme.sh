@@ -16,6 +16,7 @@ cd autoperf
 cargo build --release
 ./target/release/autoperf --help
 
+ls /sys/bus/event_source/devices/
 sudo sh -c 'echo 0 >> /proc/sys/kernel/kptr_restrict'
 sudo sh -c 'echo 0 > /proc/sys/kernel/nmi_watchdog' || true # This fails on travis!
 sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'
