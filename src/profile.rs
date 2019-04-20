@@ -415,9 +415,9 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
         // We can have no devices if we don't understand how to match the unit name to perf names:
         if devices.len() == 0 {
             debug!(
-                "Event '{}' in unit {:?} not supported on this architecture, ignored.",
-                self.0.event_name,
-                self.unit()
+                "Unit {:?} is not available to measure '{}'.",
+                self.unit(),
+                self,
             );
         }
 
@@ -912,7 +912,7 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
 
             if devices.len() == 0 || configs.len() == 0 {
                 error!(
-                    "Event {} supported, but your Linux does not allow you to measure it (available PMU devices = {:?})",
+                    "Event {} supported by hardware, but your Linux does not allow you to measure it (available PMU devices = {:?})",
                     event, devices
                 );
 
