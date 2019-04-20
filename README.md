@@ -1,3 +1,8 @@
+[![Build Status](https://travis-ci.org/gz/autoperf.svg)](https://travis-ci.org/gz/autoperf)
+[![Crates.io](https://img.shields.io/crates/v/autoperf.svg)](https://crates.io/crates/autoperf) 
+[![docs.rs/autoperf](https://docs.rs/autoperf/badge.svg)](https://docs.rs/crate/autoperf/)
+
+
 # autoperf
 
 autoperf vastly simplifies the instrumentation of programs with performance
