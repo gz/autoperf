@@ -649,6 +649,12 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
     }
 }
 
+impl<'a, 'b> fmt::Display for PerfEvent<'a, 'b> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0.event_name)
+    }
+}
+
 /// Adding a new event to a group of existing events (that can be measured
 /// together) can fail for a variety of reasons which are encoded in this type.
 #[derive(Debug)]
@@ -906,7 +912,7 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
 
             if devices.len() == 0 || configs.len() == 0 {
                 error!(
-                    "Event {:?} supported, but your Linux does not allow you to measure it (available PMU devices are {:?}",
+                    "Event {} supported, but your Linux does not allow you to measure it (available PMU devices = {:?})",
                     event, devices
                 );
 

@@ -107,9 +107,9 @@ impl<'a> Deployment<'a> {
         for (i, core) in cores.into_iter().enumerate() {
             let cpus_on_core: Vec<&&CpuInfo> = cpus.iter().filter(|c| c.core == core).collect();
             if i % 2 == 0 {
-                upper_half.extend(cpus_on_core.into_iter());
-            } else {
                 lower_half.extend(cpus_on_core.into_iter());
+            } else {
+                upper_half.extend(cpus_on_core.into_iter());
             }
         }
 
