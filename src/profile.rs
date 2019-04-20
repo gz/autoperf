@@ -904,7 +904,16 @@ impl<'a, 'b> PerfEventGroup<'a, 'b> {
         for event in self.events.iter() {
             let (devices, mut configs) = event.perf_configs();
 
-            // TODO: handle fixed counters (see ocperf)
+            if devices.len() == 0 || configs.len() == 0 {
+                error!(
+                    "Event {:?} supported, but your Linux does not allow you to measure it (available PMU devices are {:?}",
+                    event, devices
+                );
+
+                continue;
+            }
+
+            // TODO: handle fixed counters
             // fixed_counters = {
             //    "inst_retired.any": (0xc0, 0, 0),
             //    "cpu_clk_unhalted.thread": (0x3c, 0, 0),
@@ -1105,7 +1114,7 @@ pub fn profile<'a, 'b>(
         if !ret {
             std::process::exit(3);
         }
-        
+
         let _ = save_numa_topology(&output_path).expect("Can't save NUMA topology");
         let _ = save_cpu_topology(&output_path).expect("Can't save CPU topology");
         let _ = save_lstopo(&output_path).expect("Can't save lstopo information");
@@ -1150,8 +1159,8 @@ pub fn profile<'a, 'b>(
 
         let mut record_path = PathBuf::new();
         let filename = match record {
-            false => format!("{}_stat.csv", idx+1),
-            true => format!("{}_perf.data", idx+1),
+            false => format!("{}_stat.csv", idx + 1),
+            true => format!("{}_perf.data", idx + 1),
         };
         record_path.push(output_path);
         record_path.push(&filename);
