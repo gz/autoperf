@@ -330,6 +330,7 @@ pub fn stats(output_path: &Path) {
     key_to_name.insert("GenuineIntel-6-4F", ("BroadwellX", "2016", "8"));
     key_to_name.insert("GenuineIntel-6-5C", ("Goldmont", "2016", "8"));
     key_to_name.insert("GenuineIntel-6-57", ("KnightsLanding", "2016", "4"));
+    key_to_name.insert("GenuineIntel-6-55", ("SkylakeX", "2017", "8"));
 
     let mut csv_result_file = output_path.to_path_buf();
     csv_result_file.push("events.csv");
