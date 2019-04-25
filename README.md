@@ -15,8 +15,28 @@ minimizes the total number of runs while avoiding multiplexing of events on
 counters.
 
 <p align="center">
-    <img src="https://gz.github.io/autoperf/doc/intro.svg">
+    <img src="https://gz.github.io/autoperf/doc/intro.svg" width="90%">
 </p>
+
+<br />
+<img align="right" src="https://gz.github.io/autoperf/doc/counters_vs_events.png" width="45%">
+
+## Background
+
+Performance monitoring units typically distinguish between performance events and counters. 
+Events refer to observations on the micro-architectural level 
+(e.g., a TLB miss, a page-walk etc.), whereas counters are hardware registers that 
+count the occurrence of events. The figure on the right shows the number of different 
+observable events for different Intel micro-architectures. Note that current systems 
+provide a very large choice of possible events to monitor. The number of measurable 
+counters per PMU is limited (typically from two to eight). For example, if the same 
+events are measured on all PMUs on a SkylakeX (Xeon Gold 5120) machine, we can only 
+observe a maximum of 48 different events. autoperf tries to simplify the process 
+of fully measuring and recording every performance event for a given program.
+In our screen session above, recorded on a SkylakeX machine with ~3500 distinct events, 
+we can see how autoperf automatically runs a program 1357 times while measuring and recording 
+a different set of events in every run.
+<br clear="right"/>
 
 # Installation
 
