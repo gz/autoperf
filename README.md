@@ -5,7 +5,7 @@
 
 # autoperf
 
-autoperf vastly simplifies the instrumentation of programs with performance
+autoperf simplifies the instrumentation of programs with performance
 counters on Intel machines. Rather than trying to learn how to measure every
 event and manually programming event values in counter registers or perf, you
 can use autoperf which will repeatedly run your program until it has measured
@@ -31,7 +31,7 @@ observable events for different Intel micro-architectures. Note that current sys
 provide a very large choice of possible events to monitor. The number of measurable 
 counters per PMU is limited (typically from two to eight). For example, if the same 
 events are measured on all PMUs on a SkylakeX (Xeon Gold 5120) machine, we can only 
-observe a maximum of 48 different events. autoperf tries to simplify the process 
+observe a maximum of 48 different events (without sampling). autoperf simplifies the process 
 of fully measuring and recording every performance event for a given program.
 In our screen session above, recorded on a SkylakeX machine with ~3500 distinct events, 
 we can see how autoperf automatically runs a program 1357 times while measuring and recording 
