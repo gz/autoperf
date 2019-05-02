@@ -1073,6 +1073,10 @@ pub fn get_perf_command(
         perf.arg("-a");
         perf.arg("--raw-samples");
     }
+
+    // Ensure we use dots as number separators in csv output (see issue #1):
+    perf.env("LC_NUMERIC", "C");
+
     // Add the environment variables:
     for &(ref key, ref value) in env.iter() {
         perf.env(key, value);
