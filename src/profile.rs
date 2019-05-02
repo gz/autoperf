@@ -624,12 +624,14 @@ impl<'a, 'b> PerfEvent<'a, 'b> {
     }
 
     pub fn perf_qualifiers(&self) -> String {
-        let mut qualifiers = String::from("S");
+        let qualifiers = String::from("S");
         if self.0.pebs == PebsType::PebsOrRegular {
-            qualifiers.push('p');
+            // Adding 'p' for PebsOrRegular event doesnt seem to work
+            // for many events in perf that Intel regards as PEBS capable events
+            // (see issue #2)
         } else if self.0.pebs == PebsType::PebsOnly {
-            // Adding a 'p' here is counterproducive (breaks perf), at least for Skylake
-            // So do nothing
+            // Adding a 'p' here seems counterproducive (perf won't measure the events then)
+            // so we do nothing
         }
         qualifiers
     }

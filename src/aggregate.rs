@@ -124,7 +124,7 @@ fn parse_perf_csv_file(
                 .expect("Invalid CPU number (check run.toml or lspcu.csv)");
 
             if value_string.trim() == "<not counted>" {
-                error!(
+                warn!(
                     "{:?}: Event '{}' was not counted. This is a bug, please report it!",
                     path.as_os_str(),
                     event_name
@@ -133,7 +133,7 @@ fn parse_perf_csv_file(
                 continue;
             }
             if value_string.trim() == "<not supported>" {
-                error!(
+                warn!(
                     "{:?}: Event '{}' was not measured correctly with perf. This is a bug, please report it!",
                     path.as_os_str(),
                     event_name
