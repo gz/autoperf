@@ -268,7 +268,7 @@ impl MachineTopology {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_cache_parameters().map(|mut cparams| {
             let cache = cparams
-                .find(|c| c.level() == 1 && c.cache_type() == cpuid::CacheType::DATA)
+                .find(|c| c.level() == 1 && c.cache_type() == cpuid::CacheType::Data)
                 .unwrap();
             (cache.associativity()
                 * cache.physical_line_partitions()
@@ -288,7 +288,7 @@ impl MachineTopology {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_cache_parameters().map(|mut cparams| {
             let cache = cparams
-                .find(|c| c.level() == 2 && c.cache_type() == cpuid::CacheType::UNIFIED)
+                .find(|c| c.level() == 2 && c.cache_type() == cpuid::CacheType::Unified)
                 .unwrap();
             (cache.associativity()
                 * cache.physical_line_partitions()
@@ -308,7 +308,7 @@ impl MachineTopology {
         let cpuid = cpuid::CpuId::new();
         cpuid.get_cache_parameters().map(|mut cparams| {
             let cache = cparams
-                .find(|c| c.level() == 3 && c.cache_type() == cpuid::CacheType::UNIFIED)
+                .find(|c| c.level() == 3 && c.cache_type() == cpuid::CacheType::Unified)
                 .unwrap();
             (cache.associativity()
                 * cache.physical_line_partitions()

@@ -1,7 +1,7 @@
 [package]
 name = "autoperf"
 description = "Automate the recording and instrumentation of programs with performance counters."
-version = "0.9.4"
+version = "0.9.5"
 authors = [
     "Denny Lin <dennylin93@connect.hku.hk>",
     "Besmira Nushi <besmira.nushi@microsoft.com>",
@@ -18,12 +18,12 @@ log = "0.4"
 env_logger = "0.6"
 csv = "0.*"
 lazy_static = "0.1.*"
-perfcnt = "0.4.3"
+perfcnt = "0.6"
 toml = "0.2"
 nom = "^1.2.3"
 libc = "0.2.16"
 clap = { version = "2", features = ["yaml"] }
-x86 = { version = "0.16.2", features = ["performance-counter"] }
+x86 = { version = "0.34", features = ["performance-counter"] }
 phf = "0.7.*"
 itertools = "0.5"
 rustc-serialize = "0.3"
