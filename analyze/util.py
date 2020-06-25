@@ -163,7 +163,7 @@ def minimum_nan_index(df):
       2 |      0      NaN     100          12
       3 |      0      NaN       1          99
     """
-    nans = pd.isnull(df).any(1).nonzero()[0]
+    nans = pd.isnull(df).any(1).to_numpy().nonzero()[0]
     if len(nans) == 0:
         return df.shape[0]
     else:

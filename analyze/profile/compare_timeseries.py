@@ -19,12 +19,13 @@ import matplotlib
 
 
 def timeseries_file(data_directory):
-    timeseries_file = os.path.join(data_directory, 'timeseries_max_nonzero.csv')
+    timeseries_file = os.path.join(data_directory, 'timeseries_avg_nonzero.csv')
     if os.path.exists(timeseries_file):
         return pd.read_csv(timeseries_file, index_col=0, skipinitialspace=True)
     else:
-        print("Generating timeseries_max_nonzero.csv")
-        timeseries = util.load_as_X(os.path.join(data_directory, 'results.csv'), aggregate_samples=['max'], cut_off_nan=True, remove_zero=True)
+        print("Generating timeseries_avg_nonzero.csv")
+        timeseries = util.load_as_X(os.path.join(data_directory, 'results.csv'),
+                aggregate_samples=['mean'], cut_off_nan=True, remove_zero=True)
         timeseries.to_csv(timeseries_file)
         return timeseries
 
@@ -40,10 +41,10 @@ if __name__ == '__main__':
         usage(sys.argv[0])
 
     dfA = timeseries_file(sys.argv[1])
-    dfA = dfA[-15:25].sum() # TODO range is hard-coded, adjust
+    dfA = dfA[-15:].sum() # TODO range is hard-coded, adjust
     
     dfB = timeseries_file(sys.argv[2])
-    dfB = dfB[-15:25].sum() # TODO range is hard-coded, adjust
+    dfB = dfB[-15:].sum() # TODO range is hard-coded, adjust
 
     max_among_both = pd.concat([dfA, dfB]).max(level=0)
 
