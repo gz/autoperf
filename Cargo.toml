@@ -18,13 +18,13 @@ log = "0.4"
 env_logger = "0.6"
 csv = "0.*"
 lazy_static = "0.1.*"
-perfcnt = "0.6"
+perfcnt = "0.7"
 toml = "0.2"
 nom = "^1.2.3"
 libc = "0.2.16"
 clap = { version = "2", features = ["yaml"] }
-x86 = { version = "0.34", features = ["performance-counter"] }
-phf = "0.7.*"
+x86 = { version = "0.45", features = ["performance-counter"] }
+phf = "0.9.*"
 itertools = "0.5"
 rustc-serialize = "0.3"
 wait-timeout = "0.1"
