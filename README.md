@@ -81,7 +81,7 @@ counter hardware. perf recommends that the following settings are disabled.
 Therefore, autoperf will check the values of those configurations and refuse to
 start if they are not set like below:
 ```
-sudo sh -c 'echo 0 >> /proc/sys/kernel/kptr_restrict'
+sudo sh -c 'echo 0 > /proc/sys/kernel/kptr_restrict'
 sudo sh -c 'echo 0 > /proc/sys/kernel/nmi_watchdog'
 sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'
 ```
