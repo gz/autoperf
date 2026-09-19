@@ -45,3 +45,9 @@ family = 6
 models = [85]
 fixed_counters = { CPU = 3, UBO = 1, IMC = 1 }
 programmable_counters = { CPU = 4, UPI = 4, CHA = 4, IIO = 4, IMC = 4, IRP = 4, M2M = 4, M3UPI = 4, PCU = 4, UBO = 2, CBO = 4 }
+
+[cascadelake]
+family = 6
+models = [106]
+fixed_counters = { CPU = 3, UBO = 1, IMC = 1 }
+programmable_counters = { CPU = 4, UPI = 4, CHA = 4, IIO = 4, IMC = 4, IRP = 4, M2M = 4, M3UPI = 4, PCU = 4, UBO = 2, CBO = 4 }
